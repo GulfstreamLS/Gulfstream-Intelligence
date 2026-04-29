@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { chatApi } from "@/lib/api";
 import { useChatStore } from "@/store/chatStore";
 import type { Message } from "@/types";
 
 export function useChat() {
   const store = useChatStore();
-  const abortRef = useRef<AbortController | null>(null);
 
   const loadConversations = useCallback(async () => {
     const convos = await chatApi.listConversations();

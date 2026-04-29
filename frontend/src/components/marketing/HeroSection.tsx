@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Globe, BarChart3, ShieldCheck, Shield, ChartNoAxesCombined } from "lucide-react";
+import { ArrowRight, Globe, ShieldCheck, Shield, ChartNoAxesCombined } from "lucide-react";
 import { DashboardPreview } from "./DashboardPreview";
 
 const HERO = {

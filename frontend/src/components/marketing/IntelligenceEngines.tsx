@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, MessageSquare, ClipboardCheck, Users, FileSearch, CheckCircle2, MessageSquareMore, FileText } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Users, CheckCircle2, MessageSquareMore, FileText } from "lucide-react";
 import { type LucideIcon } from "lucide-react";
 
 interface Engine {

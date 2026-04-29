@@ -1,4 +1,4 @@
-name: Deploy to GCP
+name: Deploy Backend to GCP
 
 on:
   workflow_run:
@@ -7,8 +7,8 @@ on:
     types: [completed]
 
 jobs:
-  deploy:
-    name: Deploy
+  deploy-backend:
+    name: Deploy Backend
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     environment: production
@@ -34,14 +34,7 @@ jobs:
       - name: Deploy backend
         run: |
           gcloud run services update gulfstream-backend \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/backend:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --project ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Deploy frontend
-        run: |
-          gcloud run services update gulfstream-frontend \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/frontend:${{ github.sha }} \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/backend:${{ github.event.workflow_run.head_sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --project ${{ secrets.GCP_PROJECT_ID }}
 

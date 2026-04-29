@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Database, Network, Brain, History, BarChart2, ChartNoAxesColumnIncreasing } from "lucide-react";
+import { ArrowRight, Database, Network, Brain, History, ChartNoAxesColumnIncreasing } from "lucide-react";
 import { type LucideIcon } from "lucide-react";
 
 interface CoreFeature {

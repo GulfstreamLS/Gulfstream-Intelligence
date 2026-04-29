@@ -1,4 +1,4 @@
-import type { Conversation, Message, StreamChunk, TokenResponse, User } from "@/types";
+import type { Conversation, StreamChunk, TokenResponse, User } from "@/types";
 import Cookies from "js-cookie";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";

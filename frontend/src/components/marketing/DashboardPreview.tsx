@@ -173,7 +173,7 @@ function ReadinessDonut({ score }: { score: number }) {
 
   // total arc (in degrees) — tweak to match design (240–270)
   const arcAngle = 260;
-  const progress = 72;
+  const progress = score;
 
   // convert to stroke math
   const circ = 2 * Math.PI * r;
