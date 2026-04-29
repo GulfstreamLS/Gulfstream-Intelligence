@@ -72,6 +72,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      GCP_PROJECT_ID_SECRET: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION_SECRET: ${{ secrets.GCP_REGION }}
     steps:
       - uses: actions/checkout@v4
       - id: auth
@@ -80,8 +83,22 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
       - uses: google-github-actions/setup-gcloud@v2
-      - run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
+      - name: Prepare GCP values
+        run: |
+          PROJECT_ID="$(printf '%s' "$GCP_PROJECT_ID_SECRET" | tr -d '[:space:]')"
+          REGION="$(printf '%s' "$GCP_REGION_SECRET" | tr -d '[:space:]')"
+
+          if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+            echo "GCP_PROJECT_ID and GCP_REGION secrets must both be set."
+            exit 1
+          fi
+
+          echo "GCP_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "GCP_REGION=$REGION" >> "$GITHUB_ENV"
+          echo "GAR_REGISTRY=$REGION-docker.pkg.dev" >> "$GITHUB_ENV"
+          echo "BACKEND_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/apps/backend:$GITHUB_SHA" >> "$GITHUB_ENV"
+      - run: gcloud auth configure-docker "$GAR_REGISTRY" --quiet
       - name: Build & push backend
         run: |
-          docker build -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/backend:${{ github.sha }} ./backend
-          docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/backend:${{ github.sha }}
+          docker build -t "$BACKEND_IMAGE" ./backend
+          docker push "$BACKEND_IMAGE"

@@ -20,6 +20,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      GCP_PROJECT_ID_SECRET: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION_SECRET: ${{ secrets.GCP_REGION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,22 +56,35 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Prepare GCP values
+        run: |
+          PROJECT_ID="$(printf '%s' "$GCP_PROJECT_ID_SECRET" | tr -d '[:space:]')"
+          REGION="$(printf '%s' "$GCP_REGION_SECRET" | tr -d '[:space:]')"
+
+          if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+            echo "GCP_PROJECT_ID and GCP_REGION secrets must both be set."
+            exit 1
+          fi
+
+          echo "GCP_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "GCP_REGION=$REGION" >> "$GITHUB_ENV"
+          echo "GAR_REGISTRY=$REGION-docker.pkg.dev" >> "$GITHUB_ENV"
+          echo "FRONTEND_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/apps/frontend:$GITHUB_SHA" >> "$GITHUB_ENV"
+
       - name: Configure Docker
-        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker "$GAR_REGISTRY" --quiet
 
       - name: Build and push frontend image
         run: |
-          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/frontend:${{ github.sha }}"
-          docker build --platform linux/amd64 -t "$IMAGE" ./frontend
-          docker push "$IMAGE"
+          docker build --platform linux/amd64 -t "$FRONTEND_IMAGE" ./frontend
+          docker push "$FRONTEND_IMAGE"
 
       - name: Deploy frontend
         run: |
-          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/frontend:${{ github.sha }}"
           gcloud run deploy gulfstream-frontend \
-            --image "$IMAGE" \
-            --region "${{ secrets.GCP_REGION }}" \
-            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --image "$FRONTEND_IMAGE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
             --platform managed \
             --allow-unauthenticated \
             --port 8080
@@ -76,7 +92,7 @@ jobs:
       - name: Verify frontend
         run: |
           FRONTEND_URL=$(gcloud run services describe gulfstream-frontend \
-            --region "${{ secrets.GCP_REGION }}" \
-            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
             --format 'value(status.url)')
           curl -fsI "$FRONTEND_URL"
