@@ -67,7 +67,7 @@ export function TeamView() {
       <div className="p-8 border-b border-gs-border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h3 className="text-[18px] font-bold text-gs-text mb-1">Team Members</h3>
-          <p className="text-[13px] text-gs-muted">Manage your team's access and roles within the platform.</p>
+          <p className="text-[13px] text-gs-muted">Manage your team&apos;s access and roles within the platform.</p>
         </div>
         <button className="btn-primary px-5 py-2.5 flex items-center gap-2 shrink-0">
           <UserPlus className="w-[18px] h-[18px]" /> Invite Member

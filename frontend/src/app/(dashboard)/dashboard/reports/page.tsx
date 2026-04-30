@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   ShieldCheck,
   Zap,
-  BarChart3
 } from 'lucide-react';
 
 // --- Types ---
@@ -230,7 +229,8 @@ const ReportsPage: React.FC = () => {
 
 // --- Sub-Components ---
 
-const StatCard = ({ title, value, sub, color, icon, iconBg }: any) => (
+interface StatCardProps { title: string; value: string; sub: string; color: string; icon: React.ReactNode; iconBg: string; }
+const StatCard = ({ title, value, sub, color, icon, iconBg }: StatCardProps) => (
   <div className="bg-white p-7 rounded-xl border border-[#E2E8F0] shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
     <div className="flex justify-between items-start mb-4">
       <span className="text-[11px] font-bold text-[#94A3B8] uppercase tracking-[0.15em]">{title}</span>
@@ -243,7 +243,8 @@ const StatCard = ({ title, value, sub, color, icon, iconBg }: any) => (
   </div>
 );
 
-const LegendItem = ({ color, label, val }: any) => (
+interface LegendItemProps { color: string; label: string; val: string | number; }
+const LegendItem = ({ color, label, val }: LegendItemProps) => (
   <div className="flex items-center justify-between">
     <div className="flex items-center gap-2.5">
       <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
@@ -253,7 +254,8 @@ const LegendItem = ({ color, label, val }: any) => (
   </div>
 );
 
-const TemplateCard = ({ title, desc }: any) => (
+interface TemplateCardProps { title: string; desc: string; }
+const TemplateCard = ({ title, desc }: TemplateCardProps) => (
     <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-sm hover:border-blue-400 group cursor-pointer transition-all">
         <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
             <Zap size={20} />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface GsLogoProps {
@@ -34,6 +35,6 @@ export function WaveIcon({ size }: { size?: number }) {
   const height = size&&Math.round(size * 0.72);
 
   return (
-   <img src={"/images/FullLogo_NoBuffer.png"} alt="GulfStream Logo" width={width} height={height} />
+   <Image src={"/images/FullLogo_NoBuffer.png"} alt="GulfStream Logo" width={width ?? 48} height={height ?? 32} />
   );
 }
