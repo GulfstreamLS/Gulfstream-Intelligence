@@ -1,63 +1,44 @@
-import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
-import { GsLogo } from "@/components/ui/GsLogo";
+import React from 'react';
+import { MessageCircle, Shield } from 'lucide-react';
+import { WaveIcon } from '../ui/GsLogo';
 
-const BANNER = {
-  heading: "Know what regulators will say before they say it.",
-  description:
-    "Join life sciences leaders using Gulfstream Intelligence to make smarter regulatory decisions—faster.",
-  ctas: [
-    { label: "Talk to an Expert", href: "#contact", icon: MessageCircle, variant: "outline" as const },
-    { label: "Start Using Gulfstream", href: "/register", variant: "primary" as const },
-  ],
-};
-
-export function CtaBanner() {
+export const CTABanner: React.FC = () => {
   return (
-    <section
-      className="relative py-16 lg:py-20 overflow-hidden"
-      style={{
-        backgroundImage: "url('/images/gs-banner.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      {/* Dark overlay so text stays readable over banner image */}
-      <div className="absolute inset-0 bg-gs-navy/85" />
+    <div className="gs-container">
+      <div className="mx-auto bg-[#001440] rounded-[14px] p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 text-center md:text-left">
+        {/* Left Section: Icon & Text */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
+          <div className="shrink-0">
+            <div className="relative w-16 h-16 sm:w-[96px] sm:h-[96px]">
+              <Shield size={64} strokeWidth={0.8} className="text-white w-full h-full" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <WaveIcon size={22} />
+              </div>
+            </div>
+          </div>
 
-      <div className="relative gs-container">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-
-          {/* Left */}
-          <div className="text-center lg:text-left space-y-4 max-w-xl">
-            <GsLogo variant="light" />
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
-              {BANNER.heading}
+          <div className="flex flex-col gap-2">
+            <h2 className="text-white text-[22px] sm:text-[24px] md:text-[28px] font-bold tracking-tight">
+              Know what regulators will say before they say it.
             </h2>
-            <p className="text-[15px] text-white/60 leading-relaxed">
-              {BANNER.description}
+            <p className="text-white/80 text-[15px] md:text-[18px] leading-relaxed max-w-2xl">
+              Join life sciences leaders using Gulfstream Intelligence
+              to make smarter regulatory decisions—faster.
             </p>
           </div>
+        </div>
 
-          {/* Right — CTAs */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-            <Link
-              href={BANNER.ctas[0].href}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-[10px] border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition-colors min-h-[48px]"
-            >
-              <MessageCircle className="w-4 h-4" />
-              {BANNER.ctas[0].label}
-            </Link>
-            <Link
-              href={BANNER.ctas[1].href}
-              className="btn-primary px-6 py-3.5 min-h-[48px] shadow-blue-glow"
-            >
-              {BANNER.ctas[1].label}
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+        {/* Right Section: Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center w-full md:w-auto shrink-0">
+          <button className="flex items-center justify-center gap-2 bg-white text-[#001440] px-6 sm:px-8 py-3.5 rounded-lg font-bold text-[15px] hover:bg-slate-100 transition-colors shadow-sm whitespace-nowrap">
+            <MessageCircle size={18} strokeWidth={2.5} />
+            Talk to an Expert
+          </button>
+          <button className="bg-[#0052FF] text-white px-6 sm:px-8 py-3.5 rounded-lg font-bold text-[15px] hover:bg-[#0041CC] transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap">
+            Start Using Gulfstream
+          </button>
         </div>
       </div>
-    </section>
+    </div>
   );
-}
+};

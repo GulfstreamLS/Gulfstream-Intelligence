@@ -5,7 +5,7 @@ import { RegulatoryCore } from "@/components/marketing/RegulatoryCore";
 import { TrustBar } from "@/components/marketing/TrustBar";
 import { PricingSection } from "@/components/marketing/PricingSection";
 import { CredentialsSection } from "@/components/marketing/CredentialsSection";
-import { CtaBanner } from "@/components/marketing/CtaBanner";
+import { CTABanner } from "@/components/marketing/CtaBanner";
 import { Footer } from "@/components/marketing/Footer";
 
 export default function LandingPage() {
@@ -19,7 +19,7 @@ export default function LandingPage() {
         <TrustBar />
         <PricingSection />
         <CredentialsSection />
-        <CtaBanner />
+        <CTABanner />
       </main>
       <Footer />
     </>

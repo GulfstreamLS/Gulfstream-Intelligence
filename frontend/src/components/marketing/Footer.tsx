@@ -1,69 +1,60 @@
-import Link from "next/link";
-import { Linkedin, Mail } from "lucide-react";
-import { GsLogo } from "@/components/ui/GsLogo";
+import React from 'react';
+import { Linkedin, Mail } from 'lucide-react';
+import { GsLogo } from '../ui/GsLogo';
 
-const FOOTER = {
-  tagline: "The operating system for global regulatory strategy.",
-  contact: {
-    heading: "Contact Us",
-    sub: "We'd love to hear from you.",
-    email: "contact@gulfstreamintelligence.com",
-  },
-  socials: [
-    { icon: Linkedin, label: "LinkedIn", href: "#" },
-    { icon: Mail,     label: "Email",    href: "mailto:contact@gulfstreamintelligence.com" },
-  ],
-  copyright: "© 2025 Gulfstream Intelligence. All rights reserved.",
-};
-
-export function Footer() {
+export const Footer: React.FC = () => {
   return (
-    <footer className="bg-white dark:bg-[#040E26] border-t border-gs-border dark:border-white/10">
-      <div className="gs-container py-10">
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-8">
+    <footer className="w-full bg-gs-card py-8 md:py-10 px-4 border-t border-gs-border">
+      <div className="gs-container mx-auto flex flex-col md:flex-row items-start justify-between gap-8 md:gap-12">
 
-          {/* Brand */}
-          <div className="space-y-3">
-            <GsLogo iconSize={36} />
-            <p className="text-[13px] text-gs-muted max-w-[220px] leading-relaxed">
-              {FOOTER.tagline}
-            </p>
-          </div>
+        {/* Branding Column */}
+        <GsLogo />
 
-          {/* Contact + socials */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
-            <div className="space-y-1">
-              <p className="text-[13px] font-semibold text-gs-text dark:text-white">
-                {FOOTER.contact.heading}
-              </p>
-              <p className="text-[12px] text-gs-muted">{FOOTER.contact.sub}</p>
-              <Link
-                href={`mailto:${FOOTER.contact.email}`}
-                className="text-[12px] text-gs-blue hover:underline block"
-              >
-                {FOOTER.contact.email}
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {FOOTER.socials.map(({ icon: Icon, label, href }) => (
-                <Link
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className="w-9 h-9 rounded-lg bg-gs-bg dark:bg-white/10 flex items-center justify-center text-gs-muted hover:text-gs-blue dark:hover:text-gs-sky hover:bg-gs-border dark:hover:bg-white/20 transition-colors"
-                >
-                  <Icon className="w-4 h-4" />
-                </Link>
-              ))}
-            </div>
-          </div>
+        {/* Tagline Column */}
+        <div className="max-w-full md:max-w-[200px]">
+          <p className="text-gs-muted text-[14px] leading-relaxed font-medium">
+            The operating system for global regulatory strategy.
+          </p>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gs-border dark:border-white/10">
-          <p className="text-[12px] text-gs-muted text-center">{FOOTER.copyright}</p>
+        {/* Contact Column */}
+        <div className="flex-1">
+          <h4 className="text-gs-text text-[14px] font-bold mb-1">Contact Us</h4>
+          <p className="text-gs-muted text-[14px] font-medium mb-1">We&apos;d love to hear from you.</p>
+          <a
+            href="mailto:contact@gulfstreamintelligence.com"
+            className="text-gs-muted text-[14px] font-medium hover:underline break-all"
+          >
+            contact@gulfstreamintelligence.com
+          </a>
         </div>
+
+        {/* Social Icons Column */}
+        <div className="flex gap-3">
+          <a
+            href="#"
+            className="w-10 h-10 bg-gs-blue text-white rounded-[6px] flex items-center justify-center hover:bg-gs-deep-blue transition-colors"
+            aria-label="LinkedIn"
+          >
+            <Linkedin size={20} fill="currentColor" />
+          </a>
+          <a
+            href="#"
+            className="w-10 h-10 bg-gs-blue text-white rounded-[6px] flex items-center justify-center hover:bg-gs-deep-blue transition-colors"
+            aria-label="Email"
+          >
+            <Mail size={20} />
+          </a>
+        </div>
+
+      </div>
+
+      {/* Bottom copyright */}
+      <div className="gs-container mx-auto mt-8 pt-6 border-t border-gs-border">
+        <p className="text-gs-muted text-[12px] font-medium text-center md:text-left">
+          © {new Date().getFullYear()} Gulfstream Intelligence. All rights reserved.
+        </p>
       </div>
     </footer>
   );
-}
+};

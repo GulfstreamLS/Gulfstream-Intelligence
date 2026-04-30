@@ -93,7 +93,7 @@ export function PricingSection() {
       <div className="gs-container">
 
         {/* Header */}
-        <div className="text-center mb-8 space-y-4">
+        <div className="text-center mb-4 space-y-4">
           <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-gs-blue">
             {SECTION_LABEL}
           </p>
@@ -121,7 +121,7 @@ export function PricingSection() {
             <span className={cn("text-sm font-medium", annual ? "text-gs-text dark:text-white" : "text-gs-muted")}>
               Annual
             </span>
-            <span className="text-[11px] font-bold bg-[#F1F5F9] text-[#64748B] px-2.5 py-1 rounded-full">
+            <span className="text-[11px] font-bold bg-[#F1F5F9] text-[#1D4ED8] px-2.5 py-1 rounded-full">
               Save 20%
             </span>
           </div>
@@ -134,7 +134,7 @@ export function PricingSection() {
           ))}
         </div>
 
-        <p className="text-center text-[13px] text-gs-blue mt-6">
+        <p className="text-center text-[13px] text-[#300370] dark:text-white mt-4">
           All plans include secure data handling and global regulatory coverage.
         </p>
       </div>
@@ -151,7 +151,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
   return (
     <div
       className={cn(
-        "rounded-2xl p-6 flex flex-col gap-4 border relative bg-white dark:bg-[#0F2241]",
+        "rounded-2xl p-6 h-[420px] flex flex-col gap-4 border relative bg-white dark:bg-[#0F2241]",
         isPopular
           ? "border-gs-blue shadow-blue-glow"
           : "border-gs-border dark:border-white/10 shadow-card",
@@ -164,7 +164,9 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
             {name}
           </h3>
           {badge && (
-            <span className="text-[11px] font-bold bg-gs-green text-white px-3 py-1 rounded-full whitespace-nowrap shrink-0">
+            <span className="text-[11px] font-bold text-white px-3 py-1 rounded-full whitespace-nowrap shrink-0"
+            style={{ background: `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0) 45%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 45%),#15803D ` }}
+            >
               {badge}
             </span>
           )}
@@ -179,7 +181,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         {price !== null ? (
           <>
             <div className="flex items-end gap-1.5 leading-none">
-              <span className="text-[34px] font-extrabold text-[#300370] dark:text-white">
+              <span className="text-[34px] font-medium text-[#300370] dark:text-white">
                 ${price}
               </span>
               <span className="text-sm mb-1.5 text-[#300370] dark:text-white/60">
@@ -192,7 +194,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
           </>
         ) : (
           <>
-            <p className="text-[34px] font-extrabold text-[#300370] dark:text-white leading-none">
+            <p className="text-[34px] font-medium text-[#300370] dark:text-white leading-none">
               Custom
             </p>
             <p className="text-[12px] text-[#300370]/60 dark:text-white/50 mt-1">
