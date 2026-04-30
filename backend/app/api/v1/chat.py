@@ -2,8 +2,9 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -98,16 +99,20 @@ async def send_message(
     model = data.model or convo.model or settings.DEFAULT_MODEL
     history = await chat_service.get_messages_as_dicts(db, conversation_id)
 
+    from app.agents.prompts import get_persona
+    system_prompt = get_persona(convo.authority) or convo.system_prompt
+
     if data.stream:
         return StreamingResponse(
-            _stream_response(db, convo.id, history, model, convo.system_prompt),
+            _stream_response(db, convo.id, history, model, system_prompt),
             media_type="text/event-stream",
             headers={"X-Conversation-Id": str(conversation_id)},
         )
 
     full_response = ""
-    async for chunk in ai_service.stream_chat(history, model, convo.system_prompt):
+    async for chunk in ai_service.stream_chat(history, model, system_prompt):
         full_response += chunk
+
 
     msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
     return MessageResponse.model_validate(msg)
@@ -131,3 +136,64 @@ async def _stream_response(
         yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+
+@router.websocket("/ws/{conversation_id}")
+async def websocket_chat(
+    websocket: WebSocket,
+    conversation_id: uuid.UUID,
+    token: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+        
+    try:
+        from app.services.auth_service import auth_service
+        current_user = await auth_service.get_current_user(db, token)
+    except Exception:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    convo = await chat_service.get_conversation(db, conversation_id, current_user.id)
+    if not convo:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await websocket.accept()
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                payload = json.loads(data)
+                user_message = payload.get("message")
+                model = payload.get("model") or convo.model or settings.DEFAULT_MODEL
+            except json.JSONDecodeError:
+                user_message = data
+                model = convo.model or settings.DEFAULT_MODEL
+
+            if not user_message:
+                continue
+
+            await chat_service.add_message(db, conversation_id, MessageRole.USER, user_message)
+            
+            from app.agents.prompts import get_persona
+            system_prompt = get_persona(convo.authority) or convo.system_prompt
+            
+            history = await chat_service.get_messages_as_dicts(db, conversation_id)
+            
+            full_response = ""
+            async for chunk in ai_service.stream_chat(history, model, system_prompt):
+                full_response += chunk
+                await websocket.send_text(json.dumps({"type": "delta", "content": chunk}))
+                
+            if full_response:
+                msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+                await db.commit()
+                await websocket.send_text(json.dumps({"type": "done", "message_id": str(msg.id)}))
+
+    except WebSocketDisconnect:
+        pass
+

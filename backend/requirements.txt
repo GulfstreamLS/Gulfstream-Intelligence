@@ -30,8 +30,27 @@ structlog==24.4.0
 # HTTP client
 httpx==0.28.0
 
+# AI / RAG
+langchain
+langchain-openai
+langchain-community
+pgvector
+tiktoken
+
+# Document processing
+pypdf
+python-docx
+python-multipart # For file uploads
+pandas
+openpyxl
+beautifulsoup4
+
+
+
+
 # Testing
 pytest==8.3.4
 pytest-asyncio==0.24.0
 pytest-cov==6.0.0
 httpx==0.28.0
+

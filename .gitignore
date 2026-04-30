@@ -40,3 +40,12 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Documentation
+docs/1- Gulfstream Developer Starting Instruction.docx
+docs/2- Gulfstream Intelligence Full Platform Spec.docx
+docs/3- Gulfstream Intelligence Elite Output Design + Scoring + Source-Grounded Dataset Addendum.docx
+docs/4- Regulatory Core Knowledge Architecture.docx
+docs/BACKEND_EXECUTION_PLAN.md
+docs/PROJECT_CONCEPT.md
+
