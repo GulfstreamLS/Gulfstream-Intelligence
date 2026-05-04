@@ -24,7 +24,8 @@ export function useAuth() {
       })
       .catch(() => {
         setLoading(false);
-        router.replace("/login");
+        // TODO: Re-enable once backend is deployed
+        // router.replace("/login");
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

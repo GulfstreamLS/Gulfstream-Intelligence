@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   },
   description:
     "The AI platform that helps life sciences teams anticipate regulatory expectations, close gaps, and accelerate global approvals with confidence.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

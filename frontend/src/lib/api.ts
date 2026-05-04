@@ -45,7 +45,8 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     }
     isRefreshing = false;
     clearTokenCookies();
-    if (typeof window !== "undefined") window.location.href = "/login";
+    // TODO: Re-enable once backend is deployed
+    // if (typeof window !== "undefined") window.location.href = "/login";
     throw new Error("Session expired. Please log in again.");
   }
 
