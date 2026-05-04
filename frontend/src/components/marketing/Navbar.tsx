@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, X } from "lucide-react";
-import { GsLogo } from "@/components/ui/GsLogo";
+import { GsLogo } from "../ui/GsLogo";
 
 const NAV_LINKS = [
   { label: "Platform", href: "#platform", hasDropdown: true },

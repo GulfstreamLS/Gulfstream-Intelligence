@@ -1,8 +1,8 @@
 import {
   Download, Search, Calendar, ChevronDown, Filter, ShieldCheck
 } from "lucide-react";
-import { HistoryStatCards } from "@/components/history/HistoryStatCards";
-import { ActivityTable }    from "@/components/history/ActivityTable";
+import { HistoryStatCards } from "../../../../components/history/HistoryStatCards";
+import { ActivityTable }    from "../../../../components/history/ActivityTable";
 
 export default function HistoryPage() {
   return (

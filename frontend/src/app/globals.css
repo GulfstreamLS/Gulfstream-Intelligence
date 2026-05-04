@@ -111,6 +111,92 @@
 @layer utilities {
   .chat-scroll { scroll-behavior: smooth; }
   pre { @apply rounded-xl overflow-x-auto text-sm; }
+
+  /* Hide scrollbar while preserving scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── AI message markdown styles ──────────────────────────────── */
+.prose-gs p          { margin-bottom: 0.75rem; }
+.prose-gs p:last-child { margin-bottom: 0; }
+.prose-gs strong     { font-weight: 700; color: var(--gs-text); }
+.prose-gs em         { font-style: italic; }
+.prose-gs h1, .prose-gs h2, .prose-gs h3 {
+  font-weight: 700;
+  color: var(--gs-text);
+  margin: 1rem 0 0.5rem;
+}
+.prose-gs h1 { font-size: 1.1rem; }
+.prose-gs h2 { font-size: 1rem; }
+.prose-gs h3 { font-size: 0.9rem; }
+.prose-gs ul, .prose-gs ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.prose-gs ul { list-style-type: disc; }
+.prose-gs ol { list-style-type: decimal; }
+.prose-gs li { line-height: 1.6; }
+.prose-gs code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8em;
+  background: var(--gs-bg);
+  border: 1px solid var(--gs-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  color: var(--gs-blue);
+}
+.prose-gs pre {
+  background: var(--gs-bg);
+  border: 1px solid var(--gs-border);
+  border-radius: 10px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.prose-gs pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--gs-text);
+  font-size: 0.85em;
+}
+.prose-gs blockquote {
+  border-left: 3px solid var(--gs-border);
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: var(--gs-muted);
+}
+.prose-gs a {
+  color: var(--gs-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-gs hr {
+  border: none;
+  border-top: 1px solid var(--gs-border);
+  margin: 1rem 0;
+}
+
+/* ── Typing cursor animation ──────────────────────────────────── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.typing-cursor::after {
+  content: '▋';
+  margin-left: 2px;
+  font-size: 0.85em;
+  color: var(--gs-blue);
+  animation: blink-cursor 0.75s step-end infinite;
 }
 
 /* ── 90% container used across all marketing sections ─────────── */

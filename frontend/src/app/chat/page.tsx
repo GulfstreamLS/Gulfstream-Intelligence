@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { useChat } from "@/hooks/useChat";
+import { useChat } from "../../hooks/useChat";
 
 const SUGGESTIONS = [
   "Explain quantum computing in simple terms",

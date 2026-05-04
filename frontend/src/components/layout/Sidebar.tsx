@@ -4,15 +4,16 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MessageSquare, Plus, Trash2, LogOut } from "lucide-react";
-import Cookies from "js-cookie";
-import { cn, truncate } from "@/lib/utils";
-import { useChatStore } from "@/store/chatStore";
-import { useChat } from "@/hooks/useChat";
+import { cn, truncate } from "../../lib/utils";
+import { useChatStore } from "../../store/chatStore";
+import { useChat } from "../../hooks/useChat";
+import { useAuth } from "../../hooks/useAuth";
 
 export function Sidebar() {
   const router = useRouter();
   const { conversations, activeConversationId } = useChatStore();
   const { loadConversations, startNewConversation, deleteConversation } = useChat();
+  const { logout } = useAuth();
 
   useEffect(() => {
     loadConversations().catch(console.error);
@@ -28,12 +29,6 @@ export function Sidebar() {
     e.stopPropagation();
     await deleteConversation(id);
     if (activeConversationId === id) router.push("/chat");
-  }
-
-  function handleLogout() {
-    Cookies.remove("access_token");
-    Cookies.remove("refresh_token");
-    router.push("/login");
   }
 
   return (
@@ -79,7 +74,7 @@ export function Sidebar() {
 
       <div className="p-3 border-t">
         <button
-          onClick={handleLogout}
+          onClick={logout}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <LogOut className="w-4 h-4" />

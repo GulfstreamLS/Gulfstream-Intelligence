@@ -1,9 +1,9 @@
 import {
   Download, Plus, Search, ChevronDown, Filter, ShieldCheck
 } from "lucide-react";
-import { ProjectStatCards }      from "@/components/projects/ProjectStatCards";
-import { ProjectsTable }         from "@/components/projects/ProjectsTable";
-import { GlobalVisibilityBanner } from "@/components/projects/GlobalVisibilityBanner";
+import { ProjectStatCards }      from "../../../../components/projects/ProjectStatCards";
+import { ProjectsTable }         from "../../../../components/projects/ProjectsTable";
+import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVisibilityBanner";
 
 export default function ProjectsPage() {
   return (

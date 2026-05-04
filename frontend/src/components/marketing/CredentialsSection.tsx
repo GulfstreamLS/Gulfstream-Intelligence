@@ -15,7 +15,7 @@ const PINS = AUTHORITIES.map((a) => ({ key: a.code, coords: a.coords }));
 
 
 /* ── lazy-load the map so it never runs on the server ───────── */
-const WorldDotMap = dynamic(() => import("../../components/dashboard/WorldDotMap"), {
+const WorldDotMap = dynamic(() => import("../dashboard/WorldDotMap"), {
   ssr: false,
   loading: () => (
     <div className="w-full aspect-[2/1] rounded-xl border border-gs-border bg-gs-bg animate-pulse" />

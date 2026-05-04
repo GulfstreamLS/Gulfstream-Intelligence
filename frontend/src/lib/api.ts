@@ -1,9 +1,21 @@
-import type { Conversation, StreamChunk, TokenResponse, User } from "@/types";
+import type { Conversation, StreamChunk, TokenResponse, User } from "../types";
 import Cookies from "js-cookie";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export function setTokenCookies(tokens: TokenResponse) {
+  Cookies.set("access_token", tokens.access_token, { expires: 1 });
+  Cookies.set("refresh_token", tokens.refresh_token, { expires: 30 });
+}
+
+export function clearTokenCookies() {
+  Cookies.remove("access_token");
+  Cookies.remove("refresh_token");
+}
+
+let isRefreshing = false;
+
+async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const token = Cookies.get("access_token");
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -13,6 +25,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
+
+  if (res.status === 401 && retry && !isRefreshing && path !== "/auth/refresh") {
+    isRefreshing = true;
+    try {
+      const refreshToken = Cookies.get("refresh_token");
+      if (refreshToken) {
+        const tokens = await request<TokenResponse>(
+          "/auth/refresh",
+          { method: "POST", body: JSON.stringify({ refresh_token: refreshToken }) },
+          false,
+        );
+        setTokenCookies(tokens);
+        isRefreshing = false;
+        return request<T>(path, init, false);
+      }
+    } catch {
+      // refresh failed — fall through to logout
+    }
+    isRefreshing = false;
+    clearTokenCookies();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw new Error("Session expired. Please log in again.");
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -48,7 +83,7 @@ export const authApi = {
 export const chatApi = {
   listConversations: () => request<Conversation[]>("/chat/conversations"),
 
-  createConversation: (model = "claude-sonnet-4-6", title?: string) =>
+  createConversation: (model = "gpt-4o", title?: string) =>
     request<Conversation>("/chat/conversations", {
       method: "POST",
       body: JSON.stringify({ model, title }),
@@ -97,7 +132,13 @@ export const chatApi = {
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           try {
-            yield JSON.parse(line.slice(6)) as StreamChunk;
+            const chunk = JSON.parse(line.slice(6)) as StreamChunk;
+            yield chunk;
+            // Wait for the next animation frame between delta chunks so the
+            // browser paints each word before processing the next one.
+            if (chunk.type === "delta") {
+              await new Promise<void>(resolve => setTimeout(resolve, 25));
+            }
           } catch {
             // skip malformed chunk
           }

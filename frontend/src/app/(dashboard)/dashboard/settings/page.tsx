@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { SettingsTabs } from "@/components/settings/SettingsTabs";
+import { SettingsTabs } from "../../../../components/settings/SettingsTabs";
 
 export default function SettingsPage() {
   return (

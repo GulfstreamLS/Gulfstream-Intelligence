@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import { ProfileView }       from "./ProfileView";
 import { PreferencesView }   from "./PreferencesView";
 import { TeamView }          from "./TeamView";

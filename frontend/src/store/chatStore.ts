@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Conversation, Message, User } from "@/types";
+import type { Conversation, Message, User } from "../types";
 
 interface ChatState {
   user: User | null;
@@ -10,6 +10,7 @@ interface ChatState {
   isStreaming: boolean;
 
   setUser: (user: User | null) => void;
+  logout: () => void;
   setConversations: (convos: Conversation[]) => void;
   addConversation: (convo: Conversation) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
@@ -31,6 +32,7 @@ export const useChatStore = create<ChatState>()(
       isStreaming: false,
 
       setUser: (user) => set({ user }),
+      logout: () => set({ user: null, conversations: [], activeConversationId: null }),
       setConversations: (conversations) => set({ conversations }),
       addConversation: (convo) =>
         set((s) => ({ conversations: [convo, ...s.conversations] })),

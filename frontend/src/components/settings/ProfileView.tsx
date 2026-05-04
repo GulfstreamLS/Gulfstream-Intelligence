@@ -1,7 +1,14 @@
 import { FileText, Lock, Smartphone, Monitor } from "lucide-react";
 import { InputGroup, SelectGroup, GsSelect, SecurityLink } from "./SettingsPrimitives";
+import { useAuth } from "../../hooks/useAuth";
 
 export function ProfileView() {
+  const { user } = useAuth();
+
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Left column */}
@@ -13,9 +20,9 @@ export function ProfileView() {
             <p className="text-[13px] text-gs-muted">Update your personal and organization details.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-            <InputGroup label="Full Name"     value="Alex Avery" />
-            <InputGroup label="Email"         value="contact@gulfstreamintelligence.com" />
-            <InputGroup label="Job Title"     value="Regulatory Affairs Director" />
+            <InputGroup label="Full Name"     value={user?.full_name ?? ""} />
+            <InputGroup label="Email"         value={user?.email ?? ""} />
+            <InputGroup label="Job Title"     value="" />
             <InputGroup label="Organization"  value="Gulfstream Intelligence" />
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
@@ -56,9 +63,9 @@ export function ProfileView() {
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-[15px] font-bold text-gs-text">Gulfstream Intelligence</h4>
+              <h4 className="text-[15px] font-bold text-gs-text">{user?.full_name ?? user?.email ?? "—"}</h4>
               <p className="text-[13px] text-gs-muted mt-0.5 font-medium">Enterprise Plan</p>
-              <p className="text-[11px] text-gs-muted font-bold mt-2">Member since Jan 15, 2024</p>
+              <p className="text-[11px] text-gs-muted font-bold mt-2">Member since {memberSince}</p>
             </div>
           </div>
         </div>

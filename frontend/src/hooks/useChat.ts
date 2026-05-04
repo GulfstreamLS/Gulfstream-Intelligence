@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
-import { chatApi } from "@/lib/api";
-import { useChatStore } from "@/store/chatStore";
-import type { Message } from "@/types";
+import { chatApi } from "../lib/api";
+import { useChatStore } from "../store/chatStore";
+import type { Message } from "../types";
 
 export function useChat() {
   const store = useChatStore();
@@ -14,7 +14,7 @@ export function useChat() {
   }, [store]);
 
   const startNewConversation = useCallback(
-    async (model = "claude-sonnet-4-6") => {
+    async (model = "gpt-4o") => {
       const convo = await chatApi.createConversation(model);
       store.addConversation(convo);
       store.setActiveConversation(convo.id);
@@ -54,8 +54,29 @@ export function useChat() {
             };
             store.appendMessage(conversationId, assistantMsg);
           } else if (chunk.type === "error") {
-            throw new Error(chunk.error ?? "Stream error");
+            const errorMsg: Message = {
+              id: crypto.randomUUID(),
+              conversation_id: conversationId,
+              role: "assistant",
+              content: chunk.error ?? "Something went wrong. Please try again.",
+              token_count: null,
+              created_at: new Date().toISOString(),
+            };
+            store.appendMessage(conversationId, errorMsg);
           }
+        }
+      } catch {
+        // Network-level failure — show inline error instead of crashing
+        if (!accumulated) {
+          const errorMsg: Message = {
+            id: crypto.randomUUID(),
+            conversation_id: conversationId,
+            role: "assistant",
+            content: "The request timed out. Please try again.",
+            token_count: null,
+            created_at: new Date().toISOString(),
+          };
+          store.appendMessage(conversationId, errorMsg);
         }
       } finally {
         store.setIsStreaming(false);

@@ -1,5 +1,5 @@
 import { CheckCircle2, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export interface FeatureCardData {
   icon: React.ElementType;

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Globe, Bell, ChevronDown, Menu, ChevronRight } from "lucide-react";
+import { Globe, Bell, ChevronDown, Menu, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "../../hooks/useAuth";
 
 interface DashboardTopNavProps {
   onMenuClick?: () => void;
@@ -20,6 +21,15 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard/reports":         "Reports",
   "/dashboard/settings":        "Settings",
 };
+
+function getInitials(name: string | null | undefined, email: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return email.slice(0, 2).toUpperCase();
+}
 
 function Breadcrumb({ pathname }: { pathname: string }) {
   const label = ROUTE_LABELS[pathname];
@@ -42,7 +52,22 @@ function Breadcrumb({ pathname }: { pathname: string }) {
 
 export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
   const [regionOpen, setRegionOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const initials = user ? getInitials(user.full_name, user.email) : "…";
 
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 md:px-6 h-16 bg-gs-card border-b border-gs-border">
@@ -94,13 +119,31 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
           </span>
         </button>
 
-        {/* User avatar */}
-        <button className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-gs-bg transition-colors">
-          <div className="w-8 h-8 rounded-full bg-gs-blue flex items-center justify-center text-white text-xs font-bold">
-            AA
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-gs-muted hidden sm:block" />
-        </button>
+        {/* User avatar + dropdown */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => setUserMenuOpen((v) => !v)}
+            className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-gs-bg transition-colors min-h-[44px]"
+            aria-label="User menu"
+          >
+            <div className="w-8 h-8 rounded-full bg-gs-blue flex items-center justify-center text-white text-xs font-bold shrink-0">
+              {initials}
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-gs-muted hidden sm:block" />
+          </button>
+
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-1 w-44 bg-gs-card border border-gs-border rounded-xl shadow-card-hover z-20 overflow-hidden">
+              <button
+                onClick={() => { setUserMenuOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gs-red hover:bg-gs-red/5 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

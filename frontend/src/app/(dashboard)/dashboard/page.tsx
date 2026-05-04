@@ -1,9 +1,9 @@
-import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
-import { QuickSearch } from "@/components/dashboard/QuickSearch";
-import { WorkflowChips } from "@/components/dashboard/WorkflowChips";
-import { FeatureCardsGrid } from "@/components/dashboard/FeatureCardsGrid";
-import { RegulatoryCoreSummary } from "@/components/dashboard/RegulatoryCoreSummary";
-import { ProgramActivity } from "@/components/dashboard/ProgramActivity";
+import { WelcomeHeader } from "../../../components/dashboard/WelcomeHeader";
+import { QuickSearch } from "../../../components/dashboard/QuickSearch";
+import { WorkflowChips } from "../../../components/dashboard/WorkflowChips";
+import { FeatureCardsGrid } from "../../../components/dashboard/FeatureCardsGrid";
+import { RegulatoryCoreSummary } from "../../../components/dashboard/RegulatoryCoreSummary";
+import { ProgramActivity } from "../../../components/dashboard/ProgramActivity";
 
 export default function DashboardPage() {
   return (

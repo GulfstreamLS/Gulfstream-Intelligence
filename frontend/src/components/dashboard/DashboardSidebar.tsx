@@ -14,8 +14,8 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { GsLogo } from "@/components/ui/GsLogo";
-import { cn } from "@/lib/utils";
+import { GsLogo } from "../ui/GsLogo";
+import { cn } from "../../lib/utils";
 
 interface NavItem {
   label: string;
