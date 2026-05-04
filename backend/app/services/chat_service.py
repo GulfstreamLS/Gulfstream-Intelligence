@@ -1,7 +1,9 @@
 import uuid
+from collections.abc import AsyncGenerator
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
@@ -15,10 +17,12 @@ class ChatService:
     async def get_conversations(self, db: AsyncSession, user_id: uuid.UUID) -> list[Conversation]:
         result = await db.execute(
             select(Conversation)
+            .options(selectinload(Conversation.messages))
             .where(Conversation.user_id == user_id)
             .order_by(Conversation.updated_at.desc())
         )
         return list(result.scalars().all())
+
 
     async def get_conversation(
         self, db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
@@ -34,9 +38,11 @@ class ChatService:
         self, db: AsyncSession, user_id: uuid.UUID, data: ConversationCreate
     ) -> Conversation:
         convo = Conversation(user_id=user_id, **data.model_dump())
+        convo.messages = []  # Prevent SQLAlchemy lazy-load greenlet error
         db.add(convo)
         await db.flush()
         return convo
+
 
     async def update_conversation(
         self, db: AsyncSession, conversation: Conversation, data: ConversationUpdate
@@ -67,17 +73,59 @@ class ChatService:
         await db.flush()
         return msg
 
-    async def get_messages_as_dicts(self, db: AsyncSession, conversation_id: uuid.UUID) -> list[dict]:
+    async def get_messages_as_dicts(
+        self, db: AsyncSession, conversation_id: uuid.UUID, limit: int = 20
+    ) -> list[dict]:
         result = await db.execute(
             select(Message)
             .where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at)
+            .order_by(Message.created_at.desc())
+            .limit(limit)
         )
-        messages = result.scalars().all()
-        return [{"role": m.role.value, "content": m.content} for m in messages if m.role != MessageRole.SYSTEM]
+        messages = list(result.scalars().all())
+        messages.reverse()
+        return [{"role": str(m.role), "content": m.content} for m in messages if str(m.role) != MessageRole.SYSTEM.value]
 
-    async def auto_title_conversation(self, conversation: Conversation, first_message: str) -> str:
+
+    async def auto_title_conversation(self, conversation: "Conversation", first_message: str) -> str:
         return first_message[:80].rstrip() + ("..." if len(first_message) > 80 else "")
 
 
+
+    async def process_chat_message(
+        self,
+        db: AsyncSession,
+        conversation_id: uuid.UUID,
+        user_id: uuid.UUID,
+        message_content: str,
+    ) -> AsyncGenerator[str, None]:
+        from collections.abc import AsyncGenerator
+        from app.agents.prompts import get_persona
+        from app.services.ai_service import ai_service
+
+        convo = await self.get_conversation(db, conversation_id, user_id)
+        if not convo:
+            raise ValueError("Conversation not found")
+
+        await self.add_message(db, conversation_id, MessageRole.USER, message_content)
+        await db.commit()
+
+        history = await self.get_messages_as_dicts(db, conversation_id)
+        system_prompt = get_persona(convo.authority)
+
+        full_response = ""
+        async for chunk in ai_service.stream_chat(
+            messages=history,
+            model=convo.model,
+            system_prompt=system_prompt,
+        ):
+            full_response += chunk
+            yield chunk
+
+        if full_response:
+            await self.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+            await db.commit()
+
+
 chat_service = ChatService()
+

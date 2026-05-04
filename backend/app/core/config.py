@@ -17,7 +17,8 @@ class Settings(BaseSettings):
 
     # API
     API_V1_PREFIX: str = "/api/v1"
-    ALLOWED_ORIGINS: list[AnyHttpUrl] = []
+    ALLOWED_ORIGINS: list[str] = []
+
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

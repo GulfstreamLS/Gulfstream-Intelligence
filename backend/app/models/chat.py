@@ -21,8 +21,10 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str | None] = mapped_column(String(500))
     model: Mapped[str] = mapped_column(String(100), nullable=False)
+    authority: Mapped[str | None] = mapped_column(String(100))
     system_prompt: Mapped[str | None] = mapped_column(Text)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at")

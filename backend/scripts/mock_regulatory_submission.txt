@@ -1,0 +1,35 @@
+PROJECT CONCEPT: MOCK REGULATORY SUBMISSION V1
+CONFIDENTIAL - FOR REGULATORY REVIEW ONLY
+
+TITLE: Clinical Protocol for GX-202 Recombinant Protein (Phase 2)
+AUTHORITY: FDA Submission Phase
+DATE: April 2026
+
+1. INTRODUCTION
+The GX-202 protein is intended for the treatment of chronic metabolic disorders. This document outlines the Phase 2 clinical study protocol and primary labeling strategy.
+
+2. CLINICAL STUDY PROTOCOL
+2.1 Study Objectives
+The primary objective is to evaluate the safety and efficacy of GX-202 in a population of 50 patients over 12 weeks.
+
+2.2 Patient Selection
+Patients will be selected based on baseline metabolic markers. 
+[GAP: No specific exclusion criteria are listed in this section, which may violate FDA safety guidelines for vulnerable populations.]
+
+3. MANUFACTURING AND CHEMISTRY (CMC)
+3.1 Drug Substance
+The drug substance is manufactured using a recombinant yeast process.
+3.2 Stability Data
+Stability testing is currently ongoing. 
+[GAP: The document fails to provide a proposed shelf-life or detailed accelerated stability data as required for late-phase submissions.]
+
+4. LABELING AND PACKAGING
+4.1 Proposed Container Label
+- Product Name: GX-202
+- Dosage: 50mg
+- Manufacturer: Gulfstream Biotech
+- Storage: Keep in a cool place.
+[GAP: "Keep in a cool place" is a vague storage statement. FDA requires specific temperature ranges (e.g., 2°C to 8°C) for protein-based drugs to ensure potency.]
+
+5. SUMMARY OF SAFETY
+Safety data from Phase 1 was promising. No serious adverse events (SAEs) were reported in the limited 10-patient cohort.

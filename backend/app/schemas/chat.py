@@ -25,7 +25,9 @@ class MessageResponse(BaseModel):
 class ConversationCreate(BaseModel):
     title: str | None = None
     model: str = "claude-sonnet-4-6"
+    authority: str | None = None
     system_prompt: str | None = None
+
 
 
 class ConversationUpdate(BaseModel):
@@ -37,7 +39,9 @@ class ConversationResponse(BaseModel):
     id: uuid.UUID
     title: str | None
     model: str
-    system_prompt: str | None
+    authority: str | None = None
+    system_prompt: str | None = None
+
     created_at: datetime
     updated_at: datetime
     messages: list[MessageResponse] = []
