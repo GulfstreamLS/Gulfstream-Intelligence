@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 // TODO: Re-enable auth protection once the backend is deployed.
 // const PROTECTED_PREFIXES = ["/chat", "/dashboard"];
 // const AUTH_PREFIXES = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+export function middleware() {
   // Auth protection temporarily disabled — backend not yet deployed.
   // Once ready, uncomment the original logic below:
   //
