@@ -62,13 +62,18 @@ class ChatService:
         role: MessageRole,
         content: str,
         token_count: int | None = None,
+        is_analysis: bool = False,
+        analysis_data: dict | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conversation_id,
             role=role,
             content=content,
             token_count=token_count,
+            is_analysis=is_analysis,
+            analysis_data=analysis_data,
         )
+
         db.add(msg)
         await db.flush()
         return msg
@@ -111,9 +116,61 @@ class ChatService:
         await db.commit()
 
         history = await self.get_messages_as_dicts(db, conversation_id)
-        system_prompt = get_persona(convo.authority)
+        
+        # 1. RAG Context Injection
+        selected_authorities = convo.authorities or []
+        context_text = ""
+        if selected_authorities:
+            from app.services.vector_service import vector_service
+            # Search knowledge base for relevant context based on user query
+            context_sources = await vector_service.search_regulatory_context(
+                db, message_content, authority=selected_authorities, limit=3
+            )
+            if context_sources:
+                context_text = "\n\nREGULATORY CONTEXT:\n" + "\n".join([
+                    f"- {s.title} ({s.authority}): {s.content}" for s in context_sources
+                ])
+
+        system_prompt = get_persona(convo.authority) or "You are a Regulatory Intelligence Assistant."
+        
+        # 2. Document Awareness
+        document_context = ""
+        if convo.active_file_id and convo.metadata_:
+            filename = convo.metadata_.get("last_uploaded_filename")
+            file_hex = convo.metadata_.get("last_uploaded_content")
+            if file_hex:
+                file_content = bytes.fromhex(file_hex)
+                file_type = convo.metadata_.get("last_uploaded_type", "txt")
+                from app.services.document_processor import document_processor
+                doc_text = document_processor.extract_text(file_content, file_type)
+                document_context = f"\n\nACTIVE DOCUMENT ({filename}):\n{doc_text[:5000]}" # Limit context size
+                
+        if document_context:
+            system_prompt += f"\n\nCRITICAL: You have access to an uploaded document. If the user asks about 'this document' or 'the file', they are referring to the content below. NEVER say you cannot see files.\n{document_context}"
+
+        if context_text:
+            system_prompt += f"\n\nUse the following regulatory knowledge to help answer the user's question:\n{context_text}"
+
+        # 3. Detect Analysis Request
+        analysis_triggers = ["analyze", "analysis", "gap", "audit", "this document", "the document", "thoughts", "review", "check", "evaluate", "assess", "is this okay"]
+        is_analysis_request = any(word in message_content.lower() for word in analysis_triggers)
+        if is_analysis_request and convo.active_file_id and selected_authorities:
+
+
+            # If they ask for analysis, we return the structured analysis message
+            file_hex = convo.metadata_.get("last_uploaded_content")
+            if file_hex:
+                await self.perform_analysis_for_chat(
+                    db, conversation_id, bytes.fromhex(file_hex), 
+                    convo.metadata_.get("last_uploaded_type", "txt"), 
+                    selected_authorities
+                )
+                yield "I have completed the regulatory analysis. You can see the structured results in the bubble above."
+                return
 
         full_response = ""
+
+
         async for chunk in ai_service.stream_chat(
             messages=history,
             model=convo.model,
@@ -125,6 +182,42 @@ class ChatService:
         if full_response:
             await self.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
             await db.commit()
+
+    async def perform_analysis_for_chat(
+        self,
+        db: AsyncSession,
+        conversation_id: uuid.UUID,
+        file_content: bytes,
+        file_type: str,
+        authorities: list[str]
+    ) -> Message:
+        """Analyze document and save results to a chat message."""
+        from app.services.analysis_service import analysis_service
+        import json
+        
+        results = await analysis_service.analyze_document_multi(
+            db, file_content, file_type, authorities
+        )
+        
+        # Format a summary for the chat bubble
+        summary = f"I have analyzed the document against {', '.join(authorities)}.\n"
+        for auth, analysis in results.items():
+            summary += f"\n**{auth} Summary:** {analysis.summary[:200]}..."
+            
+        # Convert results to dict for JSON storage
+        analysis_dict = {auth: analysis.model_dump() for auth, analysis in results.items()}
+        
+        msg = await self.add_message(
+            db, 
+            conversation_id, 
+            MessageRole.ASSISTANT, 
+            summary,
+            is_analysis=True,
+            analysis_data=analysis_dict
+        )
+        await db.commit()
+        return msg
+
 
 
 chat_service = ChatService()

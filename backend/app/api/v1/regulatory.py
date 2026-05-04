@@ -1,21 +1,33 @@
 import uuid
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none
 from app.models.user import User
-from app.models.regulatory import AnalysisDocument
+from app.models.regulatory import AnalysisDocument, RegulatorySource
 from app.services.analysis_service import analysis_service
 from app.services.vector_service import vector_service
 from app.schemas.regulatory import DocumentAnalysisResponse
 
 
 router = APIRouter(prefix="/regulatory", tags=["regulatory"])
+
+
+@router.get("/authorities", response_model=List[str])
+async def list_authorities(
+    db: AsyncSession = Depends(get_db)
+):
+    """List all unique regulatory authorities in the system."""
+    result = await db.execute(select(RegulatorySource.authority).distinct())
+    authorities = [row[0] for row in result.all()]
+    return sorted(authorities)
+
 
 
 @router.post("/analysis/upload", response_model=DocumentAnalysisResponse)

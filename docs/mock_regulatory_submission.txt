@@ -1,0 +1,22 @@
+# PROJECT GX-202: Clinical Study Protocol Summary
+
+## 1. Study Overview
+Project GX-202 is a Phase 2, multi-center, randomized, double-blind study designed to evaluate the safety and efficacy of GX-202 in 50 patients with mild-to-moderate inflammatory conditions. The study duration is 12 weeks.
+
+## 2. Patient Selection
+Inclusion Criteria:
+- Age 18-65 years.
+- Diagnosis of mild-to-moderate inflammation.
+- Ability to provide informed consent.
+
+(Note: The document currently lacks a detailed list of exclusion criteria for patient safety.)
+
+## 3. Product Stability and Storage
+GX-202 is a protein-based therapeutic. 
+- Storage: Keep in a cool, dry place. 
+- Stability: Testing is ongoing. Detailed accelerated stability data and proposed shelf-life are not yet available for this submission.
+
+(Note: Current storage instructions do not specify a precise temperature range required for biological products.)
+
+## 4. Manufacturing Process
+The manufacturing process for GX-202 involves recombinant DNA technology in CHO cells. Basic flowcharts are provided in the appendix.

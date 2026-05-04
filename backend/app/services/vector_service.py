@@ -56,7 +56,7 @@ class VectorService:
         self, 
         db: AsyncSession, 
         query: str, 
-        authority: str = None,
+        authority: str | List[str] = None,
         limit: int = 5
     ) -> List[RegulatorySource]:
         """Search for relevant regulatory context based on a query."""
@@ -64,7 +64,11 @@ class VectorService:
         
         stmt = select(RegulatorySource)
         if authority:
-            stmt = stmt.where(RegulatorySource.authority == authority)
+            if isinstance(authority, list):
+                stmt = stmt.where(RegulatorySource.authority.in_(authority))
+            else:
+                stmt = stmt.where(RegulatorySource.authority == authority)
+
         
         # Using cosine distance for better embedding similarity
         stmt = stmt.order_by(RegulatorySource.embedding.cosine_distance(query_embedding)).limit(limit)

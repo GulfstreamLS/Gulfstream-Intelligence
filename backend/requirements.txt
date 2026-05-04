@@ -66,3 +66,5 @@ python-multipart
 pandas
 openpyxl
 beautifulsoup4
+google-cloud-storage==2.15.0
+

@@ -1,5 +1,6 @@
 import uuid
-from typing import Optional
+from typing import Optional, List, Dict, Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -132,6 +133,47 @@ class AnalysisService:
         await db.commit()
         await db.refresh(doc)
         return doc
+
+    async def analyze_document_multi(
+        self,
+        db: AsyncSession,
+        file_content: bytes,
+        file_type: str,
+        authorities: List[str]
+    ) -> Dict[str, FullAnalysisResponse]:
+        """Perform RAG analysis across multiple authorities separately."""
+        text = document_processor.extract_text(file_content, file_type)
+        search_query = text[:3000]
+        
+        results = {}
+        for auth in authorities:
+            # Retrieve context for THIS specific authority
+            context_sources = await vector_service.search_regulatory_context(
+                db, search_query, authority=auth, limit=10
+            )
+            context_text = "\n\n".join([
+                f"SOURCE: {s.title} ({s.authority})\nCONTENT: {s.content}" 
+                for s in context_sources
+            ])
+
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", (
+                    f"You are an expert Regulatory Affairs Consultant specializing in {auth}.\n\n"
+                    "REGULATORY CONTEXT:\n{context}\n\n"
+                    "Analyze the document against THESE specific guidelines only."
+                )),
+                ("human", "Please analyze this document:\n\n{document_text}")
+            ])
+
+            chain = prompt | self.structured_llm
+            analysis: FullAnalysisResponse = await chain.ainvoke({
+                "context": context_text,
+                "document_text": text
+            })
+            results[auth] = analysis
+            
+        return results
+
 
 
 analysis_service = AnalysisService()
