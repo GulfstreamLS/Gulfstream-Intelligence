@@ -49,3 +49,7 @@ docs/4- Regulatory Core Knowledge Architecture.docx
 docs/BACKEND_EXECUTION_PLAN.md
 docs/PROJECT_CONCEPT.md
 
+# App Data
+backend/media/
+media/
+gcp-creds.json

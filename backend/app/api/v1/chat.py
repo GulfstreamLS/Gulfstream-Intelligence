@@ -235,28 +235,63 @@ async def send_message(
         system_prompt += f"\n\nUse the following regulatory knowledge to help answer the user's question:\n{context_text}"
 
     # 3. Detect Analysis Request
-    analysis_triggers = [
-        "analyze", "analysis", "gap", "audit", "this document", "the document", 
-        "thoughts", "review", "check", "evaluate", "assess", "is this okay"
-    ]
+    analysis_triggers = ["analyze", "analysis", "gap", "audit", "this document", "the document", "thoughts", "review", "check", "evaluate", "assess", "is this okay"]
     is_analysis_request = any(word in data.message.lower() for word in analysis_triggers)
 
-    if is_analysis_request and convo.active_file_id and selected_authorities:
-        file_hex = convo.metadata_.get("last_uploaded_content") if convo.metadata_ else None
-        if file_hex:
+    # 4. Detect Export Requests
+    export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "presentation", "export", "download", "convert", "doc", "docs"]
+    msg_lower = data.message.lower()
+    is_export_request = any(word in msg_lower for word in export_triggers)
 
+
+    # Use 'Global' if no authorities selected
+    effective_authorities = selected_authorities or ["Global"]
+
+    # HANDLE ANALYSIS COMMAND
+    if is_analysis_request and convo.active_file_id:
+        file_hex = convo.metadata_.get("last_uploaded_content")
+        if file_hex:
             msg = await chat_service.perform_analysis_for_chat(
                 db, conversation_id, bytes.fromhex(file_hex), 
                 convo.metadata_.get("last_uploaded_type", "txt"), 
-                selected_authorities
+                effective_authorities
             )
             return StreamingResponse(_stream_analysis(msg.analysis_data), media_type="text/event-stream")
-        return MessageResponse.model_validate(msg)
+
+    # HANDLE EXPORT COMMAND
+    if is_export_request and convo.active_file_id:
+        last_analysis_msg = next((m for m in reversed(convo.messages) if m.is_analysis), None)
+        if last_analysis_msg:
+            from app.services.export_service import export_service
+            filename = convo.metadata_.get("last_uploaded_filename", "Document")
+            
+            url = None
+            file_type_label = ""
+            if "pdf" in msg_lower: 
+                url, file_type_label = await export_service.generate_pdf(last_analysis_msg.analysis_data, filename), "PDF"
+            elif any(w in msg_lower for w in ["word", "docx", "doc", "docs"]): 
+                url, file_type_label = await export_service.generate_docx(last_analysis_msg.analysis_data, filename), "Word"
+            elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]): 
+                url, file_type_label = await export_service.generate_pptx(last_analysis_msg.analysis_data, filename), "PowerPoint"
+
+            
+            if url:
+                ext = "pdf" if file_type_label == "PDF" else ("docx" if file_type_label == "Word" else "pptx")
+                response_text = f"✅ **{file_type_label} Generated Successfully.**\n\nDownload: **[{filename}_Report.{ext}]({url})**"
+                await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, response_text)
+                await db.commit()
+                if data.stream:
+                    async def _stream_export_simple():
+                        yield f"data: {json.dumps({'type': 'delta', 'content': response_text})}\n\n"
+                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return StreamingResponse(_stream_export_simple(), media_type="text/event-stream")
+                return MessageResponse(id=uuid.uuid4(), conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response_text, created_at=datetime.utcnow())
 
 
 
 
     if data.stream:
+
         return StreamingResponse(
             _stream_response(db, convo.id, history, model, system_prompt),
             media_type="text/event-stream",

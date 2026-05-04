@@ -2,7 +2,11 @@ import io
 from typing import List
 from pypdf import PdfReader
 from docx import Document
+from pptx import Presentation
+import pytesseract
+from PIL import Image
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 
 
 class DocumentProcessor:
@@ -21,8 +25,13 @@ class DocumentProcessor:
             return self._extract_from_docx(content)
         elif file_type.lower() in ["txt", "text/plain"]:
             return content.decode("utf-8")
+        elif file_type.lower() in ["pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"]:
+            return self._extract_from_pptx(content)
+        elif file_type.lower() in ["png", "jpg", "jpeg", "image/png", "image/jpeg"]:
+            return self._extract_from_image(content)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
+
 
 
     def _extract_from_pdf(self, content: bytes) -> str:
@@ -37,6 +46,20 @@ class DocumentProcessor:
     def _extract_from_docx(self, content: bytes) -> str:
         doc = Document(io.BytesIO(content))
         return "\n".join([para.text for para in doc.paragraphs])
+
+    def _extract_from_pptx(self, content: bytes) -> str:
+        prs = Presentation(io.BytesIO(content))
+        text = ""
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text + "\n"
+        return text
+
+    def _extract_from_image(self, content: bytes) -> str:
+        img = Image.open(io.BytesIO(content))
+        return pytesseract.image_to_string(img)
+
 
     def split_text(self, text: str) -> List[str]:
         """Split text into manageable chunks for embedding."""
