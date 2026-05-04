@@ -54,3 +54,15 @@ uvicorn==0.32.1
 uvloop==0.22.1
 watchfiles==1.1.1
 websockets==16.0
+
+# Added for Regulatory RAG
+pgvector
+langchain
+langchain-openai
+langchain-community
+pypdf
+python-docx
+python-multipart
+pandas
+openpyxl
+beautifulsoup4
