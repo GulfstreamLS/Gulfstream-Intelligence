@@ -3,10 +3,6 @@ output "backend_url" {
   value       = google_cloud_run_v2_service.backend.uri
 }
 
-output "frontend_url" {
-  description = "Cloud Run frontend URL"
-  value       = google_cloud_run_v2_service.frontend.uri
-}
 
 output "db_connection_name" {
   description = "Cloud SQL connection name"

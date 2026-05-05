@@ -7,7 +7,7 @@ terraform {
     }
   }
   backend "gcs" {
-    bucket = "REPLACE_WITH_YOUR_TF_STATE_BUCKET"
+    bucket = "gulfstream-tf-state-1777977742"
     prefix = "terraform/state"
   }
 }
@@ -26,6 +26,7 @@ resource "google_sql_database_instance" "main" {
 
   settings {
     tier              = var.db_tier
+    edition           = "ENTERPRISE"
     availability_type = var.environment == "production" ? "REGIONAL" : "ZONAL"
     disk_autoresize   = true
 
@@ -40,6 +41,8 @@ resource "google_sql_database_instance" "main" {
       private_network = google_compute_network.main.id
     }
   }
+
+  depends_on = [google_service_networking_connection.private_vpc]
 }
 
 resource "google_sql_database" "app" {
@@ -86,6 +89,7 @@ resource "google_redis_instance" "main" {
 resource "google_cloud_run_v2_service" "backend" {
   name     = "${var.app_name}-backend"
   location = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.backend.email
@@ -100,6 +104,10 @@ resource "google_cloud_run_v2_service" "backend" {
 
     containers {
       image = var.backend_image
+
+      ports {
+        container_port = 8000
+      }
 
       env {
         name  = "ENVIRONMENT"
@@ -129,27 +137,17 @@ resource "google_cloud_run_v2_service" "backend" {
           memory = "1Gi"
         }
       }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
     }
 
-    scaling {
-      min_instance_count = var.environment == "production" ? 1 : 0
-      max_instance_count = 10
-    }
-  }
-}
-
-# ── Cloud Run — Frontend ──────────────────────────────────────────────────────
-resource "google_cloud_run_v2_service" "frontend" {
-  name     = "${var.app_name}-frontend"
-  location = var.region
-
-  template {
-    containers {
-      image = var.frontend_image
-
-      env {
-        name  = "BACKEND_URL"
-        value = google_cloud_run_v2_service.backend.uri
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.main.connection_name]
       }
     }
 
@@ -160,19 +158,23 @@ resource "google_cloud_run_v2_service" "frontend" {
   }
 }
 
-# Allow public access to frontend
-resource "google_cloud_run_v2_service_iam_member" "frontend_public" {
+# ── Allow unauthenticated access to Backend ───────────────────────────────────
+resource "google_cloud_run_v2_service_iam_member" "backend_public" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.frontend.name
+  name     = google_cloud_run_v2_service.backend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
+# (Frontend resources removed as requested)
+
 # ── Secret Manager ────────────────────────────────────────────────────────────
 resource "google_secret_manager_secret" "secret_key" {
   secret_id = "${var.app_name}-secret-key"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 # ── Service Accounts ──────────────────────────────────────────────────────────
