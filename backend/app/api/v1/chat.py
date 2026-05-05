@@ -256,7 +256,15 @@ async def send_message(
                 convo.metadata_.get("last_uploaded_type", "txt"), 
                 effective_authorities
             )
-            return StreamingResponse(_stream_analysis(msg.analysis_data), media_type="text/event-stream")
+            return StreamingResponse(
+                _stream_analysis(msg.analysis_data), 
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                }
+            )
 
     # HANDLE EXPORT COMMAND
     if is_export_request and convo.active_file_id:
@@ -284,7 +292,15 @@ async def send_message(
                     async def _stream_export_simple():
                         yield f"data: {json.dumps({'type': 'delta', 'content': response_text})}\n\n"
                         yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    return StreamingResponse(_stream_export_simple(), media_type="text/event-stream")
+                    return StreamingResponse(
+                        _stream_export_simple(), 
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                        }
+                    )
                 return MessageResponse(id=uuid.uuid4(), conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response_text, created_at=datetime.utcnow())
 
 
@@ -295,7 +311,12 @@ async def send_message(
         return StreamingResponse(
             _stream_response(db, convo.id, history, model, system_prompt),
             media_type="text/event-stream",
-            headers={"X-Conversation-Id": str(conversation_id)},
+            headers={
+                "X-Conversation-Id": str(conversation_id),
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     full_response = ""
