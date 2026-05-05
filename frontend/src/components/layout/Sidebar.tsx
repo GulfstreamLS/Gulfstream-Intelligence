@@ -12,7 +12,7 @@ import { useAuth } from "../../hooks/useAuth";
 export function Sidebar() {
   const router = useRouter();
   const { conversations, activeConversationId } = useChatStore();
-  const { loadConversations, startNewConversation, deleteConversation } = useChat();
+  const { loadConversations, deleteConversation } = useChat();
   const { logout } = useAuth();
 
   useEffect(() => {
@@ -20,7 +20,8 @@ export function Sidebar() {
   }, [loadConversations]);
 
   async function handleNew() {
-    const convo = await startNewConversation();
+    const { chatApi } = await import("../../lib/api");
+    const convo = await chatApi.createConversation();
     router.push(`/chat/${convo.id}`);
   }
 

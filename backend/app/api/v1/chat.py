@@ -31,6 +31,200 @@ from app.services.document_processor import document_processor
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+# ── Unified send endpoint ──────────────────────────────────────────────────────
+
+@router.post("/send")
+async def send(
+    conversation_id: Optional[str] = Form(None),
+    message: Optional[str]         = Form(None),
+    authorities: Optional[str]     = Form(None),   # JSON-encoded list e.g. '["EMA","FDA"]'
+    model: Optional[str]           = Form(None),
+    file: Optional[UploadFile]     = File(None),
+    current_user: Optional[User]   = Depends(get_user_or_none),
+    db: AsyncSession               = Depends(get_db),
+):
+    """Single endpoint: create/get conversation, attach file, set authorities, stream AI response."""
+    user_id = await _get_user_id_fallback(db, current_user)
+
+    # 1. Get or create conversation
+    new_convo_payload = None
+    if conversation_id:
+        convo = await chat_service.get_conversation(db, uuid.UUID(conversation_id), user_id)
+        if not convo:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    else:
+        convo = await chat_service.create_conversation(
+            db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
+        )
+        new_convo_payload = {
+            "id": str(convo.id),
+            "model": convo.model,
+            "created_at": convo.created_at.isoformat(),
+            "updated_at": convo.updated_at.isoformat(),
+        }
+
+    # 2. Update authorities if provided
+    if authorities:
+        try:
+            convo.authorities = json.loads(authorities)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 3. Handle file upload
+    if file:
+        content = await file.read()
+        file_extension = file.filename.split(".")[-1].lower()
+        from app.services.storage_service import storage_service
+        file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+        convo.active_file_id = uuid.uuid4()
+        convo.metadata_ = convo.metadata_ or {}
+        convo.metadata_["last_uploaded_filename"] = file.filename
+        convo.metadata_["last_uploaded_url"]      = file_url
+        convo.metadata_["last_uploaded_type"]     = file_extension
+        convo.metadata_["last_uploaded_content"]  = content.hex()
+
+    await db.commit()
+    await db.refresh(convo)
+
+    # 4. Add user message to DB
+    if message:
+        await chat_service.add_message(db, convo.id, MessageRole.USER, message)
+        if not convo.title:
+            convo.title = await chat_service.auto_title_conversation(convo, message)
+            await db.commit()
+
+    # 5. If no message — just confirm (file-only upload)
+    if not message:
+        return StreamingResponse(
+            _stream_no_message(new_convo_payload),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    # 6. Build AI context
+    from app.agents.prompts import get_persona
+    selected_authorities = convo.authorities or []
+    system_prompt = get_persona(convo.authority) or convo.system_prompt or "You are a Regulatory Intelligence Assistant."
+
+    if selected_authorities:
+        sources = await vector_service.search_regulatory_context(
+            db, message, authority=selected_authorities, limit=3
+        )
+        if sources:
+            system_prompt += "\n\nREGULATORY CONTEXT:\n" + "\n".join(
+                f"- {s.title} ({s.authority}): {s.content}" for s in sources
+            )
+
+    if convo.active_file_id and convo.metadata_:
+        file_hex = convo.metadata_.get("last_uploaded_content")
+        if file_hex:
+            doc_text = document_processor.extract_text(bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt"))
+            system_prompt += (
+                f"\n\nCRITICAL: You have access to an uploaded document. NEVER say you cannot see files."
+                f"\n\nACTIVE DOCUMENT ({convo.metadata_.get('last_uploaded_filename', 'document')}):\n{doc_text[:5000]}"
+            )
+
+    # 7. Detect analysis
+    analysis_triggers = ["analyze", "analysis", "gap", "audit", "this document", "the document",
+                         "thoughts", "review", "check", "evaluate", "assess", "is this okay"]
+    is_analysis = any(t in message.lower() for t in analysis_triggers) and bool(convo.active_file_id)
+
+    file_bytes, file_type = None, None
+    if is_analysis and convo.metadata_:
+        hex_val = convo.metadata_.get("last_uploaded_content")
+        if hex_val:
+            file_bytes = bytes.fromhex(hex_val)
+            file_type  = convo.metadata_.get("last_uploaded_type", "txt")
+
+    # 8. Detect export
+    export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert"]
+    msg_lower = message.lower()
+    is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
+
+    if is_export:
+        last_analysis = next((m for m in reversed(convo.messages) if m.is_analysis), None)
+        if last_analysis:
+            from app.services.export_service import export_service
+            fname  = convo.metadata_.get("last_uploaded_filename", "Document")
+            url, label = None, ""
+            if "pdf"  in msg_lower: url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
+            elif any(w in msg_lower for w in ["word","docx","doc"]): url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
+            elif any(w in msg_lower for w in ["ppt","pptx","power","presentation"]): url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
+            if url:
+                ext  = "pdf" if label=="PDF" else ("docx" if label=="Word" else "pptx")
+                text = f"✅ **{label} Generated Successfully.**\n\nDownload: **[{fname}_Report.{ext}]({url})**"
+                await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
+                await db.commit()
+                return StreamingResponse(
+                    _stream_export_response(text, new_convo_payload),
+                    media_type="text/event-stream", headers=SSE_HEADERS,
+                )
+
+    history        = await chat_service.get_messages_as_dicts(db, convo.id)
+    used_model     = model or convo.model or settings.DEFAULT_MODEL
+    eff_authorities = selected_authorities or ["Global"]
+
+    return StreamingResponse(
+        _stream_send(db, convo.id, history, used_model, system_prompt,
+                     new_convo_payload, is_analysis and file_bytes is not None,
+                     file_bytes, file_type, eff_authorities),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
+
+
+async def _stream_no_message(new_convo_payload: dict | None) -> AsyncGenerator[str, None]:
+    if new_convo_payload:
+        yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
+    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
+async def _stream_export_response(text: str, new_convo_payload: dict | None) -> AsyncGenerator[str, None]:
+    if new_convo_payload:
+        yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
+    yield f"data: {json.dumps({'type': 'delta', 'content': text})}\n\n"
+    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
+async def _stream_send(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    history: list[dict],
+    model: str,
+    system_prompt: str | None,
+    new_convo_payload: dict | None,
+    run_analysis: bool,
+    file_bytes: bytes | None,
+    file_type: str | None,
+    authorities: list[str],
+) -> AsyncGenerator[str, None]:
+    try:
+        if new_convo_payload:
+            yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
+
+        if run_analysis and file_bytes:
+            msg = await chat_service.perform_analysis_for_chat(db, conversation_id, file_bytes, file_type, authorities)
+            yield f"data: {json.dumps({'type': 'analysis', 'content': msg.content, 'data': msg.analysis_data, 'message_id': str(msg.id)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+            return
+
+        full_response = ""
+        async for chunk in ai_service.stream_chat(history, model, system_prompt):
+            full_response += chunk
+            yield f"data: {json.dumps({'type': 'delta', 'content': chunk})}\n\n"
+
+        msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+        await db.commit()
+        yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
 
 @router.get("/conversations", response_model=list[ConversationResponse])
 async def list_conversations(
@@ -141,25 +335,13 @@ async def upload_file_to_chat(
     from app.services.storage_service import storage_service
     file_url = await storage_service.upload_file(content, file.filename, file.content_type)
 
-
-    # Save a record of the attachment in the chat history
-    await chat_service.add_message(
-        db, 
-        conversation_id, 
-        MessageRole.USER, 
-        f"Attached: [{file.filename}]({file_url})"
-    )
-
-
     # Store file metadata in conversation
     convo.active_file_id = uuid.uuid4()
     convo.metadata_ = convo.metadata_ or {}
     convo.metadata_["last_uploaded_filename"] = file.filename
     convo.metadata_["last_uploaded_url"] = file_url
     convo.metadata_["last_uploaded_type"] = file_extension
-    convo.metadata_["last_uploaded_content"] = content.hex() 
-
-    convo.metadata_["last_uploaded_type"] = file_extension
+    convo.metadata_["last_uploaded_content"] = content.hex()
     await db.commit()
 
     # Trigger analysis if authorities are selected
@@ -257,7 +439,7 @@ async def send_message(
                 effective_authorities
             )
             return StreamingResponse(
-                _stream_analysis(msg.analysis_data), 
+                _stream_analysis(msg),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -347,9 +529,9 @@ async def _stream_response(
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
-async def _stream_analysis(analysis_data: dict) -> AsyncGenerator[str, None]:
-    yield f"data: {json.dumps({'type': 'analysis', 'data': analysis_data})}\n\n"
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+async def _stream_analysis(msg) -> AsyncGenerator[str, None]:
+    yield f"data: {json.dumps({'type': 'analysis', 'content': msg.content, 'data': msg.analysis_data, 'message_id': str(msg.id)})}\n\n"
+    yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
 
 
 

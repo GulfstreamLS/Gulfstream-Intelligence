@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Edit3, ChevronDown, ChevronRight,
   FileText, MessageSquare, AlertCircle, Lightbulb,
@@ -87,6 +88,7 @@ interface ChatSidebarProps {
   activeChatId: string | undefined;
   onChatSelect: (chatId: string) => void;
   recentChats: RecentChatItem[];
+  onAuthoritiesChange?: (authorities: string[]) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ export function ChatSidebar({
   activeChatId,
   onChatSelect,
   recentChats,
+  onAuthoritiesChange,
 }: ChatSidebarProps) {
   // Context state
   const [editing, setEditing] = useState(false);
@@ -125,6 +128,11 @@ export function ChatSidebar({
     setPhase(draftPhase);
     setActiveAuths(draftAuths);
     setEditing(false);
+
+    const authorityNames = ALL_AUTHORITIES
+      .filter((_, i) => draftAuths.includes(i))
+      .map(a => a.name);
+    onAuthoritiesChange?.(authorityNames);
   };
 
   const cancelEdit = () => setEditing(false);
@@ -342,7 +350,7 @@ export function ChatSidebar({
           <h2 className="text-xs font-semibold text-gs-muted uppercase tracking-wider">
             Recent Chats
           </h2>
-          <button className="text-gs-blue text-[11px] font-semibold hover:underline">View all</button>
+          <Link href="/dashboard/history" className="text-gs-blue text-[11px] font-semibold hover:underline">View all</Link>
         </div>
         <div className="space-y-0.5">
           {recentChats.map(chat => (

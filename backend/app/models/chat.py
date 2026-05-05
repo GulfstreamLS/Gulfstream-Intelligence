@@ -3,6 +3,7 @@ from enum import Enum
 
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
@@ -22,10 +23,10 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(500))
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(100))
-    authorities: Mapped[list[str] | None] = mapped_column(JSONB) # List of selected regulatory bodies
+    authorities: Mapped[list[str] | None] = mapped_column(MutableList.as_mutable(JSONB))
     active_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     system_prompt: Mapped[str | None] = mapped_column(Text)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", MutableDict.as_mutable(JSONB))
 
 
 
@@ -41,9 +42,9 @@ class Message(Base, UUIDMixin, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int | None] = mapped_column(Integer)
     is_analysis: Mapped[bool] = mapped_column(default=False)
-    analysis_data: Mapped[dict | None] = mapped_column(JSONB) # Stores structured Gaps/Insights/Actions
-    tool_calls: Mapped[dict | None] = mapped_column(JSONB)
-    tool_results: Mapped[dict | None] = mapped_column(JSONB)
+    analysis_data: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
+    tool_calls: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
+    tool_results: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
 
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")

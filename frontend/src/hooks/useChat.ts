@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { chatApi } from "../lib/api";
 import { useChatStore } from "../store/chatStore";
-import type { Message } from "../types";
+import type { Conversation, Message } from "../types";
 
 export function useChat() {
   const store = useChatStore();
@@ -13,86 +13,148 @@ export function useChat() {
     store.setConversations(convos);
   }, [store]);
 
-  const startNewConversation = useCallback(
-    async (model = "gpt-4o") => {
-      const convo = await chatApi.createConversation(model);
-      store.addConversation(convo);
-      store.setActiveConversation(convo.id);
-      return convo;
-    },
-    [store],
-  );
+  /**
+   * Unified send — handles conversation creation, file upload, authority update,
+   * and message streaming in a single API call.
+   * Returns the resolved conversation ID (existing or newly created).
+   */
+  const sendAll = useCallback(async (params: {
+    conversationId?: string | null;
+    message?: string;
+    file?: File;
+    authorities?: string[];
+  }): Promise<string | null> => {
+    const isNew = !params.conversationId;
 
-  const sendMessage = useCallback(
-    async (conversationId: string, text: string) => {
-      const userMsg: Message = {
-        id: crypto.randomUUID(),
-        conversation_id: conversationId,
-        role: "user",
-        content: text,
-        token_count: null,
-        created_at: new Date().toISOString(),
-      };
-      store.appendMessage(conversationId, userMsg);
-      store.setIsStreaming(true);
-      store.setStreamingContent("");
+    // Optimistic messages for existing conversations (we know the ID already)
+    if (!isNew && params.conversationId) {
+      if (params.file) {
+        store.appendMessage(params.conversationId, {
+          id: crypto.randomUUID(),
+          conversation_id: params.conversationId,
+          role: "user",
+          content: `📎 ${params.file.name} (${(params.file.size / 1024).toFixed(0)} KB)`,
+          token_count: null,
+          created_at: new Date().toISOString(),
+        });
+      }
+      if (params.message) {
+        store.appendMessage(params.conversationId, {
+          id: crypto.randomUUID(),
+          conversation_id: params.conversationId,
+          role: "user",
+          content: params.message,
+          token_count: null,
+          created_at: new Date().toISOString(),
+        });
+      }
+    }
 
-      let accumulated = "";
-      try {
-        for await (const chunk of chatApi.sendMessage(conversationId, text)) {
-          if (chunk.type === "delta" && chunk.content) {
-            accumulated += chunk.content;
-            store.setStreamingContent(accumulated);
-          } else if (chunk.type === "done") {
-            const assistantMsg: Message = {
+    store.setIsStreaming(true);
+    store.setStreamingContent("");
+
+    let resolvedId = params.conversationId ?? null;
+    let accumulated = "";
+
+    try {
+      for await (const chunk of chatApi.send(params)) {
+
+        if (chunk.type === "conversation_ready") {
+          // New conversation — add to store and show optimistic messages
+          resolvedId = chunk.id!;
+          const newConvo: Conversation = {
+            id: chunk.id!,
+            title: null,
+            model: chunk.model ?? "gpt-4o",
+            system_prompt: null,
+            created_at: chunk.created_at ?? new Date().toISOString(),
+            updated_at: chunk.updated_at ?? new Date().toISOString(),
+            messages: [],
+          };
+          store.addConversation(newConvo);
+          if (params.file) {
+            store.appendMessage(chunk.id!, {
+              id: crypto.randomUUID(), conversation_id: chunk.id!,
+              role: "user",
+              content: `📎 ${params.file.name} (${(params.file.size / 1024).toFixed(0)} KB)`,
+              token_count: null, created_at: new Date().toISOString(),
+            });
+          }
+          if (params.message) {
+            store.appendMessage(chunk.id!, {
+              id: crypto.randomUUID(), conversation_id: chunk.id!,
+              role: "user", content: params.message,
+              token_count: null, created_at: new Date().toISOString(),
+            });
+          }
+
+        } else if (chunk.type === "delta" && chunk.content) {
+          accumulated += chunk.content;
+          store.setStreamingContent(accumulated);
+
+        } else if (chunk.type === "analysis") {
+          if (resolvedId) {
+            // Stream the analysis text word-by-word before committing to messages
+            const analysisContent = chunk.content ?? "";
+            if (analysisContent) {
+              let streamed = "";
+              for (const word of analysisContent.split(" ")) {
+                streamed += (streamed ? " " : "") + word;
+                store.setStreamingContent(streamed);
+                await new Promise<void>(r => setTimeout(r, 25));
+              }
+              store.setStreamingContent("");
+            }
+            store.appendMessage(resolvedId, {
               id: chunk.message_id ?? crypto.randomUUID(),
-              conversation_id: conversationId,
-              role: "assistant",
-              content: accumulated,
-              token_count: null,
+              conversation_id: resolvedId, role: "assistant",
+              content: analysisContent, token_count: null,
+              is_analysis: true, analysis_data: chunk.data ?? null,
               created_at: new Date().toISOString(),
-            };
-            store.appendMessage(conversationId, assistantMsg);
-          } else if (chunk.type === "error") {
-            const errorMsg: Message = {
-              id: crypto.randomUUID(),
-              conversation_id: conversationId,
+            } as Message);
+          }
+
+        } else if (chunk.type === "done") {
+          if (accumulated && resolvedId) {
+            store.appendMessage(resolvedId, {
+              id: chunk.message_id ?? crypto.randomUUID(),
+              conversation_id: resolvedId, role: "assistant",
+              content: accumulated, token_count: null,
+              created_at: new Date().toISOString(),
+            });
+          }
+
+        } else if (chunk.type === "error") {
+          if (resolvedId) {
+            store.appendMessage(resolvedId, {
+              id: crypto.randomUUID(), conversation_id: resolvedId,
               role: "assistant",
               content: chunk.error ?? "Something went wrong. Please try again.",
-              token_count: null,
-              created_at: new Date().toISOString(),
-            };
-            store.appendMessage(conversationId, errorMsg);
+              token_count: null, created_at: new Date().toISOString(),
+            });
           }
         }
-      } catch {
-        // Network-level failure — show inline error instead of crashing
-        if (!accumulated) {
-          const errorMsg: Message = {
-            id: crypto.randomUUID(),
-            conversation_id: conversationId,
-            role: "assistant",
-            content: "The request timed out. Please try again.",
-            token_count: null,
-            created_at: new Date().toISOString(),
-          };
-          store.appendMessage(conversationId, errorMsg);
-        }
-      } finally {
-        store.setIsStreaming(false);
-        store.setStreamingContent("");
       }
-    },
-    [store],
-  );
+    } catch {
+      if (!accumulated && resolvedId) {
+        store.appendMessage(resolvedId, {
+          id: crypto.randomUUID(), conversation_id: resolvedId,
+          role: "assistant", content: "The request timed out. Please try again.",
+          token_count: null, created_at: new Date().toISOString(),
+        });
+      }
+    } finally {
+      store.setIsStreaming(false);
+      store.setStreamingContent("");
+    }
 
-  const deleteConversation = useCallback(
-    async (id: string) => {
-      await chatApi.deleteConversation(id);
-      store.removeConversation(id);
-    },
-    [store],
-  );
+    return resolvedId;
+  }, [store]);
 
-  return { loadConversations, startNewConversation, sendMessage, deleteConversation };
+  const deleteConversation = useCallback(async (id: string) => {
+    await chatApi.deleteConversation(id);
+    store.removeConversation(id);
+  }, [store]);
+
+  return { loadConversations, sendAll, deleteConversation };
 }

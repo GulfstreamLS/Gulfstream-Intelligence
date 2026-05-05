@@ -6,10 +6,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   ThumbsUp, ThumbsDown, Copy, Share2,
-  ExternalLink, User, Check,
-  Sparkles, Scale, FlaskConical, Globe,
+  ExternalLink, User, Check, Download,
+  Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
+  AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
 } from "lucide-react";
-import type { DisplayMessage } from "../../types/chat";
+import type { DisplayMessage, AnalysisAuthority } from "../../types/chat";
 
 interface ChatMessagesProps {
   messages: DisplayMessage[];
@@ -118,20 +119,198 @@ function ThinkingBubble() {
 }
 
 const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) {
+  // Attachment messages start with the 📎 sentinel set in useChat.ts
+  const isAttachment = msg.content.startsWith("📎");
+  const attachmentName = isAttachment
+    ? msg.content.replace(/^📎\s*/, "").split(" (")[0]
+    : null;
+
   return (
     <div className="flex justify-end items-start gap-3">
-      <div className="bg-gs-blue/10 dark:bg-gs-blue/20 p-4 rounded-2xl rounded-tr-none max-w-[80%] border border-gs-blue/20">
-        <p className="text-sm text-gs-text leading-relaxed">{msg.content}</p>
-        <span className="text-[10px] text-gs-muted font-medium mt-2 block text-right">
-          {msg.timestamp}
-        </span>
-      </div>
+      {isAttachment ? (
+        <div className="flex flex-col items-end gap-1 max-w-[80%]">
+          <div className="flex items-center gap-2 px-4 py-3 bg-gs-card border border-gs-blue/30 rounded-2xl rounded-tr-none shadow-sm">
+            <div className="p-1.5 bg-gs-blue/10 rounded-lg shrink-0">
+              <FileText size={16} className="text-gs-blue" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gs-text leading-tight">{attachmentName}</p>
+              <p className="text-[11px] text-gs-muted mt-0.5">Uploaded document</p>
+            </div>
+          </div>
+          <span className="text-[10px] text-gs-muted font-medium">{msg.timestamp}</span>
+        </div>
+      ) : (
+        <div className="bg-gs-blue/10 dark:bg-gs-blue/20 p-4 rounded-2xl rounded-tr-none max-w-[80%] border border-gs-blue/20">
+          <p className="text-sm text-gs-text leading-relaxed">{msg.content}</p>
+          <span className="text-[10px] text-gs-muted font-medium mt-2 block text-right">
+            {msg.timestamp}
+          </span>
+        </div>
+      )}
       <div className="w-8 h-8 bg-blue-100 dark:bg-gs-blue/20 rounded-full flex items-center justify-center text-gs-blue shrink-0">
         <User size={16} />
       </div>
     </div>
   );
 });
+
+const SEVERITY_STYLES: Record<string, string> = {
+  Critical: "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400",
+  High:     "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400",
+  Medium:   "bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400",
+  Low:      "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400",
+};
+
+const PRIORITY_STYLES: Record<string, string> = {
+  Critical: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  High:     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  Medium:   "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  Low:      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+};
+
+function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
+  const authorities = Object.entries(data);
+
+  return (
+    <div className="space-y-6 mt-4">
+      {authorities.map(([authority, info]) => (
+        <div key={authority} className="space-y-4">
+          {/* Authority header + confidence */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1 bg-gs-blue/10 border border-gs-blue/30 rounded-full">
+                <span className="text-xs font-bold text-gs-blue">{authority}</span>
+              </div>
+              <span className="text-xs text-gs-muted font-medium">Analysis Report</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gs-green">
+              <TrendingUp size={12} />
+              {Math.round(info.confidence_score * 100)}% confidence
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-gs-bg rounded-xl p-4 border border-gs-border">
+            <div className="flex items-center gap-1.5 mb-2">
+              <BookOpen size={13} className="text-gs-blue" />
+              <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Summary</span>
+            </div>
+            <p className="text-sm text-gs-text leading-relaxed">{info.summary}</p>
+          </div>
+
+          {/* Insights */}
+          {info.insights?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <Lightbulb size={13} className="text-gs-purple" />
+                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Key Insights</span>
+              </div>
+              <div className="grid gap-2">
+                {info.insights.map((ins, i) => (
+                  <div key={i} className="flex gap-2.5 bg-gs-bg rounded-lg p-3 border border-gs-border">
+                    <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[10px] font-bold text-gs-purple">{i + 1}</span>
+                    </div>
+                    <p className="text-sm text-gs-text leading-relaxed">{ins.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Gaps */}
+          {info.gaps?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <AlertTriangle size={13} className="text-gs-orange" />
+                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">
+                  Identified Gaps ({info.gaps.length})
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                {info.gaps.map((gap, i) => (
+                  <div key={i} className={`rounded-xl border p-4 ${SEVERITY_STYLES[gap.severity] ?? SEVERITY_STYLES.Low}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold leading-snug">{gap.title}</p>
+                      <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border border-current opacity-80">
+                        {gap.severity}
+                      </span>
+                    </div>
+                    <p className="text-[13px] leading-relaxed opacity-90 mb-2">{gap.description}</p>
+                    {gap.regulatory_impact && (
+                      <p className="text-[12px] opacity-75 mb-1.5">
+                        <span className="font-semibold">Impact: </span>{gap.regulatory_impact}
+                      </p>
+                    )}
+                    {gap.recommended_action && (
+                      <p className="text-[12px] opacity-75">
+                        <span className="font-semibold">Action: </span>{gap.recommended_action}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Risks */}
+          {info.risks?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <ShieldAlert size={13} className="text-gs-red" />
+                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Risks</span>
+              </div>
+              <div className="space-y-2">
+                {info.risks.map((risk, i) => (
+                  <div key={i} className="flex gap-2.5 bg-red-50 dark:bg-red-900/10 rounded-lg p-3 border border-red-100 dark:border-red-900/30">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gs-red shrink-0 mt-2" />
+                    <p className="text-sm text-gs-text leading-relaxed">{risk}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          {info.actions?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <Zap size={13} className="text-gs-green" />
+                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Recommended Actions</span>
+              </div>
+              <div className="space-y-2.5">
+                {info.actions.map((action, i) => (
+                  <div key={i} className="bg-gs-bg rounded-xl border border-gs-border p-4 flex gap-3">
+                    <div className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-gs-green">{i + 1}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-semibold text-gs-text leading-snug">{action.title}</p>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_STYLES[action.priority] ?? PRIORITY_STYLES.Medium}`}>
+                          {action.priority}
+                        </span>
+                      </div>
+                      <p className="text-[13px] text-gs-muted leading-relaxed">{action.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Source basis */}
+          {info.source_basis && (
+            <p className="text-[11px] text-gs-muted italic border-t border-gs-border pt-3">
+              {info.source_basis}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
   const [vote, setVote]       = useState<"up" | "down" | null>(null);
@@ -164,6 +343,14 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
       </div>
 
       <div className="bg-gs-card border border-gs-border p-5 md:p-6 rounded-2xl rounded-tl-none shadow-card flex-1 min-w-0">
+        {/* Analysis header badge */}
+        {msg.isAnalysis && (
+          <div className="flex items-center gap-1.5 mb-3 px-2.5 py-1 bg-gs-blue/10 rounded-lg w-fit">
+            <BarChart2 size={12} className="text-gs-blue" />
+            <span className="text-[11px] font-semibold text-gs-blue">Regulatory Analysis</span>
+          </div>
+        )}
+
         <div className="prose-gs text-sm text-gs-muted leading-relaxed">
           {msg.isTyping ? (
             <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -171,6 +358,11 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
           )}
         </div>
+
+        {/* Rich analysis data card — only on committed (non-typing) analysis messages */}
+        {msg.isAnalysis && !msg.isTyping && msg.analysisData && (
+          <AnalysisCard data={msg.analysisData} />
+        )}
 
         {!msg.isTyping && (
           <>
@@ -189,58 +381,58 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
               </span>
 
               <div className="flex gap-1 text-gs-muted">
-                {/* Thumbs up */}
                 <button
                   onClick={() => setVote(v => v === "up" ? null : "up")}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    vote === "up"
-                      ? "text-gs-blue bg-gs-blue/10"
-                      : "hover:text-gs-blue hover:bg-gs-bg"
-                  }`}
+                  className={`p-1.5 rounded-lg transition-colors ${vote === "up" ? "text-gs-blue bg-gs-blue/10" : "hover:text-gs-blue hover:bg-gs-bg"}`}
                   aria-label="Helpful"
                 >
                   <ThumbsUp size={14} />
                 </button>
 
-                {/* Thumbs down */}
                 <button
                   onClick={() => setVote(v => v === "down" ? null : "down")}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    vote === "down"
-                      ? "text-gs-red bg-gs-red/10"
-                      : "hover:text-gs-red hover:bg-gs-bg"
-                  }`}
+                  className={`p-1.5 rounded-lg transition-colors ${vote === "down" ? "text-gs-red bg-gs-red/10" : "hover:text-gs-red hover:bg-gs-bg"}`}
                   aria-label="Not helpful"
                 >
                   <ThumbsDown size={14} />
                 </button>
 
-                {/* Copy */}
                 <button
                   onClick={handleCopy}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    copied
-                      ? "text-gs-green bg-gs-green/10"
-                      : "hover:text-gs-text hover:bg-gs-bg"
-                  }`}
+                  className={`p-1.5 rounded-lg transition-colors ${copied ? "text-gs-green bg-gs-green/10" : "hover:text-gs-text hover:bg-gs-bg"}`}
                   aria-label={copied ? "Copied!" : "Copy response"}
                   title={copied ? "Copied!" : "Copy response"}
                 >
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
 
-                {/* Share */}
                 <button
                   onClick={handleShare}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    shared
-                      ? "text-gs-green bg-gs-green/10"
-                      : "hover:text-gs-text hover:bg-gs-bg"
-                  }`}
+                  className={`p-1.5 rounded-lg transition-colors ${shared ? "text-gs-green bg-gs-green/10" : "hover:text-gs-text hover:bg-gs-bg"}`}
                   aria-label={shared ? "Link copied!" : "Share"}
                   title={shared ? "Link copied!" : "Share"}
                 >
                   {shared ? <Check size={14} /> : <Share2 size={14} />}
+                </button>
+
+                {/* Download response as markdown */}
+                <button
+                  onClick={() => {
+                    const blob = new Blob([msg.content], { type: "text/markdown;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${msg.isAnalysis ? "analysis" : "response"}-${Date.now()}.md`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="p-1.5 rounded-lg transition-colors hover:text-gs-text hover:bg-gs-bg"
+                  aria-label="Download as markdown"
+                  title="Download as .md"
+                >
+                  <Download size={14} />
                 </button>
               </div>
             </div>

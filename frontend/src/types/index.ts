@@ -14,6 +14,8 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   token_count: number | null;
+  is_analysis?: boolean;
+  analysis_data?: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -34,9 +36,15 @@ export interface TokenResponse {
 }
 
 export interface StreamChunk {
-  type: "delta" | "done" | "error";
+  type: "delta" | "done" | "error" | "analysis" | "conversation_ready";
   content?: string;
   message_id?: string;
   conversation_id?: string;
   error?: string;
+  data?: Record<string, unknown>;
+  // conversation_ready fields
+  id?: string;
+  model?: string;
+  created_at?: string;
+  updated_at?: string;
 }

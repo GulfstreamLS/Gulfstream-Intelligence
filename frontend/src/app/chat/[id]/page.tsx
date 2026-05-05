@@ -18,7 +18,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
 
   const { conversations, isStreaming, streamingContent, setActiveConversation, updateConversation } =
     useChatStore();
-  const { sendMessage } = useChat();
+  const { sendAll } = useChat();
 
   const conversation = conversations.find((c) => c.id === id);
 
@@ -35,9 +35,9 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     const q = searchParams.get("q");
     if (q && !initialQueryHandled.current && conversation) {
       initialQueryHandled.current = true;
-      sendMessage(id, q).catch(console.error);
+      sendAll({ conversationId: id, message: q }).catch(console.error);
     }
-  }, [id, searchParams, conversation, sendMessage]);
+  }, [id, searchParams, conversation, sendAll]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -53,7 +53,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
   }, [conversation?.messages, streamingContent]);
 
   async function handleSend(text: string) {
-    await sendMessage(id, text);
+    await sendAll({ conversationId: id, message: text });
   }
 
   return (

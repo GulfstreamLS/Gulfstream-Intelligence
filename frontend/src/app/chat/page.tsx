@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { useChat } from "../../hooks/useChat";
+import { chatApi } from "../../lib/api";
 
 const SUGGESTIONS = [
   "Explain quantum computing in simple terms",
@@ -13,10 +13,9 @@ const SUGGESTIONS = [
 
 export default function ChatHomePage() {
   const router = useRouter();
-  const { startNewConversation } = useChat();
 
   async function handleSuggestion(text: string) {
-    const convo = await startNewConversation();
+    const convo = await chatApi.createConversation();
     router.push(`/chat/${convo.id}?q=${encodeURIComponent(text)}`);
   }
 
