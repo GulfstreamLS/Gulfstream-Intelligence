@@ -114,6 +114,10 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.environment
       }
       env {
+        name  = "ALLOWED_ORIGINS"
+        value = "[\"https://gulfstream-frontend-y7fj7rtwsa-uc.a.run.app\", \"http://localhost:3000\"]"
+      }
+      env {
         name = "SECRET_KEY"
         value_source {
           secret_key_ref {

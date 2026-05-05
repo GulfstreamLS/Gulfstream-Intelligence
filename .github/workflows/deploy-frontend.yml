@@ -77,8 +77,8 @@ jobs:
       - name: Build and push frontend image
         run: |
           docker build --platform linux/amd64 \
-            --build-arg NEXT_PUBLIC_API_URL=https://gulfstream-backend-1046831687787.us-central1.run.app/api/v1 \
-            --build-arg BACKEND_URL=https://gulfstream-backend-1046831687787.us-central1.run.app \
+            --build-arg NEXT_PUBLIC_API_URL=https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1 \
+            --build-arg BACKEND_URL=https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app \
             -t "$FRONTEND_IMAGE" ./frontend
           docker push "$FRONTEND_IMAGE"
 
