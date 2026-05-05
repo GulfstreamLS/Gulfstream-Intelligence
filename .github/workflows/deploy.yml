@@ -24,17 +24,12 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Run DB migrations
-        run: |
-          gcloud run jobs execute gulfstream-migrate \
-            --region ${{ secrets.GCP_REGION }} \
-            --wait \
-            --project ${{ secrets.GCP_PROJECT_ID }}
+
 
       - name: Deploy backend
         run: |
           gcloud run services update gulfstream-backend \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/apps/backend:${{ github.event.workflow_run.head_sha }} \
+            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/gulfstream-repo/backend:${{ github.event.workflow_run.head_sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --project ${{ secrets.GCP_PROJECT_ID }}
 
