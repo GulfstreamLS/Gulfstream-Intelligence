@@ -15,6 +15,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      GCP_PROJECT_ID_SECRET: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION_SECRET: ${{ secrets.GCP_REGION }}
     steps:
       - uses: actions/checkout@v4
       - id: auth
@@ -24,16 +27,34 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Prepare GCP values
+        run: |
+          PROJECT_ID="$(printf '%s' "$GCP_PROJECT_ID_SECRET" | tr -d '[:space:]')"
+          REGION="$(printf '%s' "$GCP_REGION_SECRET" | tr -d '[:space:]')"
 
+          if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+            echo "GCP_PROJECT_ID and GCP_REGION secrets must both be set."
+            exit 1
+          fi
+
+          echo "GCP_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "GCP_REGION=$REGION" >> "$GITHUB_ENV"
+          echo "BACKEND_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/apps/backend:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
 
       - name: Deploy backend
         run: |
-          gcloud run services update gulfstream-backend \
-            --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/gulfstream-repo/backend:${{ github.event.workflow_run.head_sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --project ${{ secrets.GCP_PROJECT_ID }}
+          gcloud run deploy gulfstream-backend \
+            --image "$BACKEND_IMAGE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8000
 
       - name: Verify deployment
         run: |
-          BACKEND_URL=$(gcloud run services describe gulfstream-backend --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')
+          BACKEND_URL=$(gcloud run services describe gulfstream-backend \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --format 'value(status.url)')
           curl -sf "$BACKEND_URL/api/v1/health" | jq .
