@@ -174,7 +174,9 @@ class ChatService:
                 await self.perform_analysis_for_chat(
                     db,
                     conversation_id,
+                    user_id,
                     bytes.fromhex(file_hex),
+                    convo.metadata_.get("last_uploaded_filename", "Document"),
                     convo.metadata_.get("last_uploaded_type", "txt"),
                     selected_authorities,
                 )
@@ -199,13 +201,22 @@ class ChatService:
             await db.commit()
 
     async def perform_analysis_for_chat(
-        self, db: AsyncSession, conversation_id: uuid.UUID, file_content: bytes, file_type: str, authorities: list[str]
+        self, 
+        db: AsyncSession, 
+        conversation_id: uuid.UUID, 
+        user_id: uuid.UUID,
+        file_content: bytes, 
+        filename: str,
+        file_type: str, 
+        authorities: list[str]
     ) -> Message:
         """Analyze document and save results to a chat message."""
 
         from app.services.analysis_service import analysis_service
 
-        results = await analysis_service.analyze_document_multi(db, file_content, file_type, authorities)
+        results = await analysis_service.analyze_document_multi(
+            db, user_id, file_content, filename, file_type, authorities
+        )
 
         # Format a summary for the chat bubble
         summary = f"I have analyzed the document against {', '.join(authorities)}.\n"

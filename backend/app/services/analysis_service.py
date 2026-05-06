@@ -90,6 +90,7 @@ class AnalysisService:
             filename=filename,
             file_type=file_type,
             file_path=f"uploads/{filename}",  # Placeholder
+            authority=authority,
             summary=analysis_result.summary,
             confidence_score=analysis_result.confidence_score,
         )
@@ -126,9 +127,15 @@ class AnalysisService:
         return doc
 
     async def analyze_document_multi(
-        self, db: AsyncSession, file_content: bytes, file_type: str, authorities: list[str]
+        self, 
+        db: AsyncSession, 
+        user_id: uuid.UUID,
+        file_content: bytes, 
+        filename: str,
+        file_type: str, 
+        authorities: list[str]
     ) -> dict[str, FullAnalysisResponse]:
-        """Perform RAG analysis across multiple authorities separately."""
+        """Perform RAG analysis across multiple authorities and persist results."""
         text = document_processor.extract_text(file_content, file_type)
         search_query = text[:3000]
 
@@ -155,9 +162,48 @@ class AnalysisService:
             )
 
             chain = prompt | self.structured_llm
-            analysis: FullAnalysisResponse = await chain.ainvoke({"context": context_text, "document_text": text})
-            results[auth] = analysis
+            analysis_result: FullAnalysisResponse = await chain.ainvoke({"context": context_text, "document_text": text})
+            results[auth] = analysis_result
 
+            # --- PERSIST TO DATABASE (Per Authority) ---
+            doc = AnalysisDocument(
+                user_id=user_id,
+                filename=filename,
+                file_type=file_type,
+                file_path=f"uploads/{filename}",
+                authority=auth,
+                summary=analysis_result.summary,
+                confidence_score=analysis_result.confidence_score,
+            )
+            db.add(doc)
+            await db.flush()
+
+            # Save Gaps
+            for g in analysis_result.gaps:
+                gap = Gap(
+                    document_id=doc.id,
+                    title=g.title,
+                    domain=g.domain,
+                    severity=g.severity.lower(),
+                    description=g.description,
+                    regulatory_impact=g.regulatory_impact,
+                    recommended_action=g.recommended_action,
+                    quoted_excerpt=g.quoted_excerpt,
+                    page_reference=g.page_reference,
+                )
+                db.add(gap)
+
+            # Save Insights
+            for i in analysis_result.insights:
+                insight = Insight(document_id=doc.id, content=i.content, category=i.category)
+                db.add(insight)
+
+            # Save Actions
+            for a in analysis_result.actions:
+                action = Action(document_id=doc.id, title=a.title, description=a.description, priority=a.priority)
+                db.add(action)
+
+        await db.commit()
         return results
 
 

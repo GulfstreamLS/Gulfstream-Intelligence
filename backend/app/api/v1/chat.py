@@ -79,7 +79,13 @@ async def send(
         file_extension = file.filename.split(".")[-1].lower()
         from app.services.storage_service import storage_service
 
-        file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+        try:
+            file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+        except (RuntimeError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Storage Error: {str(e)}"
+            )
         convo.active_file_id = uuid.uuid4()
         convo.metadata_ = convo.metadata_ or {}
         convo.metadata_["last_uploaded_filename"] = file.filename
@@ -166,13 +172,18 @@ async def send(
             from app.services.export_service import export_service
 
             fname = convo.metadata_.get("last_uploaded_filename", "Document")
-            url, label = None, ""
-            if "pdf" in msg_lower:
-                url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
-            elif any(w in msg_lower for w in ["word", "docx", "doc"]):
-                url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
-            elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
-                url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
+            try:
+                if "pdf" in msg_lower:
+                    url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
+                elif any(w in msg_lower for w in ["word", "docx", "doc"]):
+                    url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
+                elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
+                    url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
+            except (RuntimeError, ValueError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Export/Storage Error: {str(e)}"
+                )
             if url:
                 ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
                 text = f"✅ **{label} Generated Successfully.**\n\nDownload: **[{fname}_Report.{ext}]({url})**"
@@ -365,7 +376,13 @@ async def upload_file_to_chat(
 
     from app.services.storage_service import storage_service
 
-    file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+    try:
+        file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Storage Error: {str(e)}"
+        )
 
     # Store file metadata in conversation
     convo.active_file_id = uuid.uuid4()
@@ -379,7 +396,7 @@ async def upload_file_to_chat(
     # Trigger analysis if authorities are selected
     if convo.authorities:
         msg = await chat_service.perform_analysis_for_chat(
-            db, conversation_id, content, file_extension, convo.authorities
+            db, conversation_id, current_user.id, content, file.filename, file_extension, convo.authorities
         )
         return MessageResponse.model_validate(msg)
 
@@ -523,22 +540,26 @@ async def send_message(
 
             filename = convo.metadata_.get("last_uploaded_filename", "Document")
 
-            url = None
-            file_type_label = ""
-            if "pdf" in msg_lower:
-                url, file_type_label = (
-                    await export_service.generate_pdf(last_analysis_msg.analysis_data, filename),
-                    "PDF",
-                )
-            elif any(w in msg_lower for w in ["word", "docx", "doc", "docs"]):
-                url, file_type_label = (
-                    await export_service.generate_docx(last_analysis_msg.analysis_data, filename),
-                    "Word",
-                )
-            elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
-                url, file_type_label = (
-                    await export_service.generate_pptx(last_analysis_msg.analysis_data, filename),
-                    "PowerPoint",
+            try:
+                if "pdf" in msg_lower:
+                    url, file_type_label = (
+                        await export_service.generate_pdf(last_analysis_msg.analysis_data, filename),
+                        "PDF",
+                    )
+                elif any(w in msg_lower for w in ["word", "docx", "doc", "docs"]):
+                    url, file_type_label = (
+                        await export_service.generate_docx(last_analysis_msg.analysis_data, filename),
+                        "Word",
+                    )
+                elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
+                    url, file_type_label = (
+                        await export_service.generate_pptx(last_analysis_msg.analysis_data, filename),
+                        "PowerPoint",
+                    )
+            except (RuntimeError, ValueError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Export/Storage Error: {str(e)}"
                 )
 
             if url:
