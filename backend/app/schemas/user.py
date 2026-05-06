@@ -1,3 +1,4 @@
+from anthropic.types import message
 import uuid
 from datetime import datetime
 
@@ -31,6 +32,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    message: str = "CI/CD test"
 
 
 class RefreshRequest(BaseModel):

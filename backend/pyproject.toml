@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["static_tests"]
+norecursedirs = ["scripts", "venv", ".git"]
 addopts = "--cov=app --cov-report=term-missing"
 
 [tool.ruff]

@@ -27,6 +27,7 @@ from app.services.ai_service import ai_service
 from app.services.chat_service import chat_service
 from app.services.vector_service import vector_service
 from app.services.document_processor import document_processor
+import datetime
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
