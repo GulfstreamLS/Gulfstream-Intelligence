@@ -12,7 +12,7 @@ test_engine = create_async_engine(TEST_DATABASE_URL)
 TestSession = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 async def create_tables():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -22,7 +22,7 @@ async def create_tables():
 
 
 @pytest.fixture()
-async def db():
+async def db(create_tables):
     async with TestSession() as session:
         yield session
         await session.rollback()
