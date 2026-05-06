@@ -7,4 +7,3 @@ router.include_router(health.router)
 router.include_router(auth.router)
 router.include_router(chat.router)
 router.include_router(regulatory.router)
-

@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from typing import Any
+
 from openai import AsyncOpenAI
 
 from app.agents.base_provider import BaseLLMProvider

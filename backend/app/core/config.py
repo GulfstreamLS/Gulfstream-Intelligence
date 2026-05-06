@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/api/v1"
     ALLOWED_ORIGINS: list[str] = []
-
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

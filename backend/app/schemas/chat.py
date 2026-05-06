@@ -1,9 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
-
 
 from app.models.chat import MessageRole
 
@@ -20,21 +18,18 @@ class MessageResponse(BaseModel):
     content: str
     token_count: int | None
     is_analysis: bool = False
-    analysis_data: Optional[dict] = None
+    analysis_data: dict | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
-
 
 
 class ConversationCreate(BaseModel):
     title: str | None = None
     model: str = "claude-sonnet-4-6"
     authority: str | None = None
-    authorities: Optional[list[str]] = None
+    authorities: list[str] | None = None
     system_prompt: str | None = None
-
-
 
 
 class ConversationUpdate(BaseModel):
@@ -47,10 +42,9 @@ class ConversationResponse(BaseModel):
     title: str | None
     model: str
     authority: str | None = None
-    authorities: Optional[list[str]] = None
-    active_file_id: Optional[uuid.UUID] = None
+    authorities: list[str] | None = None
+    active_file_id: uuid.UUID | None = None
     system_prompt: str | None = None
-
 
     created_at: datetime
     updated_at: datetime
@@ -62,9 +56,8 @@ class ConversationResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=32_000)
     model: str | None = None
-    authorities: Optional[list[str]] = None
+    authorities: list[str] | None = None
     stream: bool = True
-
 
 
 class ChatStreamChunk(BaseModel):

@@ -1,8 +1,8 @@
 import os
 import uuid
-from typing import Optional
+
 from google.cloud import storage
-from app.core.config import settings
+
 
 class StorageService:
     def __init__(self):
@@ -25,17 +25,17 @@ class StorageService:
         Uploads a file to GCP bucket OR local storage fallback.
         """
         blob_name = f"{uuid.uuid4()}-{filename}"
-        
+
         if not self.bucket_name or not os.path.exists(self.credentials_path or ""):
             # --- LOCAL FALLBACK ---
             media_path = "/app/media"
             if not os.path.exists(media_path):
                 os.makedirs(media_path, exist_ok=True)
-            
+
             local_file_path = os.path.join(media_path, blob_name)
             with open(local_file_path, "wb") as f:
                 f.write(content)
-            
+
             # Return a local URL (we will serve this in main.py)
             return f"/media/{blob_name}"
 

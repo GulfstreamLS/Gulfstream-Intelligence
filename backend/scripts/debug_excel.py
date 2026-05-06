@@ -1,5 +1,6 @@
-import openpyxl
 import os
+
+import openpyxl
 
 file_path = "fda_metadata.xlsx"
 if not os.path.exists(file_path):

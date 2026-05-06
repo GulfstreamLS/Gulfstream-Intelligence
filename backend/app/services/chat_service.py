@@ -3,7 +3,6 @@ from collections.abc import AsyncGenerator
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
@@ -23,7 +22,6 @@ class ChatService:
         )
         return list(result.scalars().all())
 
-
     async def get_conversation(
         self, db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
     ) -> Conversation | None:
@@ -34,15 +32,12 @@ class ChatService:
         )
         return result.scalar_one_or_none()
 
-    async def create_conversation(
-        self, db: AsyncSession, user_id: uuid.UUID, data: ConversationCreate
-    ) -> Conversation:
+    async def create_conversation(self, db: AsyncSession, user_id: uuid.UUID, data: ConversationCreate) -> Conversation:
         convo = Conversation(user_id=user_id, **data.model_dump())
         convo.messages = []  # Prevent SQLAlchemy lazy-load greenlet error
         db.add(convo)
         await db.flush()
         return convo
-
 
     async def update_conversation(
         self, db: AsyncSession, conversation: Conversation, data: ConversationUpdate
@@ -78,9 +73,7 @@ class ChatService:
         await db.flush()
         return msg
 
-    async def get_messages_as_dicts(
-        self, db: AsyncSession, conversation_id: uuid.UUID, limit: int = 20
-    ) -> list[dict]:
+    async def get_messages_as_dicts(self, db: AsyncSession, conversation_id: uuid.UUID, limit: int = 20) -> list[dict]:
         result = await db.execute(
             select(Message)
             .where(Message.conversation_id == conversation_id)
@@ -89,13 +82,12 @@ class ChatService:
         )
         messages = list(result.scalars().all())
         messages.reverse()
-        return [{"role": str(m.role), "content": m.content} for m in messages if str(m.role) != MessageRole.SYSTEM.value]
-
+        return [
+            {"role": str(m.role), "content": m.content} for m in messages if str(m.role) != MessageRole.SYSTEM.value
+        ]
 
     async def auto_title_conversation(self, conversation: "Conversation", first_message: str) -> str:
         return first_message[:80].rstrip() + ("..." if len(first_message) > 80 else "")
-
-
 
     async def process_chat_message(
         self,
@@ -104,7 +96,6 @@ class ChatService:
         user_id: uuid.UUID,
         message_content: str,
     ) -> AsyncGenerator[str, None]:
-        from collections.abc import AsyncGenerator
         from app.agents.prompts import get_persona
         from app.services.ai_service import ai_service
 
@@ -116,23 +107,24 @@ class ChatService:
         await db.commit()
 
         history = await self.get_messages_as_dicts(db, conversation_id)
-        
+
         # 1. RAG Context Injection
         selected_authorities = convo.authorities or []
         context_text = ""
         if selected_authorities:
             from app.services.vector_service import vector_service
+
             # Search knowledge base for relevant context based on user query
             context_sources = await vector_service.search_regulatory_context(
                 db, message_content, authority=selected_authorities, limit=3
             )
             if context_sources:
-                context_text = "\n\nREGULATORY CONTEXT:\n" + "\n".join([
-                    f"- {s.title} ({s.authority}): {s.content}" for s in context_sources
-                ])
+                context_text = "\n\nREGULATORY CONTEXT:\n" + "\n".join(
+                    [f"- {s.title} ({s.authority}): {s.content}" for s in context_sources]
+                )
 
         system_prompt = get_persona(convo.authority) or "You are a Regulatory Intelligence Assistant."
-        
+
         # 2. Document Awareness
         document_context = ""
         if convo.active_file_id and convo.metadata_:
@@ -142,34 +134,57 @@ class ChatService:
                 file_content = bytes.fromhex(file_hex)
                 file_type = convo.metadata_.get("last_uploaded_type", "txt")
                 from app.services.document_processor import document_processor
+
                 doc_text = document_processor.extract_text(file_content, file_type)
-                document_context = f"\n\nACTIVE DOCUMENT ({filename}):\n{doc_text[:5000]}" # Limit context size
-                
+                document_context = f"\n\nACTIVE DOCUMENT ({filename}):\n{doc_text[:5000]}"  # Limit context size
+
         if document_context:
-            system_prompt += f"\n\nCRITICAL: You have access to an uploaded document. If the user asks about 'this document' or 'the file', they are referring to the content below. NEVER say you cannot see files.\n{document_context}"
+            prompt_warning = (
+                "\n\nCRITICAL: You have access to an uploaded document. "
+                "If the user asks about 'this document' or 'the file', "
+                "they are referring to the content below. NEVER say you cannot see files.\n"
+            )
+            system_prompt += f"{prompt_warning}{document_context}"
 
         if context_text:
-            system_prompt += f"\n\nUse the following regulatory knowledge to help answer the user's question:\n{context_text}"
+            system_prompt += (
+                f"\n\nUse the following regulatory knowledge to help answer the user's question:\n{context_text}"
+            )
 
         # 3. Detect Analysis Request
-        analysis_triggers = ["analyze", "analysis", "gap", "audit", "this document", "the document", "thoughts", "review", "check", "evaluate", "assess", "is this okay"]
+        analysis_triggers = [
+            "analyze",
+            "analysis",
+            "gap",
+            "audit",
+            "this document",
+            "the document",
+            "thoughts",
+            "review",
+            "check",
+            "evaluate",
+            "assess",
+            "is this okay",
+        ]
         is_analysis_request = any(word in message_content.lower() for word in analysis_triggers)
         if is_analysis_request and convo.active_file_id and selected_authorities:
-
-
             # If they ask for analysis, we return the structured analysis message
             file_hex = convo.metadata_.get("last_uploaded_content")
             if file_hex:
                 await self.perform_analysis_for_chat(
-                    db, conversation_id, bytes.fromhex(file_hex), 
-                    convo.metadata_.get("last_uploaded_type", "txt"), 
-                    selected_authorities
+                    db,
+                    conversation_id,
+                    bytes.fromhex(file_hex),
+                    convo.metadata_.get("last_uploaded_type", "txt"),
+                    selected_authorities,
                 )
-                yield "I have completed the regulatory analysis. You can see the structured results in the bubble above."
+                yield (
+                    "I have completed the regulatory analysis. "
+                    "You can see the structured results in the bubble above."
+                )
                 return
 
         full_response = ""
-
 
         async for chunk in ai_service.stream_chat(
             messages=history,
@@ -184,41 +199,27 @@ class ChatService:
             await db.commit()
 
     async def perform_analysis_for_chat(
-        self,
-        db: AsyncSession,
-        conversation_id: uuid.UUID,
-        file_content: bytes,
-        file_type: str,
-        authorities: list[str]
+        self, db: AsyncSession, conversation_id: uuid.UUID, file_content: bytes, file_type: str, authorities: list[str]
     ) -> Message:
         """Analyze document and save results to a chat message."""
+
         from app.services.analysis_service import analysis_service
-        import json
-        
-        results = await analysis_service.analyze_document_multi(
-            db, file_content, file_type, authorities
-        )
-        
+
+        results = await analysis_service.analyze_document_multi(db, file_content, file_type, authorities)
+
         # Format a summary for the chat bubble
         summary = f"I have analyzed the document against {', '.join(authorities)}.\n"
         for auth, analysis in results.items():
             summary += f"\n**{auth} Summary:** {analysis.summary[:200]}..."
-            
+
         # Convert results to dict for JSON storage
         analysis_dict = {auth: analysis.model_dump() for auth, analysis in results.items()}
-        
+
         msg = await self.add_message(
-            db, 
-            conversation_id, 
-            MessageRole.ASSISTANT, 
-            summary,
-            is_analysis=True,
-            analysis_data=analysis_dict
+            db, conversation_id, MessageRole.ASSISTANT, summary, is_analysis=True, analysis_data=analysis_dict
         )
         await db.commit()
         return msg
 
 
-
 chat_service = ChatService()
-

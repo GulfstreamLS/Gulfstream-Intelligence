@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -11,27 +11,27 @@ class GapAnalysis(BaseModel):
     description: str
     regulatory_impact: str
     recommended_action: str
-    quoted_excerpt: Optional[str] = None
-    page_reference: Optional[str] = None
+    quoted_excerpt: str | None = None
+    page_reference: str | None = None
 
 
 class ActionItem(BaseModel):
     title: str
     description: str
-    priority: Optional[str] = None
+    priority: str | None = None
 
 
 class InsightItem(BaseModel):
     content: str
-    category: Optional[str] = None
+    category: str | None = None
 
 
 class FullAnalysisResponse(BaseModel):
     summary: str
-    insights: List[InsightItem]
-    gaps: List[GapAnalysis]
-    risks: List[str]
-    actions: List[ActionItem]
+    insights: list[InsightItem]
+    gaps: list[GapAnalysis]
+    risks: list[str]
+    actions: list[ActionItem]
     confidence_score: float
     source_basis: str
 
@@ -40,12 +40,12 @@ class DocumentAnalysisResponse(BaseModel):
     id: uuid.UUID
     filename: str
     file_type: str
-    summary: Optional[str]
-    confidence_score: Optional[float]
+    summary: str | None
+    confidence_score: float | None
     created_at: datetime
-    
-    gaps: List[GapAnalysis] = []
-    insights: List[InsightItem] = []
-    actions: List[ActionItem] = []
+
+    gaps: list[GapAnalysis] = []
+    insights: list[InsightItem] = []
+    actions: list[ActionItem] = []
 
     model_config = {"from_attributes": True}

@@ -1,11 +1,10 @@
-from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.models.user import User
 from app.services.auth_service import auth_service
-from sqlalchemy.ext.asyncio import AsyncSession
 
 bearer_scheme = HTTPBearer()
 
@@ -27,13 +26,12 @@ async def get_current_superuser(current_user: User = Depends(get_current_user)) 
 
 
 async def get_user_or_none(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
-) -> Optional[User]:
+) -> User | None:
     if not credentials:
         return None
     try:
         return await auth_service.get_current_user(db, credentials.credentials)
     except Exception:
         return None
-

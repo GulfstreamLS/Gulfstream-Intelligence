@@ -36,21 +36,17 @@ class AIService:
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncGenerator[str, None]:
         from app.agents.model_router import ModelRouter
-        
+
         provider = ModelRouter.get_provider(model)
-        
+
         kwargs = {}
         if tools:
             kwargs["tools"] = tools
 
         async for chunk in provider.stream_response(
-            messages=messages,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            **kwargs
+            messages=messages, system_prompt=system_prompt, max_tokens=max_tokens, **kwargs
         ):
             yield chunk
-
 
 
 ai_service = AIService()

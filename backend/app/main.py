@@ -2,9 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-
 from fastapi.staticfiles import StaticFiles
+
 from app.api.v1.router import router as api_v1_router
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -39,18 +38,16 @@ def create_app() -> FastAPI:
 
     # Mount test UI
     import os
+
     app.mount("/test-ui", StaticFiles(directory="static_tests"), name="test-ui")
-    
+
     # Mount Media for local fallback
     media_dir = os.path.join(os.getcwd(), "media")
     if not os.path.exists(media_dir):
         os.makedirs(media_dir, exist_ok=True)
     app.mount("/media", StaticFiles(directory=media_dir), name="media")
 
-
-
     return app
 
 
 app = create_app()
-

@@ -1,15 +1,16 @@
 import asyncio
-import httpx
 import json
 import logging
-from typing import List, Dict, Any
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from typing import Any
+
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.services.vector_service import vector_service
-from app.services.document_processor import document_processor
 from app.core.logging import get_logger
+from app.services.document_processor import document_processor
+from app.services.vector_service import vector_service
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -17,26 +18,30 @@ logger = get_logger("fda_ingestor")
 
 FDA_DATA_URL = "https://www.fda.gov/datatables-json/search-for-guidance.json"
 
-async def fetch_fda_metadata(local_path: str = None) -> List[Dict[str, Any]]:
+
+async def fetch_fda_metadata(local_path: str = None) -> list[dict[str, Any]]:
     """Fetch metadata from FDA remote or a local file."""
     if local_path:
         logger.info(f"Loading local FDA metadata from {local_path}...")
-        with open(local_path, 'r') as f:
-            if local_path.endswith('.json'):
+        with open(local_path) as f:
+            if local_path.endswith(".json"):
                 data = json.load(f)
                 return data.get("data", [])
         return []
 
     logger.info(f"Fetching FDA metadata from {FDA_DATA_URL}...")
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents",
         "X-Requested-With": "XMLHttpRequest",
-        "Connection": "keep-alive"
+        "Connection": "keep-alive",
     }
-    
+
     async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
         for attempt in range(3):
             try:
@@ -46,17 +51,18 @@ async def fetch_fda_metadata(local_path: str = None) -> List[Dict[str, Any]]:
                     rows = data.get("data", [])
                     logger.info(f"Successfully fetched {len(rows)} entries from FDA.")
                     return rows
-                
-                logger.warning(f"Attempt {attempt+1} failed with status {response.status_code}. Retrying...")
+
+                logger.warning(f"Attempt {attempt + 1} failed with status {response.status_code}. Retrying...")
                 await asyncio.sleep(2 * (attempt + 1))
             except Exception as e:
-                logger.warning(f"Attempt {attempt+1} encountered error: {str(e)}. Retrying...")
+                logger.warning(f"Attempt {attempt + 1} encountered error: {str(e)}. Retrying...")
                 await asyncio.sleep(2 * (attempt + 1))
-        
+
         logger.error("All attempts to fetch FDA metadata failed.")
         return []
 
-def parse_fda_row(row: List[str]) -> Dict[str, Any]:
+
+def parse_fda_row(row: list[str]) -> dict[str, Any]:
     """Parse a single row from the FDA DataTables JSON."""
     title_html = row[0]
     doc_html = row[1]
@@ -67,8 +73,8 @@ def parse_fda_row(row: List[str]) -> Dict[str, Any]:
 
     # Extract PDF URL
     pdf_url = ""
-    if "href=\"" in doc_html:
-        pdf_url = doc_html.split("href=\"")[1].split("\"")[0]
+    if 'href="' in doc_html:
+        pdf_url = doc_html.split('href="')[1].split('"')[0]
         if not pdf_url.startswith("http"):
             pdf_url = "https://www.fda.gov" + pdf_url
 
@@ -81,16 +87,17 @@ def parse_fda_row(row: List[str]) -> Dict[str, Any]:
         "issue_date": issue_date,
         "organization": org,
         "topic": topic,
-        "status": status.strip() if status else ""
+        "status": status.strip() if status else "",
     }
 
-async def ingest_document(db: AsyncSession, doc_meta: Dict[str, Any]):
+
+async def ingest_document(db: AsyncSession, doc_meta: dict[str, Any]):
     """Download PDF, extract text, and seed into vector DB."""
     if not doc_meta["pdf_url"]:
         return
 
     logger.info(f"Processing: {doc_meta['title']}...")
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
@@ -107,7 +114,7 @@ async def ingest_document(db: AsyncSession, doc_meta: Dict[str, Any]):
             "issue_date": doc_meta["issue_date"],
             "organization": doc_meta["organization"],
             "topic": doc_meta["topic"],
-            "status": doc_meta["status"]
+            "status": doc_meta["status"],
         }
 
         await vector_service.add_regulatory_content(
@@ -116,13 +123,14 @@ async def ingest_document(db: AsyncSession, doc_meta: Dict[str, Any]):
             title=doc_meta["title"],
             content=text,
             source_url=doc_meta["pdf_url"],
-            metadata=metadata
+            metadata=metadata,
         )
         await db.commit()
         logger.info(f"✅ Ingested: {doc_meta['title']}")
 
     except Exception as e:
         logger.error(f"❌ Failed {doc_meta['title']}: {str(e)}")
+
 
 async def main(limit: int = 10, status_filter: str = "Final", local_path: str = None):
     """Main entry point for ingestion."""
@@ -139,20 +147,22 @@ async def main(limit: int = 10, status_filter: str = "Final", local_path: str = 
         for row in rows:
             if count >= limit:
                 break
-                
+
             doc_meta = parse_fda_row(row)
             if status_filter and status_filter.lower() not in doc_meta["status"].lower():
                 continue
 
             await ingest_document(db, doc_meta)
             count += 1
-            
+
     logger.info(f"Processed {count} documents.")
+
 
 if __name__ == "__main__":
     import sys
+
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else 10
     status = sys.argv[2] if len(sys.argv) > 2 else "Final"
     local_path = sys.argv[3] if len(sys.argv) > 3 else None
-    
+
     asyncio.run(main(limit=limit, status_filter=status, local_path=local_path))

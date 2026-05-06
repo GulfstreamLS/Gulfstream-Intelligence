@@ -1,73 +1,59 @@
 import uuid
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 
-
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none
-from app.models.user import User
 from app.models.regulatory import AnalysisDocument, RegulatorySource
+from app.models.user import User
+from app.schemas.regulatory import DocumentAnalysisResponse
 from app.services.analysis_service import analysis_service
 from app.services.vector_service import vector_service
-from app.schemas.regulatory import DocumentAnalysisResponse
-
 
 router = APIRouter(prefix="/regulatory", tags=["regulatory"])
 
 
-@router.get("/authorities", response_model=List[str])
-async def list_authorities(
-    db: AsyncSession = Depends(get_db)
-):
+@router.get("/authorities", response_model=list[str])
+async def list_authorities(db: AsyncSession = Depends(get_db)):
     """List all unique regulatory authorities in the system."""
     result = await db.execute(select(RegulatorySource.authority).distinct())
     authorities = [row[0] for row in result.all()]
     return sorted(authorities)
 
 
-
 @router.post("/analysis/upload", response_model=DocumentAnalysisResponse)
 async def upload_for_analysis(
     file: UploadFile = File(...),
     authority: str = Form(None),
-    current_user: Optional[User] = Depends(get_user_or_none),
-    db: AsyncSession = Depends(get_db)
+    current_user: User | None = Depends(get_user_or_none),
+    db: AsyncSession = Depends(get_db),
 ):
-
     """Upload a document for regulatory gap analysis."""
     # For development/test-ui, we allow a mock user if none is provided
     if not current_user:
         user_result = await db.execute(select(User).limit(1))
         mock_user = user_result.scalar_one_or_none()
         if not mock_user:
-             raise HTTPException(status_code=500, detail="No users found in database to assign analysis to.")
+            raise HTTPException(status_code=500, detail="No users found in database to assign analysis to.")
         user_id = mock_user.id
     else:
         user_id = current_user.id
 
-    
     content = await file.read()
     file_extension = file.filename.split(".")[-1].lower()
-    
+
     if file_extension not in ["pdf", "docx", "doc", "txt"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported file format. Please upload PDF, Word, or TXT documents."
+            detail="Unsupported file format. Please upload PDF, Word, or TXT documents.",
         )
-
 
     try:
         doc = await analysis_service.analyze_document(
-            db, 
-            user_id, 
-            content, 
-            file.filename, 
-            file_extension, 
-            authority=authority
+            db, user_id, content, file.filename, file_extension, authority=authority
         )
         # Fetch with relationships for the response
         result = await db.execute(
@@ -75,25 +61,21 @@ async def upload_for_analysis(
             .options(
                 selectinload(AnalysisDocument.gaps),
                 selectinload(AnalysisDocument.insights),
-                selectinload(AnalysisDocument.actions)
+                selectinload(AnalysisDocument.actions),
             )
             .where(AnalysisDocument.id == doc.id)
         )
         return result.scalar_one()
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis failed: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Analysis failed: {str(e)}")
 
 
 @router.get("/analysis/{document_id}", response_model=DocumentAnalysisResponse)
 async def get_analysis_result(
-    document_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    document_id: uuid.UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Retrieve the results of a previous analysis."""
     result = await db.execute(
@@ -101,7 +83,7 @@ async def get_analysis_result(
         .options(
             selectinload(AnalysisDocument.gaps),
             selectinload(AnalysisDocument.insights),
-            selectinload(AnalysisDocument.actions)
+            selectinload(AnalysisDocument.actions),
         )
         .where(AnalysisDocument.id == document_id, AnalysisDocument.user_id == current_user.id)
     )
@@ -119,24 +101,22 @@ async def seed_regulatory_knowledge(
     file: UploadFile = File(None),
     source_url: str = Form(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Seed the regulatory knowledge base via text or file upload."""
     # Only superusers or specific roles should do this in production
-    
+
     final_content = content
     if file:
         file_content = await file.read()
         file_extension = file.filename.split(".")[-1].lower()
         from app.services.document_processor import document_processor
+
         final_content = document_processor.extract_text(file_content, file_extension)
-    
+
     if not final_content:
         raise HTTPException(status_code=400, detail="Either content or file must be provided")
 
-    await vector_service.add_regulatory_content(
-        db, authority, title, final_content, source_url
-    )
+    await vector_service.add_regulatory_content(db, authority, title, final_content, source_url)
     await db.commit()
     return {"message": f"Knowledge '{title}' seeded successfully"}
-

@@ -14,6 +14,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: gulfstream_test
         ports: ["5432:5432"]

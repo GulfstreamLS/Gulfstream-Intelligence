@@ -1,8 +1,9 @@
 import os
-import httpx
 import sys
 
-key = os.environ.get('OPENAI_API_KEY')
+import httpx
+
+key = os.environ.get("OPENAI_API_KEY")
 if not key:
     print("OPENAI_API_KEY not found in environment")
     sys.exit(1)
@@ -11,10 +12,7 @@ print(f"Testing OpenAI with key ending in: {key[-4:]}")
 
 url = "https://api.openai.com/v1/embeddings"
 headers = {"Authorization": f"Bearer {key}"}
-payload = {
-    "input": "test content for embedding",
-    "model": "text-embedding-3-small"
-}
+payload = {"input": "test content for embedding", "model": "text-embedding-3-small"}
 
 try:
     print(f"Sending request to {url}...")
