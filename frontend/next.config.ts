@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/backend/:path*",
-        destination: `${process.env.BACKEND_URL ?? "http://localhost:8000"}/api/v1/:path*`,
+        destination: `${process.env.BACKEND_URL ?? "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app"}/api/v1/:path*`,
       },
     ];
   },

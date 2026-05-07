@@ -1,7 +1,7 @@
 import type { Conversation, Project, ProjectListResponse, StreamChunk, TokenResponse, User } from "../types";
 import Cookies from "js-cookie";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
+const BASE_URL = "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
 
 export function setTokenCookies(tokens: TokenResponse) {
   Cookies.set("access_token", tokens.access_token, { expires: 1 });
