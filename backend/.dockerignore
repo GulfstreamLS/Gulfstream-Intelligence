@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Tests & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local configuration
+.env
+*.json
+!requirements.txt
+
+# Media & Uploads (Don't include local media in image)
+media/
+static_tests/
+
+# IDEs
+.vscode/
+.idea/
+
+# Large files
+*.log
+*.sqlite3

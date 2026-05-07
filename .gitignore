@@ -53,3 +53,5 @@ docs/PROJECT_CONCEPT.md
 backend/media/
 media/
 gcp-creds.json
+project-*.json
+backend/project-*.json
