@@ -23,6 +23,8 @@ export function useChat() {
     message?: string;
     file?: File;
     authorities?: string[];
+    projectId?: string;
+    onConversationReady?: (id: string) => void;
   }): Promise<string | null> => {
     const isNew = !params.conversationId;
 
@@ -67,11 +69,17 @@ export function useChat() {
             title: null,
             model: chunk.model ?? "gpt-4o",
             system_prompt: null,
+            project_id: params.projectId ?? null,
+            project_name: null,
+            uploaded_filename: null,
+            uploaded_url: null,
+            uploaded_type: null,
             created_at: chunk.created_at ?? new Date().toISOString(),
             updated_at: chunk.updated_at ?? new Date().toISOString(),
             messages: [],
           };
           store.addConversation(newConvo);
+          params.onConversationReady?.(chunk.id!);
           if (params.file) {
             store.appendMessage(chunk.id!, {
               id: crypto.randomUUID(), conversation_id: chunk.id!,

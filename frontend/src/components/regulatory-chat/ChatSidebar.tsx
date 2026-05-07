@@ -1,33 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Edit3, ChevronDown, ChevronRight,
   FileText, MessageSquare, AlertCircle, Lightbulb,
-  Check, X,
+  Check, X, Trash2,
 } from "lucide-react";
+import { chatApi, projectApi } from "../../lib/api";
+import type { Project } from "../../types";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
-const PROGRAMS = [
-  "AAV Gene Therapy Program",
-  "mRNA Vaccine Program",
-  "CRISPR Therapeutics Program",
-  "CAR-T Cell Therapy Program",
-  "Antisense Oligonucleotide Program",
-];
-
 const PHASES = ["Discovery", "Preclinical", "Phase 1", "Phase 2", "Phase 3", "BLA/MAA"];
-
-const INDICATIONS = [
-  "Duchenne Muscular Dystrophy",
-  "Spinal Muscular Atrophy",
-  "Hemophilia A",
-  "Sickle Cell Disease",
-  "Acute Myeloid Leukemia",
-  "Beta-Thalassemia",
-];
 
 const ALL_AUTHORITIES = [
   { flag: "🇪🇺", name: "EMA" },
@@ -89,6 +74,9 @@ interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
   recentChats: RecentChatItem[];
   onAuthoritiesChange?: (authorities: string[]) => void;
+  onProjectChange?: (projectId: string | null) => void;
+  initialProjectId?: string;
+  onDeleteChat?: (chatId: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -99,20 +87,59 @@ export function ChatSidebar({
   onChatSelect,
   recentChats,
   onAuthoritiesChange,
+  onProjectChange,
+  initialProjectId,
+  onDeleteChat,
 }: ChatSidebarProps) {
+  // Projects fetched from API
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId ?? null);
+  const appliedProjectRef = useRef<string | null>(null);
+
+  // Fetch projects once on mount
+  useEffect(() => {
+    projectApi.list({ page_size: 100 })
+      .then(res => setProjects(res.items))
+      .catch(() => {});
+  }, []);
+
+  // Apply project context whenever initialProjectId changes OR projects list loads
+  useEffect(() => {
+    if (!initialProjectId || !projects.length) return;
+    if (appliedProjectRef.current === initialProjectId) return;
+    appliedProjectRef.current = initialProjectId;
+    const p = projects.find(p => p.id === initialProjectId);
+    if (p) applyProject(p, projects);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialProjectId, projects]);
+
   // Context state
   const [editing, setEditing] = useState(false);
-  const [program, setProgram]       = useState(PROGRAMS[0]);
-  const [indication, setIndication] = useState(INDICATIONS[0]);
+  const [program, setProgram]       = useState("");
+  const [indication, setIndication] = useState("");
   const [phase, setPhase]           = useState(PHASES[1]);
-  const [activeAuths, setActiveAuths] = useState([0, 1, 2]);
+  const [activeAuths, setActiveAuths] = useState<number[]>([]);
   const [showAllAuths, setShowAllAuths] = useState(false);
 
   // Drafts while editing
-  const [draftProgram, setDraftProgram]       = useState(PROGRAMS[0]);
-  const [draftIndication, setDraftIndication] = useState(INDICATIONS[0]);
+  const [draftProgram, setDraftProgram]       = useState("");
+  const [draftIndication, setDraftIndication] = useState("");
   const [draftPhase, setDraftPhase]           = useState(PHASES[1]);
-  const [draftAuths, setDraftAuths]           = useState([0, 1, 2]);
+  const [draftAuths, setDraftAuths]           = useState<number[]>([]);
+
+  function applyProject(p: Project, allProjects: Project[]) {
+    const proj = allProjects.find(x => x.id === p.id) ?? p;
+    setProgram(proj.name);
+    setIndication(proj.indication ?? "");
+    setPhase(proj.dev_phase ?? PHASES[1]);
+    const auths = (proj.authorities ?? [])
+      .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
+      .filter(i => i >= 0);
+    setActiveAuths(auths);
+    setSelectedProjectId(proj.id);
+    onProjectChange?.(proj.id);
+    onAuthoritiesChange?.((proj.authorities ?? []).filter(Boolean));
+  }
 
   const startEdit = () => {
     setDraftProgram(program);
@@ -133,6 +160,15 @@ export function ChatSidebar({
       .filter((_, i) => draftAuths.includes(i))
       .map(a => a.name);
     onAuthoritiesChange?.(authorityNames);
+
+    // Persist project assignment to the current conversation if it changed
+    if (selectedProjectId !== appliedProjectRef.current) {
+      appliedProjectRef.current = selectedProjectId;
+      onProjectChange?.(selectedProjectId);
+      if (activeChatId) {
+        chatApi.updateConversation(activeChatId, { project_id: selectedProjectId }).catch(console.error);
+      }
+    }
   };
 
   const cancelEdit = () => setEditing(false);
@@ -188,18 +224,30 @@ export function ChatSidebar({
             </label>
             {editing ? (
               <select
-                value={draftProgram}
-                onChange={e => setDraftProgram(e.target.value)}
+                value={selectedProjectId ?? ""}
+                onChange={e => {
+                  const proj = projects.find(p => p.id === e.target.value);
+                  if (proj) {
+                    setDraftProgram(proj.name);
+                    setDraftIndication(proj.indication ?? "");
+                    setDraftPhase(proj.dev_phase ?? PHASES[1]);
+                    setDraftAuths((proj.authorities ?? [])
+                      .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
+                      .filter(i => i >= 0));
+                    setSelectedProjectId(proj.id);
+                  }
+                }}
                 className="mt-1 w-full text-sm font-semibold text-gs-text bg-gs-bg border border-gs-border rounded-lg px-3 py-2 focus:outline-none focus:border-gs-blue"
               >
-                {PROGRAMS.map(p => <option key={p}>{p}</option>)}
+                <option value="">Select program…</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             ) : (
               <button
                 onClick={startEdit}
                 className="flex items-center justify-between mt-1 w-full text-gs-blue font-semibold text-sm text-left"
               >
-                <span>{program}</span>
+                <span>{program || "Select program…"}</span>
                 <ChevronDown size={15} />
               </button>
             )}
@@ -212,15 +260,14 @@ export function ChatSidebar({
                 Indication
               </label>
               {editing ? (
-                <select
+                <input
                   value={draftIndication}
                   onChange={e => setDraftIndication(e.target.value)}
                   className="mt-1 w-full text-[13px] font-semibold text-gs-text bg-gs-bg border border-gs-border rounded-lg px-2 py-1.5 focus:outline-none focus:border-gs-blue"
-                >
-                  {INDICATIONS.map(i => <option key={i}>{i}</option>)}
-                </select>
+                  placeholder="e.g. DMD"
+                />
               ) : (
-                <p className="text-[13px] font-semibold text-gs-text mt-0.5">{indication}</p>
+                <p className="text-[13px] font-semibold text-gs-text mt-0.5">{indication || "—"}</p>
               )}
             </div>
             <div>
@@ -354,18 +401,30 @@ export function ChatSidebar({
         </div>
         <div className="space-y-0.5">
           {recentChats.map(chat => (
-            <button
+            <div
               key={chat.id}
-              onClick={() => onChatSelect(chat.id)}
-              className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors text-left ${
+              className={`group/chat w-full flex items-center justify-between p-3 rounded-lg transition-colors text-left cursor-pointer ${
                 activeChatId === chat.id
                   ? "bg-gs-blue/10 text-gs-blue dark:bg-gs-blue/20"
                   : "text-gs-muted hover:bg-gs-bg"
               }`}
+              onClick={() => onChatSelect(chat.id)}
             >
-              <span className="text-xs font-semibold truncate max-w-[180px]">{chat.title}</span>
-              <span className="text-[10px] font-medium opacity-60 ml-2 shrink-0">{chat.date}</span>
-            </button>
+              <span className="text-xs font-semibold truncate max-w-[160px]">{chat.title}</span>
+              <div className="flex items-center gap-1 ml-2 shrink-0">
+                <span className="text-[10px] font-medium opacity-60 group-hover/chat:hidden">{chat.date}</span>
+                {onDeleteChat && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }}
+                    className="hidden group-hover/chat:flex items-center justify-center w-6 h-6 rounded-md text-gs-muted hover:text-red-500 hover:bg-red-50 transition-colors"
+                    aria-label={`Delete ${chat.title}`}
+                    title="Delete chat"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </div>

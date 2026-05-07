@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,8 @@ class MessageResponse(BaseModel):
     token_count: int | None
     is_analysis: bool = False
     analysis_data: dict | None = None
+    attached_filename: Optional[str] = None
+    attached_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -35,6 +38,7 @@ class ConversationCreate(BaseModel):
 class ConversationUpdate(BaseModel):
     title: str | None = None
     system_prompt: str | None = None
+    project_id: uuid.UUID | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -45,7 +49,11 @@ class ConversationResponse(BaseModel):
     authorities: list[str] | None = None
     active_file_id: uuid.UUID | None = None
     system_prompt: str | None = None
-
+    project_id: Optional[uuid.UUID] = None
+    project_name: Optional[str] = None
+    uploaded_filename: Optional[str] = None
+    uploaded_url: Optional[str] = None
+    uploaded_type: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     messages: list[MessageResponse] = []

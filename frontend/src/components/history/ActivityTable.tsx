@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare, FileText, UploadCloud, PlayCircle, ShieldAlert,
-  MoreHorizontal, ChevronLeft, ChevronRight,
+  MoreHorizontal, ChevronLeft, ChevronRight, ExternalLink, Trash2,
 } from "lucide-react";
 import type { Conversation, User } from "../../types";
 
@@ -69,7 +70,7 @@ export function mapConversationsToActivities(conversations: Conversation[], user
       type:           "Regulatory Chat",
       action,
       details,
-      project:        "—",
+      project:        convo.project_name ?? "—",
       rawDate:        convo.updated_at,
       user:           { name: userName, initials: getInitials(userName), color: "bg-blue-600" },
       timestamp:      formatTimestamp(convo.updated_at),
@@ -82,16 +83,25 @@ export function mapConversationsToActivities(conversations: Conversation[], user
 
 interface ActivityTableProps {
   activities?: ActivityItem[];
+  onDeleteChat?: (id: string) => void;
 }
 
-export function ActivityTable({ activities = STATIC_ACTIVITIES }: ActivityTableProps) {
+type MenuState = { key: string; item: ActivityItem; top: number; right: number } | null;
+
+export function ActivityTable({ activities = STATIC_ACTIVITIES, onDeleteChat }: ActivityTableProps) {
   const router = useRouter();
+  const [menu, setMenu] = useState<MenuState>(null);
 
   const handleRowClick = (item: ActivityItem) => {
-    if (item.conversationId) {
-      router.push(`/dashboard/chat?conversation=${item.conversationId}`);
-    }
+    if (item.conversationId) router.push(`/dashboard/chat?conversation=${item.conversationId}`);
   };
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>, item: ActivityItem) {
+    const key = String(item.id);
+    if (menu?.key === key) { setMenu(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({ key, item, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
@@ -115,50 +125,52 @@ export function ActivityTable({ activities = STATIC_ACTIVITIES }: ActivityTableP
                 </td>
               </tr>
             ) : (
-              activities.map((item) => (
-                <tr
-                  key={item.id}
-                  onClick={() => handleRowClick(item)}
-                  className={`hover:bg-slate-50 transition-colors group ${item.conversationId ? "cursor-pointer" : ""}`}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg ${item.iconBg} ${item.iconColor} flex items-center justify-center shrink-0`}>
-                        {item.icon}
+              activities.map((item) => {
+                return (
+                  <tr
+                    key={item.id}
+                    onClick={() => handleRowClick(item)}
+                    className={`hover:bg-slate-50 transition-colors group ${item.conversationId ? "cursor-pointer" : ""}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg ${item.iconBg} ${item.iconColor} flex items-center justify-center shrink-0`}>
+                          {item.icon}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-800 leading-tight">{item.type}</span>
+                          <span className="text-[11px] font-medium text-slate-400 leading-tight mt-0.5">{item.action}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-800 leading-tight">{item.type}</span>
-                        <span className="text-[11px] font-medium text-slate-400 leading-tight mt-0.5">{item.action}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-slate-600 leading-relaxed max-w-[300px] line-clamp-2">{item.details}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-slate-400">{item.project}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full ${item.user.color} text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm`}>
+                          {item.user.initials}
+                        </div>
+                        <span className="text-sm font-bold text-slate-600 whitespace-nowrap">{item.user.name}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-slate-600 leading-relaxed max-w-[300px] line-clamp-2">{item.details}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-slate-400">{item.project}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full ${item.user.color} text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm`}>
-                        {item.user.initials}
-                      </div>
-                      <span className="text-sm font-bold text-slate-600 whitespace-nowrap">{item.user.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-[12px] font-bold text-slate-500 leading-tight whitespace-pre-line">{item.timestamp}</p>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={e => e.stopPropagation()}
-                      className="text-slate-300 hover:text-slate-500 transition-colors"
-                    >
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-[12px] font-bold text-slate-500 leading-tight whitespace-pre-line">{item.timestamp}</p>
+                    </td>
+                    <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => openMenu(e, item)}
+                        className="text-slate-300 hover:text-slate-500 transition-colors"
+                      >
+                        <MoreHorizontal size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -181,6 +193,37 @@ export function ActivityTable({ activities = STATIC_ACTIVITIES }: ActivityTableP
           </button>
         </div>
       </div>
+
+      {/* Fixed-position dropdown — escapes overflow-x-auto clipping */}
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
+          <div
+            className="fixed z-50 bg-white border border-slate-100 shadow-xl rounded-lg py-1 w-40"
+            style={{ top: menu.top, right: menu.right }}
+          >
+            {menu.item.conversationId && (
+              <button
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                onClick={() => { setMenu(null); router.push(`/dashboard/chat?conversation=${menu.item.conversationId}`); }}
+              >
+                <ExternalLink size={14} /> View Chat
+              </button>
+            )}
+            {menu.item.conversationId && onDeleteChat && (
+              <>
+                <div className="border-t border-slate-100 my-1" />
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  onClick={() => { setMenu(null); onDeleteChat(menu.item.conversationId!); }}
+                >
+                  <Trash2 size={14} /> Delete Chat
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

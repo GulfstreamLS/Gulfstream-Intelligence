@@ -119,35 +119,42 @@ function ThinkingBubble() {
 }
 
 const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) {
-  // Attachment messages start with the 📎 sentinel set in useChat.ts
-  const isAttachment = msg.content.startsWith("📎");
-  const attachmentName = isAttachment
-    ? msg.content.replace(/^📎\s*/, "").split(" (")[0]
-    : null;
+  // Resolve attachment name: prefer DB-persisted field, fall back to 📎 optimistic sentinel
+  const attachedFilename = msg.attachedFilename
+    ?? (msg.content.startsWith("📎") ? msg.content.replace(/^📎\s*/, "").split(" (")[0] : null);
+  const isAttachmentOnly = msg.content.startsWith("📎");
 
   return (
     <div className="flex justify-end items-start gap-3">
-      {isAttachment ? (
-        <div className="flex flex-col items-end gap-1 max-w-[80%]">
-          <div className="flex items-center gap-2 px-4 py-3 bg-gs-card border border-gs-blue/30 rounded-2xl rounded-tr-none shadow-sm">
+      <div className="flex flex-col items-end gap-1.5 max-w-[80%]">
+        {/* File chip — shown when this message had a file attached */}
+        {attachedFilename && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-gs-card border border-gs-blue/30 rounded-2xl rounded-tr-none shadow-sm w-full">
             <div className="p-1.5 bg-gs-blue/10 rounded-lg shrink-0">
               <FileText size={16} className="text-gs-blue" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gs-text leading-tight">{attachmentName}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gs-text leading-tight truncate">{attachedFilename}</p>
               <p className="text-[11px] text-gs-muted mt-0.5">Uploaded document</p>
             </div>
+            {msg.attachedUrl && (
+              <a href={msg.attachedUrl} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] font-semibold text-gs-blue hover:underline shrink-0">
+                View
+              </a>
+            )}
           </div>
-          <span className="text-[10px] text-gs-muted font-medium">{msg.timestamp}</span>
-        </div>
-      ) : (
-        <div className="bg-gs-blue/10 dark:bg-gs-blue/20 p-4 rounded-2xl rounded-tr-none max-w-[80%] border border-gs-blue/20">
-          <p className="text-sm text-gs-text leading-relaxed">{msg.content}</p>
-          <span className="text-[10px] text-gs-muted font-medium mt-2 block text-right">
-            {msg.timestamp}
-          </span>
-        </div>
-      )}
+        )}
+
+        {/* Text bubble — hidden if this was a file-only optimistic message */}
+        {!isAttachmentOnly && (
+          <div className="bg-gs-blue/10 dark:bg-gs-blue/20 p-4 rounded-2xl rounded-tr-none border border-gs-blue/20 w-full">
+            <p className="text-sm text-gs-text leading-relaxed">{msg.content}</p>
+          </div>
+        )}
+
+        <span className="text-[10px] text-gs-muted font-medium">{msg.timestamp}</span>
+      </div>
       <div className="w-8 h-8 bg-blue-100 dark:bg-gs-blue/20 rounded-full flex items-center justify-center text-gs-blue shrink-0">
         <User size={16} />
       </div>
@@ -355,7 +362,50 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
           {msg.isTyping ? (
             <p className="whitespace-pre-wrap">{msg.content}</p>
           ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => {
+                  const isFile = href && /\.(pptx|pdf|docx|xlsx|zip|csv)(\?.*)?$/i.test(href);
+                  if (isFile && href) {
+                    const ext = href.split(".").pop()?.split("?")[0]?.toUpperCase() ?? "FILE";
+                    const extColors: Record<string, string> = {
+                      PPTX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                      PDF:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                      DOCX: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                      XLSX: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                    };
+                    const badgeClass = extColors[ext] ?? "bg-gs-muted/20 text-gs-muted";
+                    const label = (Array.isArray(children) ? children.join("") : String(children ?? "")).trim() || `Download ${ext}`;
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 mt-3 px-4 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-blue hover:bg-gs-blue/5 transition-all no-underline group w-fit max-w-full"
+                      >
+                        <div className="p-2 bg-gs-card border border-gs-border rounded-lg shrink-0 group-hover:border-gs-blue/30 transition-colors">
+                          <Download size={16} className="text-gs-blue" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-semibold text-gs-text truncate max-w-[220px] group-hover:text-gs-blue transition-colors">{label}</span>
+                          <span className="text-[11px] text-gs-muted">Click to open</span>
+                        </div>
+                        <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}>{ext}</span>
+                        <ExternalLink size={13} className="shrink-0 text-gs-muted group-hover:text-gs-blue transition-colors" />
+                      </a>
+                    );
+                  }
+                  return (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-gs-blue underline hover:opacity-80">
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
           )}
         </div>
 

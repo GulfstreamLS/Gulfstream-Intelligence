@@ -10,7 +10,7 @@ from app.core.config import settings
 class OpenAIProvider(BaseLLMProvider):
     def __init__(self, model: str) -> None:
         self.model = model
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY or None)
 
     async def stream_response(
         self,

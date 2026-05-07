@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 from app.core.config import settings
 from app.db.base import Base
-from app.models import chat, regulatory, user  # noqa: F401 — register models
+from app.models import chat, user, regulatory, project  # noqa: F401 — register models
 
 config = context.config
 if config.config_file_name:

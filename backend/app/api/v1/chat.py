@@ -1,7 +1,10 @@
 import datetime
+import io
 import json
 import uuid
+import zipfile
 from collections.abc import AsyncGenerator
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
@@ -38,13 +41,14 @@ SSE_HEADERS = {
 
 @router.post("/send")
 async def send(
-    conversation_id: str | None = Form(None),
-    message: str | None = Form(None),
-    authorities: str | None = Form(None),  # JSON-encoded list e.g. '["EMA","FDA"]'
-    model: str | None = Form(None),
-    file: UploadFile | None = File(None),
-    current_user: User | None = Depends(get_user_or_none),
-    db: AsyncSession = Depends(get_db),
+    conversation_id: Optional[str] = Form(None),
+    message: Optional[str]         = Form(None),
+    authorities: Optional[str]     = Form(None),   # JSON-encoded list e.g. '["EMA","FDA"]'
+    model: Optional[str]           = Form(None),
+    file: Optional[UploadFile]     = File(None),
+    project_id: Optional[str]      = Form(None),
+    current_user: Optional[User]   = Depends(get_user_or_none),
+    db: AsyncSession               = Depends(get_db),
 ):
     """Single endpoint: create/get conversation, attach file, set authorities, stream AI response."""
     user_id = await _get_user_id_fallback(db, current_user)
@@ -59,6 +63,13 @@ async def send(
         convo = await chat_service.create_conversation(
             db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
         )
+        if project_id:
+            try:
+                convo.project_id = uuid.UUID(project_id)
+                await db.commit()
+                await db.refresh(convo)
+            except (ValueError, Exception):
+                pass
         new_convo_payload = {
             "id": str(convo.id),
             "model": convo.model,
@@ -89,16 +100,30 @@ async def send(
         convo.active_file_id = uuid.uuid4()
         convo.metadata_ = convo.metadata_ or {}
         convo.metadata_["last_uploaded_filename"] = file.filename
-        convo.metadata_["last_uploaded_url"] = file_url
-        convo.metadata_["last_uploaded_type"] = file_extension
-        convo.metadata_["last_uploaded_content"] = content.hex()
+        convo.metadata_["last_uploaded_url"]      = file_url
+
+        if file_extension == "zip":
+            extracted_texts = _extract_zip(content)
+            combined = "\n\n".join(extracted_texts)
+            convo.metadata_["last_uploaded_type"]    = "txt"
+            convo.metadata_["last_uploaded_content"] = combined.encode("utf-8").hex()
+            convo.metadata_["zip_file_count"]        = len(extracted_texts)
+        else:
+            convo.metadata_["last_uploaded_type"]    = file_extension
+            convo.metadata_["last_uploaded_content"] = content.hex()
 
     await db.commit()
     await db.refresh(convo)
 
-    # 4. Add user message to DB
+    # 4. Add user message to DB (attach file metadata if a file was uploaded in this same request)
     if message:
-        await chat_service.add_message(db, convo.id, MessageRole.USER, message)
+        msg_filename = file.filename if file else None
+        msg_file_url = convo.metadata_.get("last_uploaded_url") if file and convo.metadata_ else None
+        await chat_service.add_message(
+            db, convo.id, MessageRole.USER, message,
+            attached_filename=msg_filename,
+            attached_url=msg_file_url,
+        )
         if not convo.title:
             convo.title = await chat_service.auto_title_conversation(convo, message)
             await db.commit()
@@ -129,12 +154,16 @@ async def send(
     if convo.active_file_id and convo.metadata_:
         file_hex = convo.metadata_.get("last_uploaded_content")
         if file_hex:
-            doc_text = document_processor.extract_text(
-                bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt")
+            doc_text = document_processor.extract_text(bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt"))
+            zip_count = convo.metadata_.get("zip_file_count")
+            label = (
+                f"ZIP ARCHIVE ({zip_count} documents extracted) — {convo.metadata_.get('last_uploaded_filename', 'archive.zip')}"
+                if zip_count is not None
+                else convo.metadata_.get("last_uploaded_filename", "document")
             )
             system_prompt += (
                 f"\n\nCRITICAL: You have access to an uploaded document. NEVER say you cannot see files."
-                f"\n\nACTIVE DOCUMENT ({convo.metadata_.get('last_uploaded_filename', 'document')}):\n{doc_text[:5000]}"
+                f"\n\nACTIVE DOCUMENT ({label}):\n{doc_text[:6000]}"
             )
 
     # 7. Detect analysis
@@ -186,7 +215,8 @@ async def send(
                 )
             if url:
                 ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
-                text = f"✅ **{label} Generated Successfully.**\n\nDownload: **[{fname}_Report.{ext}]({url})**"
+                display_name = f"Regulatory Analysis Report.{ext}"
+                text = f"✅ **{label} Generated Successfully.**\n\n[{display_name}]({url})"
                 await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
                 await db.commit()
                 return StreamingResponse(
@@ -199,10 +229,13 @@ async def send(
     used_model = model or convo.model or settings.DEFAULT_MODEL
     eff_authorities = selected_authorities or ["Global"]
 
+    uploaded_filename = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
+
     return StreamingResponse(
         _stream_send(
             db,
             convo.id,
+            user_id,
             history,
             used_model,
             system_prompt,
@@ -210,6 +243,7 @@ async def send(
             is_analysis and file_bytes is not None,
             file_bytes,
             file_type,
+            uploaded_filename,
             eff_authorities,
         ),
         media_type="text/event-stream",
@@ -233,6 +267,7 @@ async def _stream_export_response(text: str, new_convo_payload: dict | None) -> 
 async def _stream_send(
     db: AsyncSession,
     conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
     history: list[dict],
     model: str,
     system_prompt: str | None,
@@ -240,6 +275,7 @@ async def _stream_send(
     run_analysis: bool,
     file_bytes: bytes | None,
     file_type: str | None,
+    filename: str,
     authorities: list[str],
 ) -> AsyncGenerator[str, None]:
     try:
@@ -247,7 +283,7 @@ async def _stream_send(
             yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
 
         if run_analysis and file_bytes:
-            msg = await chat_service.perform_analysis_for_chat(db, conversation_id, file_bytes, file_type, authorities)
+            msg = await chat_service.perform_analysis_for_chat(db, conversation_id, user_id, file_bytes, filename, file_type, authorities)
             analysis_payload = {
                 "type": "analysis",
                 "content": msg.content,
@@ -355,6 +391,35 @@ async def update_authorities(
     await db.commit()
     await db.refresh(convo)
     return convo
+
+
+@router.post("/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive an audio blob, send to Whisper, return English transcript."""
+    content = await audio.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    audio_buf = io.BytesIO(content)
+    # Whisper requires a filename with a supported extension to infer format
+    filename = audio.filename or "audio.webm"
+    audio_buf.name = filename
+
+    try:
+        # translations always returns English regardless of source language
+        response = await client.audio.translations.create(
+            model="whisper-1",
+            file=(filename, audio_buf, audio.content_type or "audio/webm"),
+        )
+        return {"text": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
 
 
 @router.post("/conversations/{conversation_id}/upload")
@@ -518,7 +583,9 @@ async def send_message(
             msg = await chat_service.perform_analysis_for_chat(
                 db,
                 conversation_id,
+                user_id,
                 bytes.fromhex(file_hex),
+                (convo.metadata_ or {}).get("last_uploaded_filename", "Document"),
                 convo.metadata_.get("last_uploaded_type", "txt"),
                 effective_authorities,
             )
@@ -564,9 +631,10 @@ async def send_message(
 
             if url:
                 ext = "pdf" if file_type_label == "PDF" else ("docx" if file_type_label == "Word" else "pptx")
+                display_name = f"Regulatory Analysis Report.{ext}"
                 response_text = (
                     f"✅ **{file_type_label} Generated Successfully.**\n\n"
-                    f"Download: **[{filename}_Report.{ext}]({url})**"
+                    f"[{display_name}]({url})"
                 )
                 await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, response_text)
                 await db.commit()
@@ -706,7 +774,31 @@ async def websocket_chat(
         pass
 
 
-async def _get_user_id_fallback(db: AsyncSession, user: User | None) -> uuid.UUID:
+def _extract_zip(content: bytes) -> list[str]:
+    """Extract text from all supported documents inside a ZIP archive."""
+    supported = {"pdf", "docx", "doc", "txt", "pptx"}
+    results: list[str] = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            for name in zf.namelist():
+                if name.endswith("/") or name.startswith("__"):
+                    continue
+                ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+                if ext not in supported:
+                    continue
+                try:
+                    data = zf.read(name)
+                    text = document_processor.extract_text(data, ext)
+                    if text.strip():
+                        results.append(f"=== {name} ===\n{text[:4000]}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return results
+
+
+async def _get_user_id_fallback(db: AsyncSession, user: Optional[User]) -> uuid.UUID:
     if user:
         return user.id
     user_result = await db.execute(select(User).limit(1))

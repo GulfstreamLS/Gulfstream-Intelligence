@@ -23,9 +23,8 @@ class MessageRole(StrEnum):
 class Conversation(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "conversations"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(500))
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(100))
@@ -35,9 +34,24 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     metadata_: Mapped[dict | None] = mapped_column("metadata", MutableDict.as_mutable(JSONB))
 
     user: Mapped["User"] = relationship(back_populates="conversations")
-    messages: Mapped[list["Message"]] = relationship(
-        back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at"
-    )
+    project: Mapped["Project"] = relationship(back_populates="conversations")
+    messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at")
+
+    @property
+    def project_name(self) -> str | None:
+        return self.project.name if self.project else None
+
+    @property
+    def uploaded_filename(self) -> str | None:
+        return (self.metadata_ or {}).get("last_uploaded_filename")
+
+    @property
+    def uploaded_url(self) -> str | None:
+        return (self.metadata_ or {}).get("last_uploaded_url")
+
+    @property
+    def uploaded_type(self) -> str | None:
+        return (self.metadata_ or {}).get("last_uploaded_type")
 
 
 class Message(Base, UUIDMixin, TimestampMixin):
@@ -53,5 +67,7 @@ class Message(Base, UUIDMixin, TimestampMixin):
     analysis_data: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
     tool_calls: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
     tool_results: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))
+    attached_filename: Mapped[str | None] = mapped_column(String(500))
+    attached_url: Mapped[str | None] = mapped_column(Text)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")

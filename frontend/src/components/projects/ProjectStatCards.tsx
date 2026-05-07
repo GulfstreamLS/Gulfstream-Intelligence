@@ -26,13 +26,15 @@ function StatCard({ title, count, trend, icon: Icon, color, iconBg }: {
   );
 }
 
-export function ProjectStatCards() {
+export function ProjectStatCards({ total, onTrack, atRisk, planning }: {
+  total: number; onTrack: number; atRisk: number; planning: number;
+}) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-      <StatCard title="Total Projects" count="15" trend="3 this month" icon={Beaker}      color="text-blue-600"    iconBg="bg-blue-50" />
-      <StatCard title="On Track"       count="8"  trend="1 this month" icon={ShieldCheck} color="text-emerald-600" iconBg="bg-emerald-50" />
-      <StatCard title="At Risk"        count="4"  trend="1 this month" icon={Activity}    color="text-orange-600" iconBg="bg-orange-50" />
-      <StatCard title="Planning"       count="3"               icon={FlaskConical} color="text-purple-600" iconBg="bg-purple-50" />
+      <StatCard title="Total Projects" count={String(total)}    icon={Beaker}      color="text-blue-600"    iconBg="bg-blue-50" />
+      <StatCard title="On Track"       count={String(onTrack)}  icon={ShieldCheck} color="text-emerald-600" iconBg="bg-emerald-50" />
+      <StatCard title="At Risk"        count={String(atRisk)}   icon={Activity}    color="text-orange-600" iconBg="bg-orange-50" />
+      <StatCard title="Planning"       count={String(planning)} icon={FlaskConical} color="text-purple-600" iconBg="bg-purple-50" />
     </div>
   );
 }

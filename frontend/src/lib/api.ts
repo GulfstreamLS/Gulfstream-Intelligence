@@ -1,4 +1,4 @@
-import type { Conversation, StreamChunk, TokenResponse, User } from "../types";
+import type { Conversation, Project, ProjectListResponse, StreamChunk, TokenResponse, User } from "../types";
 import Cookies from "js-cookie";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
@@ -92,7 +92,7 @@ export const chatApi = {
 
   getConversation: (id: string) => request<Conversation>(`/chat/conversations/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; system_prompt?: string }) =>
+  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null }) =>
     request<Conversation>(`/chat/conversations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -106,6 +106,24 @@ export const chatApi = {
       method: "PATCH",
       body: JSON.stringify(authorities),
     }),
+
+  transcribeAudio: async (blob: Blob): Promise<string> => {
+    const token = Cookies.get("access_token");
+    const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
+    const formData = new FormData();
+    formData.append("audio", blob, `recording.${ext}`);
+    const res = await fetch(`${BASE_URL}/chat/transcribe`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ?? `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return data.text as string;
+  },
 
   uploadFile: async (conversationId: string, file: File): Promise<Record<string, unknown>> => {
     const token = Cookies.get("access_token");
@@ -134,6 +152,7 @@ export const chatApi = {
     file?: File;
     authorities?: string[];
     model?: string;
+    projectId?: string;
   }): AsyncGenerator<StreamChunk> {
     const token = Cookies.get("access_token");
     const form  = new FormData();
@@ -142,6 +161,7 @@ export const chatApi = {
     if (params.authorities?.length) form.append("authorities", JSON.stringify(params.authorities));
     if (params.model)          form.append("model",           params.model);
     if (params.file)           form.append("file",            params.file);
+    if (params.projectId)      form.append("project_id",      params.projectId);
 
     const res = await fetch(`${BASE_URL}/chat/send`, {
       method:  "POST",
@@ -220,5 +240,45 @@ export const chatApi = {
         }
       }
     }
+  },
+};
+
+export const projectApi = {
+  list: (params?: { page?: number; page_size?: number; search?: string; status_filter?: string; authority?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.page_size) q.set("page_size", String(params.page_size));
+    if (params?.search) q.set("search", params.search);
+    if (params?.status_filter) q.set("status_filter", params.status_filter);
+    if (params?.authority) q.set("authority", params.authority);
+    return request<ProjectListResponse>(`/projects?${q.toString()}`);
+  },
+
+  get: (id: string) => request<Project>(`/projects/${id}`),
+
+  create: (data: Omit<Project, "id" | "created_at" | "updated_at">) =>
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+
+  update: (id: string, data: Partial<Omit<Project, "id" | "created_at" | "updated_at">>) =>
+    request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  remove: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+
+  getConversations: (id: string) => request<Conversation[]>(`/projects/${id}/conversations`),
+
+  importExcel: async (file: File): Promise<{ created: number; errors: string[] }> => {
+    const token = Cookies.get("access_token");
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE_URL}/projects/import`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ?? `HTTP ${res.status}`);
+    }
+    return res.json();
   },
 };

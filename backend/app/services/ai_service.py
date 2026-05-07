@@ -18,13 +18,13 @@ class AIService:
     @property
     def anthropic_client(self) -> anthropic.AsyncAnthropic:
         if self._anthropic is None:
-            self._anthropic = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+            self._anthropic = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY or None)
         return self._anthropic
 
     @property
     def openai_client(self) -> AsyncOpenAI:
         if self._openai is None:
-            self._openai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            self._openai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY or None)
         return self._openai
 
     async def stream_chat(

@@ -16,7 +16,7 @@ class ChatService:
     async def get_conversations(self, db: AsyncSession, user_id: uuid.UUID) -> list[Conversation]:
         result = await db.execute(
             select(Conversation)
-            .options(selectinload(Conversation.messages))
+            .options(selectinload(Conversation.messages), selectinload(Conversation.project))
             .where(Conversation.user_id == user_id)
             .order_by(Conversation.updated_at.desc())
         )
@@ -27,7 +27,7 @@ class ChatService:
     ) -> Conversation | None:
         result = await db.execute(
             select(Conversation)
-            .options(selectinload(Conversation.messages))
+            .options(selectinload(Conversation.messages), selectinload(Conversation.project))
             .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
         )
         return result.scalar_one_or_none()
@@ -42,7 +42,7 @@ class ChatService:
     async def update_conversation(
         self, db: AsyncSession, conversation: Conversation, data: ConversationUpdate
     ) -> Conversation:
-        for field, value in data.model_dump(exclude_none=True).items():
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(conversation, field, value)
         await db.flush()
         return conversation
@@ -59,6 +59,8 @@ class ChatService:
         token_count: int | None = None,
         is_analysis: bool = False,
         analysis_data: dict | None = None,
+        attached_filename: str | None = None,
+        attached_url: str | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conversation_id,
@@ -67,6 +69,8 @@ class ChatService:
             token_count=token_count,
             is_analysis=is_analysis,
             analysis_data=analysis_data,
+            attached_filename=attached_filename,
+            attached_url=attached_url,
         )
 
         db.add(msg)

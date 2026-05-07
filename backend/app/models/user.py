@@ -21,3 +21,4 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    projects: Mapped[list["Project"]] = relationship(back_populates="user", cascade="all, delete-orphan")

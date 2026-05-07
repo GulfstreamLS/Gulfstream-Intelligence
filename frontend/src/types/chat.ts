@@ -27,4 +27,6 @@ export interface DisplayMessage {
   isAnalysis?: boolean;
   analysisData?: Record<string, AnalysisAuthority>;
   attachmentName?: string;
+  attachedFilename?: string | null;
+  attachedUrl?: string | null;
 }

@@ -10,7 +10,7 @@ from app.core.config import settings
 class AnthropicProvider(BaseLLMProvider):
     def __init__(self, model: str) -> None:
         self.model = model
-        self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY or None)
 
     async def stream_response(
         self,
