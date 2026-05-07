@@ -49,7 +49,14 @@ jobs:
             --project "$GCP_PROJECT_ID" \
             --platform managed \
             --allow-unauthenticated \
-            --port 8000
+            --port 8000 \
+            --set-env-vars "ENVIRONMENT=production" \
+            --set-env-vars "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+            --set-env-vars "REDIS_URL=${{ secrets.REDIS_URL }}" \
+            --set-env-vars "SECRET_KEY=${{ secrets.SECRET_KEY }}" \
+            --set-env-vars "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" \
+            --set-env-vars "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" \
+            --timeout 300
 
       - name: Verify deployment
         run: |
@@ -57,4 +64,15 @@ jobs:
             --region "$GCP_REGION" \
             --project "$GCP_PROJECT_ID" \
             --format 'value(status.url)')
-          curl -sf "$BACKEND_URL/api/v1/health" | jq .
+          
+          echo "Checking health at $BACKEND_URL/api/v1/health"
+          # Retry a few times as the service might take a moment to start
+          for i in {1..5}; do
+            if curl -sf "$BACKEND_URL/api/v1/health"; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Health check failed, retrying in 10s... ($i/5)"
+            sleep 10
+          done
+          exit 1
