@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Download, Search, Calendar, ChevronDown, Filter, ShieldCheck,
 } from "lucide-react";
@@ -8,8 +8,10 @@ import { HistoryStatCards }                               from "../../../../comp
 import { ActivityTable, STATIC_ACTIVITIES,
          mapConversationsToActivities }                   from "../../../../components/history/ActivityTable";
 import type { ActivityItem }                              from "../../../../components/history/ActivityTable";
+import { ConfirmModal }                                   from "../../../../components/ui/ConfirmModal";
 import { useChatStore }                                   from "../../../../store/chatStore";
 import { useChat }                                        from "../../../../hooks/useChat";
+import { chatApi }                                        from "../../../../lib/api";
 
 // ── Date range options ────────────────────────────────────────────────────────
 
@@ -42,8 +44,9 @@ function isWithinRange(rawDate: string | undefined, range: DateRange): boolean {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const { conversations, user } = useChatStore();
+  const { conversations, user, removeConversation } = useChatStore();
   const { loadConversations }   = useChat();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // Filter state
   const [search,       setSearch]       = useState("");
@@ -180,7 +183,7 @@ export default function HistoryPage() {
 
         </div>
 
-        <ActivityTable activities={filtered} />
+        <ActivityTable activities={filtered} onDeleteChat={id => setDeleteId(id)} />
 
         <div className="flex flex-col items-center text-center gap-2 pt-6">
           <div className="flex items-center gap-2 text-slate-400 font-medium text-[10px] uppercase tracking-wider">
@@ -192,6 +195,19 @@ export default function HistoryPage() {
         </div>
 
       </div>
+
+      {deleteId && (
+        <ConfirmModal
+          title="Delete Chat"
+          message="This will permanently delete this conversation and all its messages. This action cannot be undone."
+          confirmLabel="Delete Chat"
+          onCancel={() => setDeleteId(null)}
+          onConfirm={async () => {
+            try { await chatApi.deleteConversation(deleteId); removeConversation(deleteId); } catch { /* silently fail */ }
+            setDeleteId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
