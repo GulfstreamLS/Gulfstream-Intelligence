@@ -11,10 +11,6 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1
-ENV NEXT_PUBLIC_API_URL=${https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1}
-ARG https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app
-ENV BACKEND_URL=${https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
