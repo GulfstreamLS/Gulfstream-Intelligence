@@ -1,40 +1,80 @@
+"use client";
+
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 /* ── Input ─────────────────────────────────────────────────────── */
-export function InputGroup({ label, value }: { label: string; value: string }) {
+export function InputGroup({
+  label,
+  value,
+  onChange,
+  type = "text",
+  readOnly = false,
+}: {
+  label: string;
+  value: string;
+  onChange?: (value: string) => void;
+  type?: string;
+  readOnly?: boolean;
+}) {
   return (
     <div>
       <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
         {label}
       </label>
       <input
-        type="text"
-        defaultValue={value}
-        className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text focus:outline-none focus:border-gs-blue"
+        type={type}
+        value={value}
+        readOnly={readOnly}
+        onChange={e => onChange?.(e.target.value)}
+        className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text focus:outline-none focus:border-gs-blue disabled:opacity-60 read-only:opacity-60"
       />
     </div>
   );
 }
 
 /* ── Select ─────────────────────────────────────────────────────── */
-export function GsSelect({ value }: { value: string }) {
+export function GsSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange?: (value: string) => void;
+  options?: string[];
+}) {
   return (
     <div className="relative">
-      <select className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text appearance-none focus:outline-none focus:border-gs-blue">
-        <option>{value}</option>
+      <select
+        value={value}
+        onChange={e => onChange?.(e.target.value)}
+        className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text appearance-none focus:outline-none focus:border-gs-blue"
+      >
+        {options
+          ? options.map(o => <option key={o} value={o}>{o}</option>)
+          : <option value={value}>{value}</option>}
       </select>
       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gs-muted pointer-events-none w-4 h-4" />
     </div>
   );
 }
 
-export function SelectGroup({ label, value }: { label: string; value: string }) {
+export function SelectGroup({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange?: (value: string) => void;
+  options?: string[];
+}) {
   return (
     <div>
       <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
         {label}
       </label>
-      <GsSelect value={value} />
+      <GsSelect value={value} onChange={onChange} options={options} />
     </div>
   );
 }
@@ -44,10 +84,12 @@ export function ToggleRow({
   title,
   desc,
   enabled = false,
+  onChange,
 }: {
   title: string;
   desc: string;
   enabled?: boolean;
+  onChange?: (enabled: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -56,9 +98,10 @@ export function ToggleRow({
         <p className="text-[12px] text-gs-muted">{desc}</p>
       </div>
       <div
-        className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${
-          enabled ? "bg-gs-blue" : "bg-gs-border"
-        }`}
+        onClick={() => onChange?.(!enabled)}
+        className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${
+          onChange ? "cursor-pointer" : "cursor-default"
+        } ${enabled ? "bg-gs-blue" : "bg-gs-border"}`}
       >
         <div
           className={`absolute top-1 h-4 w-4 bg-white rounded-full shadow-sm transition-all ${
@@ -77,15 +120,20 @@ export function SecurityLink({
   badge,
   badgeColor,
   count,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   badge?: string;
   badgeColor?: string;
   count?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-3.5 group cursor-pointer border-b border-gs-border last:border-0">
+    <div
+      onClick={onClick}
+      className="flex items-center justify-between py-3.5 group cursor-pointer border-b border-gs-border last:border-0"
+    >
       <div className="flex items-center gap-3">
         <div className="text-gs-muted group-hover:text-gs-blue transition-colors">{icon}</div>
         <span className="text-[13px] font-bold text-gs-muted group-hover:text-gs-text transition-colors">

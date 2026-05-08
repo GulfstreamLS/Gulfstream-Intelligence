@@ -1,3 +1,12 @@
+export interface UserPreferences {
+  language?: string;
+  date_format?: string;
+  number_format?: string;
+  timezone?: string;
+  job_title?: string;
+  organization?: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -6,6 +15,19 @@ export interface User {
   is_active: boolean;
   is_verified: boolean;
   created_at: string;
+  preferences?: UserPreferences | null;
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  resource_name: string | null;
+  ip_address: string | null;
+  created_at: string;
+  user_email: string | null;
+  user_full_name: string | null;
 }
 
 export interface Message {

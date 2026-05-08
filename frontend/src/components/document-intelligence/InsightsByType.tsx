@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 
 interface ProgressRowProps {
   label: string;
@@ -31,9 +30,6 @@ export function InsightsByType() {
         <ProgressRow label="Warnings"        val={76}  max={400} color="bg-blue-400" />
         <ProgressRow label="Best Practices"  val={56}  max={400} color="bg-gs-green" />
       </div>
-      <button className="text-gs-blue text-[13px] font-bold flex items-center gap-1 mt-8 hover:underline">
-        View all insights <ChevronRight className="w-4 h-4" />
-      </button>
     </div>
   );
 }

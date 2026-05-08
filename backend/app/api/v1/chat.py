@@ -7,11 +7,12 @@ import zipfile
 from collections.abc import AsyncGenerator
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1._audit import get_ip, log_audit
 from app.core.config import settings
 from app.db.session import get_db
 from app.middleware.auth import get_user_or_none
@@ -50,6 +51,7 @@ SSE_HEADERS = {
 
 @router.post("/send")
 async def send(
+    request: Request,
     conversation_id: Optional[str] = Form(None),
     message: Optional[str]         = Form(None),
     authorities: Optional[str]     = Form(None),   # JSON-encoded list e.g. '["EMA","FDA"]'
@@ -72,6 +74,14 @@ async def send(
         convo = await chat_service.create_conversation(
             db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
         )
+        if current_user:
+            await log_audit(
+                db, current_user.id, "CHAT_CREATED",
+                resource_type="chat",
+                resource_id=convo.id,
+                resource_name=convo.title or "New Chat",
+                ip_address=get_ip(request),
+            )
         if project_id:
             try:
                 convo.project_id = uuid.UUID(project_id)
@@ -337,7 +347,14 @@ async def create_conversation(
         if not current_user:
             raise HTTPException(status_code=500, detail="No users found in database.")
 
-    return await chat_service.create_conversation(db, current_user.id, data)
+    convo = await chat_service.create_conversation(db, current_user.id, data)
+    await log_audit(
+        db, current_user.id, "CHAT_CREATED",
+        resource_type="chat",
+        resource_id=convo.id,
+        resource_name=convo.title or "New Chat",
+    )
+    return convo
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
@@ -371,6 +388,7 @@ async def update_conversation(
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
+    request: Request,
     conversation_id: uuid.UUID,
     current_user: User | None = Depends(get_user_or_none),
     db: AsyncSession = Depends(get_db),
@@ -380,7 +398,16 @@ async def delete_conversation(
 
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    convo_title = convo.title or "Untitled Chat"
+    convo_id = convo.id
     await chat_service.delete_conversation(db, convo)
+    await log_audit(
+        db, user_id, "CHAT_DELETED",
+        resource_type="chat",
+        resource_id=convo_id,
+        resource_name=convo_title,
+        ip_address=get_ip(request),
+    )
 
 
 @router.patch("/conversations/{conversation_id}/authorities", response_model=ConversationResponse)

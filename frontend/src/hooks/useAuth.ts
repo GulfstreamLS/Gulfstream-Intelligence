@@ -24,11 +24,16 @@ export function useAuth() {
       })
       .catch(() => {
         setLoading(false);
-        // TODO: Re-enable once backend is deployed
-        // router.replace("/login");
+        router.replace("/login");
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function refreshUser() {
+    const u = await authApi.me();
+    setUser(u);
+    return u;
+  }
 
   function logout() {
     clearTokenCookies();
@@ -36,5 +41,5 @@ export function useAuth() {
     router.replace("/login");
   }
 
-  return { user, loading, logout };
+  return { user, loading, logout, refreshUser };
 }

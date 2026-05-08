@@ -1,4 +1,4 @@
-import type { AnalyzedDocument, Conversation, GapAssessmentResponse, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, TokenResponse, User } from "../types";
+import type { AuditLog, AnalyzedDocument, Conversation, GapAssessmentResponse, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, TokenResponse, User, UserPreferences } from "../types";
 import Cookies from "js-cookie";
 
 const BASE_URL =
@@ -47,8 +47,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     }
     isRefreshing = false;
     clearTokenCookies();
-    // TODO: Re-enable once backend is deployed
-    // if (typeof window !== "undefined") window.location.href = "/login";
+    if (typeof window !== "undefined") window.location.href = "/login";
     throw new Error("Session expired. Please log in again.");
   }
 
@@ -81,6 +80,21 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ refresh_token }),
     }),
+
+  updateProfile: (data: { full_name?: string; preferences?: UserPreferences }) =>
+    request<User>("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  updatePassword: (current_password: string, new_password: string) =>
+    request<void>("/auth/me/password", {
+      method: "PATCH",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+
+  getActivity: (limit = 20, offset = 0) =>
+    request<AuditLog[]>(`/auth/me/activity?limit=${limit}&offset=${offset}`),
 };
 
 export const chatApi = {

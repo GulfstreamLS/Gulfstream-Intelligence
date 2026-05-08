@@ -1,10 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none
 from app.models.regulatory import AnalysisDocument, RegulatorySource
@@ -26,6 +27,7 @@ async def list_authorities(db: AsyncSession = Depends(get_db)):
 
 @router.post("/analysis/upload", response_model=DocumentAnalysisResponse)
 async def upload_for_analysis(
+    request: Request,
     file: UploadFile = File(...),
     authority: str = Form(None),
     current_user: User | None = Depends(get_user_or_none),
@@ -65,7 +67,16 @@ async def upload_for_analysis(
             )
             .where(AnalysisDocument.id == doc.id)
         )
-        return result.scalar_one()
+        full_doc = result.scalar_one()
+        if current_user:
+            await log_audit(
+                db, current_user.id, "GAP_ASSESSMENT_RUN",
+                resource_type="document",
+                resource_id=full_doc.id,
+                resource_name=file.filename,
+                ip_address=get_ip(request),
+            )
+        return full_doc
     except Exception as e:
         import traceback
 

@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import type { GapSeverityStat } from "../../types";
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -97,10 +96,6 @@ export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; l
           <LegendItem key={s} label={s} count={0} percentage={0} color={SEVERITY_BG[s]} />
         ))}
       </div>
-
-      <button className="mt-auto pt-8 text-[#2563EB] text-[13px] font-bold flex items-center gap-1 hover:underline w-full">
-        View all gaps <ChevronRight size={16} />
-      </button>
     </div>
   );
 }

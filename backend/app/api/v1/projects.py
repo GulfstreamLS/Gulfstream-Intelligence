@@ -2,11 +2,12 @@ import io
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_user_or_none
 from app.models.chat import Conversation
@@ -64,6 +65,7 @@ async def list_projects(
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
+    request: Request,
     data: ProjectCreate,
     current_user: Optional[User] = Depends(get_user_or_none),
     db: AsyncSession = Depends(get_db),
@@ -73,6 +75,8 @@ async def create_project(
     db.add(project)
     await db.commit()
     await db.refresh(project)
+    if current_user:
+        await log_audit(db, current_user.id, "PROJECT_CREATED", resource_type="project", resource_id=project.id, resource_name=project.name, ip_address=get_ip(request))
     return project
 
 
@@ -91,6 +95,7 @@ async def get_project(
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_project(
+    request: Request,
     project_id: uuid.UUID,
     data: ProjectUpdate,
     current_user: Optional[User] = Depends(get_user_or_none),
@@ -104,11 +109,14 @@ async def update_project(
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project)
+    if current_user:
+        await log_audit(db, current_user.id, "PROJECT_UPDATED", resource_type="project", resource_id=project.id, resource_name=project.name, ip_address=get_ip(request))
     return project
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
+    request: Request,
     project_id: uuid.UUID,
     current_user: Optional[User] = Depends(get_user_or_none),
     db: AsyncSession = Depends(get_db),
@@ -117,9 +125,12 @@ async def delete_project(
     project = await db.get(Project, project_id)
     if not project or project.user_id != user_id:
         raise HTTPException(status_code=404, detail="Project not found")
+    project_name = project.name
     await db.execute(update(Conversation).where(Conversation.project_id == project_id).values(project_id=None))
     await db.delete(project)
     await db.commit()
+    if current_user:
+        await log_audit(db, current_user.id, "PROJECT_DELETED", resource_type="project", resource_id=project_id, resource_name=project_name, ip_address=get_ip(request))
 
 
 @router.get("/{project_id}/conversations", response_model=list[ConversationResponse])

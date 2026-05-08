@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { Monitor, Lock, ShieldCheck, Smartphone, Fingerprint, AlertTriangle } from "lucide-react";
+import { authApi } from "../../lib/api";
 
 interface ActivityItemProps {
   icon: React.ReactNode;
@@ -23,6 +27,30 @@ function SecurityActivityItem({ icon, title, desc, time }: ActivityItemProps) {
 }
 
 export function SecurityView() {
+  const [current, setCurrent]   = useState("");
+  const [next, setNext]         = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [msg, setMsg]           = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handlePasswordUpdate() {
+    if (!current || !next) {
+      setMsg({ ok: false, text: "Please fill in both password fields." });
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authApi.updatePassword(current, next);
+      setCurrent("");
+      setNext("");
+      setMsg({ ok: true, text: "Password updated successfully." });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "Update failed." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Access Control */}
@@ -63,6 +91,8 @@ export function SecurityView() {
               </label>
               <input
                 type="password"
+                value={current}
+                onChange={e => { setCurrent(e.target.value); setMsg(null); }}
                 placeholder="••••••••••••"
                 className="h-11 px-4 border border-gs-border rounded-lg bg-gs-bg text-gs-text focus:outline-none focus:border-gs-blue"
               />
@@ -73,11 +103,24 @@ export function SecurityView() {
               </label>
               <input
                 type="password"
+                value={next}
+                onChange={e => { setNext(e.target.value); setMsg(null); }}
                 placeholder="••••••••••••"
                 className="h-11 px-4 border border-gs-border rounded-lg bg-gs-card text-gs-text focus:outline-none focus:border-gs-blue"
               />
             </div>
-            <button className="btn-primary w-full py-2.5 mt-2">Update Password</button>
+            {msg && (
+              <p className={`text-[13px] font-bold ${msg.ok ? "text-gs-green" : "text-gs-red"}`}>
+                {msg.text}
+              </p>
+            )}
+            <button
+              onClick={handlePasswordUpdate}
+              disabled={saving}
+              className="btn-primary w-full py-2.5 mt-2 disabled:opacity-60"
+            >
+              {saving ? "Updating…" : "Update Password"}
+            </button>
           </div>
         </div>
       </section>

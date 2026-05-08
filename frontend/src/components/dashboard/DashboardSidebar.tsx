@@ -10,7 +10,7 @@ import {
   FileText,
   FolderOpen,
   History,
-  BarChart2,
+  // BarChart2,
   Settings,
   X,
 } from "lucide-react";
@@ -31,7 +31,7 @@ const primaryNav: NavItem[] = [
   { label: "Document Intelligence",       href: "/dashboard/documents",      icon: FileText },
     { label: "Projects",  href: "/dashboard/projects",  icon: FolderOpen },
   { label: "History",   href: "/dashboard/history",   icon: History },
-  { label: "Reports",   href: "/dashboard/reports",   icon: BarChart2 },
+  // { label: "Reports",   href: "/dashboard/reports",   icon: BarChart2 },
   { label: "Settings",  href: "/dashboard/settings",  icon: Settings },
 ];
 

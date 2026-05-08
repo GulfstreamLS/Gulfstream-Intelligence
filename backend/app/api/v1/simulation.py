@@ -1,11 +1,12 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user
 from app.models.chat import Conversation
@@ -31,6 +32,7 @@ _LOAD_FULL = [
 
 @router.post("/run", response_model=SimulationSessionResponse)
 async def run_simulation(
+    request: Request,
     body: SimulationRunRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -67,7 +69,15 @@ async def run_simulation(
         .options(*_LOAD_FULL)
         .where(SimulationSession.id == session.id)
     )
-    return result.scalar_one()
+    full = result.scalar_one()
+    await log_audit(
+        db, current_user.id, "SIMULATION_RUN",
+        resource_type="simulation",
+        resource_id=full.id,
+        resource_name=f"{full.authority} · {full.focus_area}",
+        ip_address=get_ip(request),
+    )
+    return full
 
 
 @router.get("/sessions", response_model=list[SimulationListItem])

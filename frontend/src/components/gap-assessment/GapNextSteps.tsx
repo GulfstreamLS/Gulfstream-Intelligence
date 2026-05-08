@@ -50,9 +50,6 @@ export function GapNextSteps({ data, loading }: { data: GapActionItem[]; loading
           data.map((step, i) => <NextStep key={i} {...step} />)
         )}
       </div>
-      <button className="mt-10 text-[#2563EB] text-[13px] font-bold flex items-center gap-1 hover:underline">
-        View all insights <ChevronRight size={16} />
-      </button>
     </div>
   );
 }

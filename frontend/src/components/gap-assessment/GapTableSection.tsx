@@ -71,11 +71,6 @@ export function GapTableSection({ data, loading }: { data: GapSummary[]; loading
             )}
           </tbody>
         </table>
-        <div className="px-8 py-5 bg-[#FDFDFD]">
-          <button className="text-[#2563EB] text-[13px] font-bold flex items-center gap-1 hover:underline">
-            View all gaps <ChevronRight size={16} />
-          </button>
-        </div>
       </div>
 
       {/* Side panel */}
@@ -98,9 +93,6 @@ export function GapTableSection({ data, loading }: { data: GapSummary[]; loading
               ))
             )}
           </div>
-          <button className="mt-8 text-[#2563EB] text-[13px] font-bold flex items-center gap-1 hover:underline">
-            View all recommendations <ChevronRight size={16} />
-          </button>
         </div>
       </div>
     </div>
