@@ -9,30 +9,37 @@ import { ProjectStatCards } from "../../../../components/projects/ProjectStatCar
 import { ProjectsTable } from "../../../../components/projects/ProjectsTable";
 import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVisibilityBanner";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
+import { DynamicSelect } from "../../../../components/ui/DynamicSelect";
 import { projectApi } from "../../../../lib/api";
 import type { Project } from "../../../../types";
 
 const PAGE_SIZE = 10;
 
-const THERAPEUTIC_AREAS = [
-  "Rare Disease", "Oncology", "Infectious Disease", "Metabolic",
-  "Neurology", "Cardiology", "Immunology", "Ophthalmology",
-];
-const PHASES = ["Preclinical", "Phase 1", "Phase 2", "Phase 3", "BLA/MAA"];
 const ALL_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
 const STATUSES = ["On Track", "At Risk", "Planning"];
 
-// ── New Project Modal ─────────────────────────────────────────────────────────
+// ── Shared form types ─────────────────────────────────────────────────────────
 
-function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({
-    name: "", type: "IND", indication: "", therapeutic_area: "",
-    dev_phase: "Preclinical", status: "Planning" as Project["status"],
-    readiness_score: 0, authorities: [] as string[],
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+type ProjectFormState = {
+  name: string; type: string; indication: string; therapeutic_area: string;
+  dev_phase: string; status: Project["status"]; readiness_score: number;
+  authorities: string[]; product_type: string;
+};
 
+const EMPTY_FORM: ProjectFormState = {
+  name: "", type: "IND", indication: "", therapeutic_area: "",
+  dev_phase: "", status: "Planning", readiness_score: 0,
+  authorities: [], product_type: "",
+};
+
+// ── Shared Form Fields ────────────────────────────────────────────────────────
+
+function ProjectFormFields({
+  form, setForm,
+}: {
+  form: ProjectFormState;
+  setForm: React.Dispatch<React.SetStateAction<ProjectFormState>>;
+}) {
   function toggleAuth(auth: string) {
     setForm(f => ({
       ...f,
@@ -41,6 +48,90 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
         : [...f.authorities, auth],
     }));
   }
+
+  return (
+    <>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Project Name *</label>
+        <input
+          className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+          value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="e.g. AAV Gene Therapy Program"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Submission Type</label>
+        <div className="flex gap-2 flex-wrap">
+          {["IND", "BLA", "NDA", "ANDA"].map(t => (
+            <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+              <input type="radio" className="hidden" value={t} checked={form.type === t} onChange={() => setForm(f => ({ ...f, type: t }))} />
+              {t}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Product Type</label>
+          <DynamicSelect
+            category="product_type"
+            value={form.product_type}
+            onChange={v => setForm(f => ({ ...f, product_type: v }))}
+            placeholder="Select product type…"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Development Phase</label>
+          <DynamicSelect
+            category="dev_phase"
+            value={form.dev_phase}
+            onChange={v => setForm(f => ({ ...f, dev_phase: v }))}
+            placeholder="Select phase…"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Indication</label>
+        <input
+          className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+          value={form.indication} onChange={e => setForm(f => ({ ...f, indication: e.target.value }))}
+          placeholder="e.g. Duchenne Muscular Dystrophy"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Therapeutic Area</label>
+        <DynamicSelect
+          category="therapeutic_area"
+          value={form.therapeutic_area}
+          onChange={v => setForm(f => ({ ...f, therapeutic_area: v }))}
+          placeholder="Select area…"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Target Authorities</label>
+        <div className="flex flex-wrap gap-2">
+          {ALL_AUTHORITIES.map(auth => (
+            <button
+              key={auth} type="button"
+              onClick={() => toggleAuth(auth)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
+            >
+              {form.authorities.includes(auth) && <Check size={12} />}
+              {auth}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── New Project Modal ─────────────────────────────────────────────────────────
+
+function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState<ProjectFormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,66 +156,81 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Project Name *</label>
-            <input
-              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-              value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. AAV Gene Therapy Program"
-            />
+          <ProjectFormFields form={form} setForm={setForm} />
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
+              {saving ? "Creating…" : "Create Project"}
+            </button>
           </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Project Modal ────────────────────────────────────────────────────────
+
+function EditProjectModal({ project, onClose, onSaved }: { project: Project; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<ProjectFormState>({
+    name: project.name,
+    type: project.type,
+    indication: project.indication ?? "",
+    therapeutic_area: project.therapeutic_area ?? "",
+    dev_phase: project.dev_phase ?? "Preclinical",
+    status: project.status,
+    readiness_score: project.readiness_score,
+    authorities: project.authorities ?? [],
+    product_type: project.product_type ?? "Small Molecule",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { setError("Project name is required."); return; }
+    setSaving(true);
+    try {
+      await projectApi.update(project.id, {
+        name: form.name,
+        type: form.type,
+        indication: form.indication || null,
+        therapeutic_area: form.therapeutic_area || null,
+        dev_phase: form.dev_phase || null,
+        status: form.status,
+        authorities: form.authorities.length > 0 ? form.authorities : null,
+        product_type: form.product_type || null,
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update project");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Submission Type</label>
-            <div className="flex gap-3">
-              {["IND", "BLA", "NDA", "ANDA"].map(t => (
-                <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
-                  <input type="radio" className="hidden" value={t} checked={form.type === t} onChange={() => setForm(f => ({ ...f, type: t }))} />
-                  {t}
+            <h2 className="text-lg font-bold text-slate-900">Edit Project</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{project.name}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <ProjectFormFields form={form} setForm={setForm} />
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+            <div className="flex gap-2 flex-wrap">
+              {STATUSES.map(s => (
+                <label key={s} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.status === s ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  <input type="radio" className="hidden" value={s} checked={form.status === s} onChange={() => setForm(f => ({ ...f, status: s as Project["status"] }))} />
+                  {s}
                 </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Indication</label>
-            <input
-              className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-              value={form.indication} onChange={e => setForm(f => ({ ...f, indication: e.target.value }))}
-              placeholder="e.g. Duchenne Muscular Dystrophy"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Therapeutic Area</label>
-              <select
-                className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 bg-white"
-                value={form.therapeutic_area} onChange={e => setForm(f => ({ ...f, therapeutic_area: e.target.value }))}
-              >
-                <option value="">Select…</option>
-                {THERAPEUTIC_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Development Phase</label>
-              <select
-                className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 bg-white"
-                value={form.dev_phase} onChange={e => setForm(f => ({ ...f, dev_phase: e.target.value }))}
-              >
-                {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Target Authorities</label>
-            <div className="flex flex-wrap gap-2">
-              {ALL_AUTHORITIES.map(auth => (
-                <button
-                  key={auth} type="button"
-                  onClick={() => toggleAuth(auth)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
-                >
-                  {form.authorities.includes(auth) && <Check size={12} />}
-                  {auth}
-                </button>
               ))}
             </div>
           </div>
@@ -132,7 +238,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
-              {saving ? "Creating…" : "Create Project"}
+              {saving ? "Saving…" : "Save Changes"}
             </button>
           </div>
         </form>
@@ -175,6 +281,9 @@ function ImportProjectModal({ onClose, onImported }: { onClose: () => void; onIm
           <p className="text-sm text-slate-500">
             Upload an Excel file (.xlsx) to bulk import projects.{" "}
             <a href="/project-import-template.xlsx" download className="text-blue-600 hover:underline font-semibold">Download template</a>
+          </p>
+          <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3 font-medium">
+            Columns: Name, Type, Indication, Therapeutic Area, Dev Phase, Status, Authorities, Readiness Score, Product Type
           </p>
           <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
             <input
@@ -224,6 +333,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [modalOpen, setModalOpen] = useState<"new" | "import" | null>(null);
+  const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const loadProjects = useCallback(async () => {
@@ -240,8 +350,6 @@ export default function ProjectsPage() {
   }, [page, search, statusFilter]);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
-
-  // Debounce search
   useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   const stats = {
@@ -311,6 +419,10 @@ export default function ProjectsPage() {
           onStartChat={id => router.push(`/dashboard/chat?projectId=${id}`)}
           onViewDetail={id => router.push(`/dashboard/projects/${id}`)}
           onDelete={id => setDeleteId(id)}
+          onEdit={id => {
+            const p = projects.find(pr => pr.id === id);
+            if (p) setEditProject(p);
+          }}
         />
         <GlobalVisibilityBanner />
       </div>
@@ -320,6 +432,13 @@ export default function ProjectsPage() {
       )}
       {modalOpen === "import" && (
         <ImportProjectModal onClose={() => setModalOpen(null)} onImported={loadProjects} />
+      )}
+      {editProject && (
+        <EditProjectModal
+          project={editProject}
+          onClose={() => setEditProject(null)}
+          onSaved={loadProjects}
+        />
       )}
       {deleteId && (
         <ConfirmModal

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, chat, health, projects, regulatory, assessments
+from app.api.v1 import assessments, auth, chat, health, lookups, projects, regulatory, simulation
 
 router = APIRouter()
 router.include_router(health.router)
@@ -9,4 +9,6 @@ router.include_router(chat.router)
 router.include_router(regulatory.router)
 router.include_router(assessments.router)
 router.include_router(projects.router)
+router.include_router(simulation.router)
+router.include_router(lookups.router)
 

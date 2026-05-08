@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class GapAnalysis(BaseModel):
     title: str
-    domain: str = Field(..., description="CMC / Nonclinical / Clinical / Strategy")
+    domain: str = Field(..., description="Must be exactly one of: CMC, Clinical, Nonclinical, Regulatory, Safety, Quality")
     severity: str = Field(..., description="Critical / High / Medium / Low")
     description: str
     regulatory_impact: str

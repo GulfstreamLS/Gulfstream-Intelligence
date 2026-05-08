@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -24,6 +25,13 @@ class ActionItem(BaseModel):
     title: str
     description: str
     priority: str
+
+class AnalyzedDocumentSummary(BaseModel):
+    id: UUID
+    filename: str
+    authority: Optional[str]
+    gap_count: int
+    created_at: datetime
 
 class GapAssessmentResponse(BaseModel):
     overall_readiness: int

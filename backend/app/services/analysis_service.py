@@ -69,7 +69,7 @@ class AnalysisService:
                         "Gap Analysis of a user-provided document against official regulatory guidelines.\n\n"
                         "REGULATORY CONTEXT:\n{context}\n\n"
                         "Follow these rules:\n"
-                        "1. Each gap must include a Domain (CMC/Nonclinical/Clinical/Strategy).\n"
+                        "1. Each gap must include a Domain — use ONLY these exact values: CMC, Clinical, Nonclinical, Regulatory, Safety, Quality.\n"
                         "2. Each gap must have a Severity (Critical/High/Medium/Low).\n"
                         "3. Provide exact quoted excerpts from the user document where possible.\n"
                         "4. Be objective and professional."
@@ -154,7 +154,9 @@ class AnalysisService:
                         (
                             f"You are an expert Regulatory Affairs Consultant specializing in {auth}.\n\n"
                             "REGULATORY CONTEXT:\n{context}\n\n"
-                            "Analyze the document against THESE specific guidelines only."
+                            "Analyze the document against THESE specific guidelines only.\n"
+                            "Each gap must include a Domain — use ONLY these exact values: CMC, Clinical, Nonclinical, Regulatory, Safety, Quality.\n"
+                            "Each gap must have a Severity: Critical, High, Medium, or Low."
                         ),
                     ),
                     ("human", "Please analyze this document:\n\n{document_text}"),

@@ -14,6 +14,7 @@ class ProjectCreate(BaseModel):
     status: str = "Planning"
     readiness_score: int = 0
     authorities: Optional[list[str]] = None
+    product_type: Optional[str] = None
     icon_type: Optional[str] = None
 
 
@@ -26,6 +27,7 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     readiness_score: Optional[int] = None
     authorities: Optional[list[str]] = None
+    product_type: Optional[str] = None
     icon_type: Optional[str] = None
 
 
@@ -39,6 +41,7 @@ class ProjectResponse(BaseModel):
     status: str
     readiness_score: int
     authorities: Optional[list[str]] = None
+    product_type: Optional[str] = None
     icon_type: Optional[str] = None
     created_at: datetime
     updated_at: datetime

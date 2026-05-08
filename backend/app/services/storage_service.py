@@ -51,8 +51,9 @@ class StorageService:
         blob_name = f"{uuid.uuid4()}-{safe_filename}"
         with open(os.path.join(media_dir, blob_name), "wb") as f:
             f.write(content)
-        base_url = os.getenv("BASE_URL", "http://localhost:8000")
-        return f"{base_url}/media/uploads/{quote(blob_name, safe='/')}"
+        # Store as a relative path so the served URL is always built from the
+        # current BASE_URL at response time — never baked in as localhost.
+        return f"/media/uploads/{quote(blob_name, safe='/')}"
 
 
 storage_service = StorageService()

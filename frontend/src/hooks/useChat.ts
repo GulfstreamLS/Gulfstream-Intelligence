@@ -28,28 +28,41 @@ export function useChat() {
   }): Promise<string | null> => {
     const isNew = !params.conversationId;
 
-    // Optimistic messages for existing conversations (we know the ID already)
-    if (!isNew && params.conversationId) {
-      if (params.file) {
-        store.appendMessage(params.conversationId, {
-          id: crypto.randomUUID(),
-          conversation_id: params.conversationId,
-          role: "user",
-          content: `📎 ${params.file.name} (${(params.file.size / 1024).toFixed(0)} KB)`,
-          token_count: null,
-          created_at: new Date().toISOString(),
-        });
-      }
-      if (params.message) {
-        store.appendMessage(params.conversationId, {
-          id: crypto.randomUUID(),
-          conversation_id: params.conversationId,
-          role: "user",
-          content: params.message,
-          token_count: null,
-          created_at: new Date().toISOString(),
-        });
-      }
+    // For new conversations: create a temp conversation immediately so the user
+    // sees their message the instant they hit send, before the server responds.
+    const tempId = isNew ? crypto.randomUUID() : null;
+
+    if (isNew && tempId) {
+      const tempConvo: Conversation = {
+        id: tempId,
+        title: null,
+        model: "gpt-4o",
+        system_prompt: null,
+        project_id: params.projectId ?? null,
+        project_name: null,
+        uploaded_filename: params.file?.name ?? null,
+        uploaded_url: null,
+        uploaded_type: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        messages: [],
+      };
+      store.addConversation(tempConvo);
+      params.onConversationReady?.(tempId);
+    }
+
+    // Optimistic user message — one combined bubble for both file and text
+    const optimisticTarget = params.conversationId ?? tempId;
+    if (optimisticTarget && (params.file || params.message)) {
+      store.appendMessage(optimisticTarget, {
+        id: crypto.randomUUID(),
+        conversation_id: optimisticTarget,
+        role: "user",
+        content: params.message ?? "",
+        attached_filename: params.file?.name ?? null,
+        token_count: null,
+        created_at: new Date().toISOString(),
+      } as Message);
     }
 
     store.setIsStreaming(true);
@@ -62,38 +75,11 @@ export function useChat() {
       for await (const chunk of chatApi.send(params)) {
 
         if (chunk.type === "conversation_ready") {
-          // New conversation — add to store and show optimistic messages
           resolvedId = chunk.id!;
-          const newConvo: Conversation = {
-            id: chunk.id!,
-            title: null,
-            model: chunk.model ?? "gpt-4o",
-            system_prompt: null,
-            project_id: params.projectId ?? null,
-            project_name: null,
-            uploaded_filename: null,
-            uploaded_url: null,
-            uploaded_type: null,
-            created_at: chunk.created_at ?? new Date().toISOString(),
-            updated_at: chunk.updated_at ?? new Date().toISOString(),
-            messages: [],
-          };
-          store.addConversation(newConvo);
-          params.onConversationReady?.(chunk.id!);
-          if (params.file) {
-            store.appendMessage(chunk.id!, {
-              id: crypto.randomUUID(), conversation_id: chunk.id!,
-              role: "user",
-              content: `📎 ${params.file.name} (${(params.file.size / 1024).toFixed(0)} KB)`,
-              token_count: null, created_at: new Date().toISOString(),
-            });
-          }
-          if (params.message) {
-            store.appendMessage(chunk.id!, {
-              id: crypto.randomUUID(), conversation_id: chunk.id!,
-              role: "user", content: params.message,
-              token_count: null, created_at: new Date().toISOString(),
-            });
+          if (tempId) {
+            // Swap temp conversation → real server ID, preserving optimistic messages
+            store.replaceConversationId(tempId, chunk.id!);
+            params.onConversationReady?.(chunk.id!);
           }
 
         } else if (chunk.type === "delta" && chunk.content) {

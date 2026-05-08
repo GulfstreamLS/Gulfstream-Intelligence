@@ -20,6 +20,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="Planning")
     readiness_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     authorities: Mapped[list | None] = mapped_column(MutableList.as_mutable(JSONB))
+    product_type: Mapped[str | None] = mapped_column(String(100))
     icon_type: Mapped[str | None] = mapped_column(String(50))
     metadata_: Mapped[dict | None] = mapped_column("metadata", MutableDict.as_mutable(JSONB))
 

@@ -196,6 +196,7 @@ async def import_projects(
             status=str(col(row, "status") or "Planning"),
             readiness_score=readiness_score,
             authorities=authorities if authorities else None,
+            product_type=str(col(row, "product type") or "") or None,
         )
         db.add(project)
         created += 1

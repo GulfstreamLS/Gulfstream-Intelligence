@@ -1,5 +1,3 @@
-import { ChevronRight } from "lucide-react";
-
 interface TopicItem {
   label: string;
   count: number;
@@ -29,9 +27,6 @@ export function KeyTopicsDetected() {
           </div>
         ))}
       </div>
-      <button className="text-gs-blue text-[13px] font-bold flex items-center gap-1 mt-6 hover:underline">
-        View all topics <ChevronRight className="w-4 h-4" />
-      </button>
     </div>
   );
 }

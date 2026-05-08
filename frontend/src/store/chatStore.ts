@@ -15,6 +15,7 @@ interface ChatState {
   addConversation: (convo: Conversation) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
   removeConversation: (id: string) => void;
+  replaceConversationId: (oldId: string, newId: string) => void;
   setActiveConversation: (id: string | null) => void;
   appendMessage: (conversationId: string, message: Message) => void;
   setStreamingContent: (content: string) => void;
@@ -44,6 +45,14 @@ export const useChatStore = create<ChatState>()(
         set((s) => ({
           conversations: s.conversations.filter((c) => c.id !== id),
           activeConversationId: s.activeConversationId === id ? null : s.activeConversationId,
+        })),
+      replaceConversationId: (oldId, newId) =>
+        set((s) => ({
+          conversations: s.conversations.map((c) =>
+            c.id === oldId
+              ? { ...c, id: newId, messages: c.messages.map(m => ({ ...m, conversation_id: newId })) }
+              : c
+          ),
         })),
       setActiveConversation: (id) => set({ activeConversationId: id }),
       appendMessage: (conversationId, message) =>

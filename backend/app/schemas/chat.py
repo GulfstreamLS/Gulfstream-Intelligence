@@ -1,10 +1,33 @@
+import os
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.chat import MessageRole
+
+
+def _resolve_media_url(url: str | None) -> str | None:
+    """
+    Ensure local media paths are served with the correct BASE_URL.
+
+    Handles three cases:
+    - None / empty → unchanged
+    - Already an external URL (https://) → unchanged (GCS etc.)
+    - Relative path (/media/...) → prepend BASE_URL
+    - Old stored URL with localhost:8000 → replace prefix with BASE_URL
+    """
+    if not url:
+        return url
+    if url.startswith("https://"):
+        return url
+    base = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+    if url.startswith("/media/"):
+        return f"{base}{url}"
+    if "localhost:8000" in url:
+        return url.replace("http://localhost:8000", base, 1)
+    return url
 
 
 class MessageCreate(BaseModel):
@@ -25,6 +48,11 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("attached_url", mode="before")
+    @classmethod
+    def resolve_attached_url(cls, v: str | None) -> str | None:
+        return _resolve_media_url(v)
 
 
 class ConversationCreate(BaseModel):
@@ -59,6 +87,11 @@ class ConversationResponse(BaseModel):
     messages: list[MessageResponse] = []
 
     model_config = {"from_attributes": True}
+
+    @field_validator("uploaded_url", mode="before")
+    @classmethod
+    def resolve_uploaded_url(cls, v: str | None) -> str | None:
+        return _resolve_media_url(v)
 
 
 class ChatRequest(BaseModel):

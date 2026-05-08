@@ -32,11 +32,13 @@ function RegulatoryChatPage() {
     loadConversations().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If a specific conversation is requested via URL but not yet in store, fetch it directly
+  // When a specific conversation is requested via URL, always fetch it from the API
+  // so we get fresh data with full messages. Only skip if it's already in the store
+  // with messages loaded (avoids redundant fetches on sidebar clicks after initial load).
   useEffect(() => {
     if (!conversationId) return;
-    const already = conversations.find(c => c.id === conversationId);
-    if (already) return;
+    const already = useChatStore.getState().conversations.find(c => c.id === conversationId);
+    if (already && (already.messages?.length ?? 0) > 0) return;
     chatApi.getConversation(conversationId)
       .then(c => {
         const inStore = useChatStore.getState().conversations.find(x => x.id === c.id);
@@ -49,12 +51,6 @@ function RegulatoryChatPage() {
   useEffect(() => {
     if (isStreaming) userScrolled.current = false;
   }, [isStreaming]);
-
-  useEffect(() => {
-    if (userScrolled.current) return;
-    const el = scrollContainerRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [streamingContent, conversationId]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -100,6 +96,13 @@ function RegulatoryChatPage() {
     }
     return stableMessages;
   }, [stableMessages, isStreaming, streamingContent]);
+
+  // Scroll to bottom on every new message (optimistic or streamed) unless user scrolled up
+  useEffect(() => {
+    if (userScrolled.current) return;
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [stableMessages.length, streamingContent, conversationId]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 

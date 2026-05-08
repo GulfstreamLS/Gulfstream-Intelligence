@@ -1,7 +1,9 @@
-import type { Conversation, Project, ProjectListResponse, StreamChunk, TokenResponse, User } from "../types";
+import type { AnalyzedDocument, Conversation, GapAssessmentResponse, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, TokenResponse, User } from "../types";
 import Cookies from "js-cookie";
 
-const BASE_URL = "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
 
 export function setTokenCookies(tokens: TokenResponse) {
   Cookies.set("access_token", tokens.access_token, { expires: 1 });
@@ -281,4 +283,46 @@ export const projectApi = {
     }
     return res.json();
   },
+};
+
+export const assessmentApi = {
+  listDocuments: () => request<AnalyzedDocument[]>("/assessments/documents"),
+
+  getGlobalGap: (authority?: string, documentId?: string) => {
+    const params = new URLSearchParams();
+    if (authority) params.set("authority", authority);
+    if (documentId) params.set("document_id", documentId);
+    const q = params.toString() ? `?${params.toString()}` : "";
+    return request<GapAssessmentResponse>(`/assessments/global-gap${q}`);
+  },
+};
+
+export const lookupApi = {
+  list: (category: string): Promise<string[]> =>
+    request<string[]>(`/lookups/${category}`),
+
+  add: (category: string, value: string): Promise<string> =>
+    request<string>(`/lookups/${category}`, {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    }),
+};
+
+export const simulationApi = {
+  run: (body: SimulationRunRequest) =>
+    request<SimulationSession>("/simulation/run", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listSessions: (projectId?: string) => {
+    const q = projectId ? `?project_id=${projectId}` : "";
+    return request<SimulationListItem[]>(`/simulation/sessions${q}`);
+  },
+
+  getSession: (id: string) =>
+    request<SimulationSession>(`/simulation/sessions/${id}`),
+
+  deleteSession: (id: string) =>
+    request<void>(`/simulation/sessions/${id}`, { method: "DELETE" }),
 };

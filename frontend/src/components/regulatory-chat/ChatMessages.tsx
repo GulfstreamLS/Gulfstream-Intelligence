@@ -119,10 +119,8 @@ function ThinkingBubble() {
 }
 
 const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) {
-  // Resolve attachment name: prefer DB-persisted field, fall back to 📎 optimistic sentinel
-  const attachedFilename = msg.attachedFilename
-    ?? (msg.content.startsWith("📎") ? msg.content.replace(/^📎\s*/, "").split(" (")[0] : null);
-  const isAttachmentOnly = msg.content.startsWith("📎");
+  const attachedFilename = msg.attachedFilename ?? null;
+  const isAttachmentOnly = !msg.content && !!attachedFilename;
 
   return (
     <div className="flex justify-end items-start gap-3">
@@ -146,8 +144,8 @@ const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) 
           </div>
         )}
 
-        {/* Text bubble — hidden if this was a file-only optimistic message */}
-        {!isAttachmentOnly && (
+        {/* Text bubble — hidden when no text content */}
+        {!isAttachmentOnly && msg.content && (
           <div className="bg-gs-blue/10 dark:bg-gs-blue/20 p-4 rounded-2xl rounded-tr-none border border-gs-blue/20 w-full">
             <p className="text-sm text-gs-text leading-relaxed">{msg.content}</p>
           </div>

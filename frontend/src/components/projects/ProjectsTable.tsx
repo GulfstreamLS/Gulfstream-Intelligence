@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Dna, Beaker, FlaskConical, Pill, Activity,
-  MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, ExternalLink, Trash2,
+  MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, ExternalLink, Trash2, Pencil,
 } from "lucide-react";
 import type { Project, ProjectStatus } from "../../types";
 
@@ -66,6 +66,7 @@ export function ProjectsTable({
   onStartChat,
   onViewDetail,
   onDelete,
+  onEdit,
 }: {
   projects: Project[];
   loading: boolean;
@@ -76,6 +77,7 @@ export function ProjectsTable({
   onStartChat: (id: string) => void;
   onViewDetail: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (id: string) => void;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
 
@@ -233,6 +235,14 @@ export function ProjectsTable({
             >
               <ExternalLink size={14} /> View Details
             </button>
+            {onEdit && (
+              <button
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                onClick={() => { setMenu(null); onEdit(menu.id); }}
+              >
+                <Pencil size={14} /> Edit Project
+              </button>
+            )}
             <button
               className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               onClick={() => { setMenu(null); onStartChat(menu.id); }}
