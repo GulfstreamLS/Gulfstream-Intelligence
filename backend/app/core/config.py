@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         return v
 
     # Security
-    SECRET_KEY: str = "change-me-in-production-use-secrets-manager"
+    APP_SECRET_KEY: str = "change-me-in-production-use-secrets-manager"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ALGORITHM: str = "HS256"
@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     # AI Providers
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
-    DEFAULT_AI_PROVIDER: Literal["anthropic", "openai"] = "anthropic"
-    DEFAULT_MODEL: str = "claude-sonnet-4-6"
+    DEFAULT_AI_PROVIDER: Literal["anthropic", "openai"] = "openai"
+    DEFAULT_MODEL: str = "gpt-4o-mini"
 
     # GCP
     GCP_PROJECT_ID: str = ""

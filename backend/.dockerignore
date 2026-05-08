@@ -16,12 +16,11 @@ htmlcov/
 
 # Local configuration
 .env
-*.json
-!requirements.txt
 
-# Media & Uploads (Don't include local media in image)
-media/
-static_tests/
+# Allowing specific JSON files for ingestion
+# Since the build context is ./backend, the path is scripts/...
+!scripts/fda_data.json
+!requirements.txt
 
 # IDEs
 .vscode/

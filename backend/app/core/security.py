@@ -24,7 +24,7 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     return jwt.encode(
         {"sub": str(subject), "exp": expire, "type": "access"},
-        settings.SECRET_KEY,
+        settings.APP_SECRET_KEY,
         settings.ALGORITHM,
     )
 
@@ -33,13 +33,13 @@ def create_refresh_token(subject: str | Any) -> str:
     expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(
         {"sub": str(subject), "exp": expire, "type": "refresh"},
-        settings.SECRET_KEY,
+        settings.APP_SECRET_KEY,
         settings.ALGORITHM,
     )
 
 
 def decode_token(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return jwt.decode(token, settings.APP_SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError as e:
         raise ValueError(f"Invalid token: {e}") from e

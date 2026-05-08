@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -120,3 +120,34 @@ async def seed_regulatory_knowledge(
     await vector_service.add_regulatory_content(db, authority, title, final_content, source_url)
     await db.commit()
     return {"message": f"Knowledge '{title}' seeded successfully"}
+
+
+@router.get("/stats")
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    """Get the total count of ingested records."""
+    from sqlalchemy import func
+    result = await db.execute(select(func.count()).select_from(RegulatorySource))
+    count = result.scalar()
+    return {"total_records": count}
+
+
+@router.post("/seed-demo")
+async def seed_demo(background_tasks: BackgroundTasks, limit: int = 150):
+    """FOR DEMO: Instantly inject high-quality records."""
+    from scripts.seed_demo_data import seed_demo_data
+    background_tasks.add_task(seed_demo_data, limit)
+    return {"message": f"Demo seeding started in background for {limit} records"}
+
+
+@router.post("/ingest-fda", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_fda_ingestion(
+    background_tasks: BackgroundTasks,
+    limit: int = 50,
+):
+    """Trigger a background job to ingest documents from the FDA."""
+    from app.services.ingestion_service import ingestion_service
+
+    background_tasks.add_task(ingestion_service.ingest_all, limit)
+    return {
+        "message": f"FDA Ingestion started for {limit} documents in the background. Check logs for progress."
+    }

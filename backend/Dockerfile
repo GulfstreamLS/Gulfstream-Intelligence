@@ -20,6 +20,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy source
 COPY . .
+COPY scripts/fda_data.json scripts/fda_data.json
 
 EXPOSE 8000
 
