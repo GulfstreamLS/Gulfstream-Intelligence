@@ -10,6 +10,7 @@ import { SimulationSidePanel } from "../../../../components/ha-simulation/Simula
 import { HaBottomCards }       from "../../../../components/ha-simulation/HaBottomCards";
 import { simulationApi, projectApi } from "../../../../lib/api";
 import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 import type { Project, SimulationListItem, SimulationSession } from "../../../../types";
 
 const DEFAULT_AUTHORITY      = "FDA";
@@ -137,7 +138,7 @@ function SessionHistoryDropdown({
   );
 }
 
-export default function HealthAuthoritySimulationPage() {
+function HealthAuthoritySimulationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -367,5 +368,13 @@ export default function HealthAuthoritySimulationPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <HealthAuthoritySimulationPage />
+    </Suspense>
   );
 }
