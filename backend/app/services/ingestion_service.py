@@ -4,7 +4,7 @@ import json
 import os
 import re
 from typing import Any
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.services.document_processor import document_processor
@@ -13,7 +13,7 @@ from app.services.vector_service import vector_service
 class IngestionService:
     def __init__(self):
         self.engine = create_async_engine(settings.DATABASE_URL)
-        self.SessionLocal = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+        self.SessionLocal = async_sessionmaker(self.engine, expire_on_commit=False)
 
     async def fetch_fda_metadata(self) -> list[Any]:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

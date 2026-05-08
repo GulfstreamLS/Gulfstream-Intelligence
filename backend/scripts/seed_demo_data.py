@@ -1,7 +1,6 @@
 import asyncio
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.core.config import settings
 from app.services.vector_service import vector_service
 
@@ -22,7 +21,7 @@ MOCK_DATA_PACK = [
 # We will duplicate these with slight variations to reach a higher record count for the demo
 async def seed_demo_data(count_target: int = 100):
     engine = create_async_engine(settings.DATABASE_URL)
-    SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     
     print(f"DEBUG: Seeding {count_target} records for the demo...")
     
