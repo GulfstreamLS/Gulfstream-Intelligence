@@ -1,6 +1,7 @@
 import datetime
 import io
 import json
+import os
 import uuid
 import zipfile
 from collections.abc import AsyncGenerator
@@ -29,6 +30,14 @@ from app.services.document_processor import document_processor
 from app.services.vector_service import vector_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _resolve_export_url(url: str) -> str:
+    """Ensure export URLs embedded in message text use the absolute backend URL."""
+    if url.startswith("http"):
+        return url
+    base = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+    return f"{base}{url}"
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
@@ -216,7 +225,8 @@ async def send(
             if url:
                 ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
                 display_name = f"Regulatory Analysis Report.{ext}"
-                text = f"✅ **{label} Generated Successfully.**\n\n[{display_name}]({url})"
+                abs_url = _resolve_export_url(url)
+                text = f"✅ **{label} Generated Successfully.**\n\n[{display_name}]({abs_url})"
                 await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
                 await db.commit()
                 return StreamingResponse(
@@ -632,9 +642,10 @@ async def send_message(
             if url:
                 ext = "pdf" if file_type_label == "PDF" else ("docx" if file_type_label == "Word" else "pptx")
                 display_name = f"Regulatory Analysis Report.{ext}"
+                abs_url = _resolve_export_url(url)
                 response_text = (
                     f"✅ **{file_type_label} Generated Successfully.**\n\n"
-                    f"[{display_name}]({url})"
+                    f"[{display_name}]({abs_url})"
                 )
                 await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, response_text)
                 await db.commit()

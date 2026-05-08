@@ -10,12 +10,8 @@ class StorageService:
         self._client = None
 
     def _gcs_available(self) -> bool:
-        """GCS requires a valid lowercase bucket name and existing credentials file."""
-        if not self.bucket_name or self.bucket_name != self.bucket_name.lower():
-            return False
-        if not self.credentials_path or not os.path.exists(self.credentials_path):
-            return False
-        return True
+        """GCS only needs a valid bucket name. On Cloud Run, ADC is used automatically."""
+        return bool(self.bucket_name) and self.bucket_name == self.bucket_name.lower()
 
     @property
     def client(self):
@@ -24,6 +20,7 @@ class StorageService:
             if self.credentials_path and os.path.exists(self.credentials_path):
                 self._client = storage.Client.from_service_account_json(self.credentials_path)
             else:
+                # Cloud Run: uses Application Default Credentials automatically
                 self._client = storage.Client()
         return self._client
 
