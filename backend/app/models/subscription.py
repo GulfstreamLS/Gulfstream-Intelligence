@@ -4,9 +4,14 @@ from enum import StrEnum
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.organization import Organization
 
 
 class SubscriptionPlan(StrEnum):
@@ -46,3 +51,7 @@ class Subscription(Base, UUIDMixin, TimestampMixin):
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_price_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    user: Mapped["User | None"] = relationship(back_populates="subscription")
+    organization: Mapped["Organization | None"] = relationship(back_populates="subscription")

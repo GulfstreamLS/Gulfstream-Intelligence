@@ -11,6 +11,7 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.subscription import Subscription
 
 
 class MemberRole(StrEnum):
@@ -35,6 +36,12 @@ class Organization(Base, UUIDMixin, TimestampMixin):
 
     members: Mapped[list["OrganizationMember"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     invitations: Mapped[list["Invitation"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    subscription: Mapped["Subscription | None"] = relationship(
+        "Subscription",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class OrganizationMember(Base, UUIDMixin, TimestampMixin):

@@ -14,6 +14,7 @@ function VerifyEmailContent() {
 
   const emailFromParam = searchParams.get("email") ?? "";
   const justSent = searchParams.get("sent") === "1";
+  const selectedPlan = searchParams.get("plan");
 
   const email = user?.email ?? emailFromParam;
   const userId = user?.id ?? Cookies.get("pending_verify_id") ?? "";
@@ -71,7 +72,7 @@ function VerifyEmailContent() {
     try {
       await authApi.verifyEmail(userId, code);
       Cookies.remove("pending_verify_id");
-      router.push("/pricing");
+      router.push(`/pricing${selectedPlan ? `?plan=${selectedPlan}` : ""}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid or expired code. Please try again.");
       setDigits(["", "", "", "", "", ""]);

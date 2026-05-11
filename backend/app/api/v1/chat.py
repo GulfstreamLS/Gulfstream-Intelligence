@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1._audit import get_ip, log_audit
 from app.core.config import settings
 from app.db.session import get_db
-from app.middleware.auth import get_user_or_none
+from app.middleware.auth import get_user_or_none, check_active_subscription
 from app.models.chat import MessageRole
 from app.models.notification import Notification, NotificationType
 from app.models.organization import MemberRole, MemberStatus, OrganizationMember
@@ -60,7 +60,7 @@ async def send(
     model: Optional[str]           = Form(None),
     file: Optional[UploadFile]     = File(None),
     project_id: Optional[str]      = Form(None),
-    current_user: Optional[User]   = Depends(get_user_or_none),
+    current_user: User              = Depends(check_active_subscription),
     db: AsyncSession               = Depends(get_db),
 ):
     """Single endpoint: create/get conversation, attach file, set authorities, stream AI response."""

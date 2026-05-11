@@ -12,6 +12,7 @@ import {
   History,
   // BarChart2,
   Settings,
+  CreditCard,
   X,
 } from "lucide-react";
 import { GsLogo } from "../ui/GsLogo";
@@ -33,6 +34,7 @@ const primaryNav: NavItem[] = [
   { label: "History",   href: "/dashboard/history",   icon: History },
   // { label: "Reports",   href: "/dashboard/reports",   icon: BarChart2 },
   { label: "Settings",  href: "/dashboard/settings",  icon: Settings },
+  { label: "Subscription", href: "/dashboard/subscription", icon: CreditCard },
 ];
 
 interface DashboardSidebarProps {

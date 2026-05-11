@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
-from app.middleware.auth import get_current_user, get_user_or_none
+from app.middleware.auth import get_current_user, get_user_or_none, check_active_subscription
 from app.models.regulatory import AnalysisDocument, RegulatorySource
 from app.models.user import User
 from app.schemas.regulatory import DocumentAnalysisResponse
@@ -30,7 +30,7 @@ async def upload_for_analysis(
     request: Request,
     file: UploadFile = File(...),
     authority: str = Form(None),
-    current_user: User | None = Depends(get_user_or_none),
+    current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a document for regulatory gap analysis."""

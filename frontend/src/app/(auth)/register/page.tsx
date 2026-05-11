@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Building2, User } from "lucide-react";
 import { authApi, setTokenCookies } from "../../../lib/api";
@@ -11,14 +11,27 @@ import Cookies from "js-cookie";
 type AccountType = "solo" | "organization_member";
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterContent />
+    </Suspense>
+  );
+}
+
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setUser = useChatStore((s) => s.setUser);
+
+  const selectedPlan = searchParams.get("plan");
 
   const [step, setStep] = useState<1 | 2>(1);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [accountType, setAccountType] = useState<AccountType>("solo");
+  const [accountType, setAccountType] = useState<AccountType>(
+    (selectedPlan === "business" || selectedPlan === "enterprise") ? "organization_member" : "solo"
+  );
   const [orgName, setOrgName] = useState("");
   const [orgEmail, setOrgEmail] = useState("");
   const [error, setError] = useState("");
@@ -55,7 +68,8 @@ export default function RegisterPage() {
         setUser(user);
         Cookies.set("pending_verify_id", user.id, { expires: 1 });
       } catch { /* non-fatal — cookie fallback works */ }
-      router.push(`/verify-email?email=${encodeURIComponent(email)}&sent=1`);
+      const verifyUrl = `/verify-email?email=${encodeURIComponent(email)}&sent=1${selectedPlan ? `&plan=${selectedPlan}` : ""}`;
+      router.push(verifyUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

@@ -305,14 +305,6 @@ async def accept_invite(token: _uuid.UUID, data: dict, db: AsyncSession = Depend
 
     invite.accepted_at = datetime.now(UTC)
 
-    sub = Subscription(
-        user_id=user.id,
-        plan=SubscriptionPlan.TRIAL,
-        billing_cycle=BillingCycle.ANNUAL,
-        status=SubscriptionStatus.TRIALING,
-        trial_ends_at=datetime.now(UTC) + timedelta(days=7),
-    )
-    db.add(sub)
 
     # Notify org owner
     owner_result = await db.execute(select(User).where(User.id == org.owner_id))

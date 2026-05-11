@@ -416,7 +416,7 @@ export const organizationApi = {
 };
 
 export const subscriptionApi = {
-  get: () => request<Subscription | null>("/auth/me/subscription"),
+  get: () => request<Subscription | null>("/billing/status"),
 
   contactSales: (data: { name: string; email: string; company?: string; message: string }) =>
     request<{ message: string }>("/auth/contact-sales", {
@@ -448,4 +448,23 @@ export const inviteApi = {
       method: "POST",
       body: JSON.stringify({ password, full_name: full_name || undefined }),
     }),
+};
+
+export const billingApi = {
+  createCheckoutSession: (plan_id: string, billing_cycle: string, success_url: string, cancel_url: string) =>
+    request<{ checkout_url: string }>("/billing/checkout-session", {
+      method: "POST",
+      body: JSON.stringify({ plan_id, billing_cycle, success_url, cancel_url }),
+    }),
+
+  getStatus: () => request<Subscription | null>("/billing/status"),
+
+  getPlans: () => request<{
+    solo: any[];
+    organization: any[];
+  }>("/billing/plans"),
+
+  cancelSubscription: () => request<{ message: string }>("/billing/cancel", {
+    method: "POST"
+  }),
 };

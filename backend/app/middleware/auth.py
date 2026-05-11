@@ -35,3 +35,32 @@ async def get_user_or_none(
         return await auth_service.get_current_user(db, credentials.credentials)
     except Exception:
         return None
+
+async def check_active_subscription(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    from app.models.subscription import SubscriptionStatus
+    from datetime import datetime, UTC
+
+    sub = await auth_service.get_subscription(db, current_user)
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Active subscription required"
+        )
+    
+    is_active = False
+    if sub.status == SubscriptionStatus.ACTIVE:
+        is_active = True
+    elif sub.status == SubscriptionStatus.TRIALING:
+        if sub.trial_ends_at and sub.trial_ends_at > datetime.now(UTC):
+            is_active = True
+    
+    if not is_active:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Subscription expired or trial ended. Please upgrade your plan."
+        )
+    
+    return current_user
