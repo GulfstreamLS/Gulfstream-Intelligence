@@ -1,4 +1,4 @@
-import type { AuditLog, AnalyzedDocument, Conversation, GapAssessmentResponse, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, TokenResponse, User, UserPreferences } from "../types";
+import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, InviteDetails, OrgMember, Organization, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
 import Cookies from "js-cookie";
 
 const BASE_URL =
@@ -67,6 +67,19 @@ export const authApi = {
       body: JSON.stringify({ email, password, full_name }),
     }),
 
+  registerFull: (data: {
+    email: string;
+    password: string;
+    full_name?: string;
+    account_type?: string;
+    org_name?: string;
+    org_email?: string;
+  }) =>
+    request<TokenResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   login: (email: string, password: string) =>
     request<TokenResponse>("/auth/login", {
       method: "POST",
@@ -95,6 +108,15 @@ export const authApi = {
 
   getActivity: (limit = 20, offset = 0) =>
     request<AuditLog[]>(`/auth/me/activity?limit=${limit}&offset=${offset}`),
+
+  verifyEmail: (userId: string, code: string) =>
+    request<{ message: string }>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, code }),
+    }),
+
+  resendVerification: () =>
+    request<{ message: string }>("/auth/resend-verification", { method: "POST" }),
 };
 
 export const chatApi = {
@@ -259,6 +281,19 @@ export const chatApi = {
   },
 };
 
+type ProjectPayload = {
+  name: string;
+  type?: string;
+  indication?: string | null;
+  therapeutic_area?: string | null;
+  dev_phase?: string | null;
+  status?: Project["status"];
+  readiness_score?: number;
+  authorities?: string[] | null;
+  product_type?: string | null;
+  icon_type?: string | null;
+};
+
 export const projectApi = {
   list: (params?: { page?: number; page_size?: number; search?: string; status_filter?: string; authority?: string }) => {
     const q = new URLSearchParams();
@@ -272,10 +307,10 @@ export const projectApi = {
 
   get: (id: string) => request<Project>(`/projects/${id}`),
 
-  create: (data: Omit<Project, "id" | "created_at" | "updated_at">) =>
+  create: (data: ProjectPayload) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
 
-  update: (id: string, data: Partial<Omit<Project, "id" | "created_at" | "updated_at">>) =>
+  update: (id: string, data: Partial<ProjectPayload>) =>
     request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   remove: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
@@ -339,4 +374,75 @@ export const simulationApi = {
 
   deleteSession: (id: string) =>
     request<void>(`/simulation/sessions/${id}`, { method: "DELETE" }),
+};
+
+export const organizationApi = {
+  get: () => request<Organization>("/organizations/me"),
+
+  update: (data: { name?: string; org_email?: string }) =>
+    request<Organization>("/organizations/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  listMembers: () => request<OrgMember[]>("/organizations/me/members"),
+
+  inviteMember: (email: string, full_name?: string) =>
+    request<{ message: string; invite_id: string }>("/organizations/me/invites", {
+      method: "POST",
+      body: JSON.stringify({ email, full_name: full_name || undefined }),
+    }),
+
+  cancelInvite: (inviteId: string) =>
+    request<void>(`/organizations/me/invites/${inviteId}`, { method: "DELETE" }),
+
+  updateMemberRole: (userId: string, role: "owner" | "member") =>
+    request<OrgMember>(`/organizations/me/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (userId: string) =>
+    request<void>(`/organizations/me/members/${userId}`, { method: "DELETE" }),
+
+  deleteOrg: (confirmName: string) =>
+    request<void>("/organizations/me", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm_name: confirmName }),
+    }),
+};
+
+export const subscriptionApi = {
+  get: () => request<Subscription | null>("/auth/me/subscription"),
+
+  contactSales: (data: { name: string; email: string; company?: string; message: string }) =>
+    request<{ message: string }>("/auth/contact-sales", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+export const notificationApi = {
+  list: (limit = 20) =>
+    request<AppNotification[]>(`/notifications?limit=${limit}`),
+
+  unreadCount: () =>
+    request<{ count: number }>("/notifications/unread-count"),
+
+  markRead: (id: string) =>
+    request<void>(`/notifications/${id}/read`, { method: "PATCH" }),
+
+  markAllRead: () =>
+    request<void>("/notifications/read-all", { method: "PATCH" }),
+};
+
+export const inviteApi = {
+  getDetails: (token: string) =>
+    request<InviteDetails>(`/auth/invite/${token}`),
+
+  accept: (token: string, password: string, full_name?: string) =>
+    request<TokenResponse>(`/auth/invite/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ password, full_name: full_name || undefined }),
+    }),
 };

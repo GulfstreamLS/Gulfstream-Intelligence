@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Monitor, Lock, ShieldCheck, Smartphone, Fingerprint, AlertTriangle } from "lucide-react";
+import { Monitor, Lock, ShieldCheck, Smartphone, Fingerprint, AlertTriangle, MailCheck } from "lucide-react";
 import { authApi } from "../../lib/api";
+import { useChatStore } from "../../store/chatStore";
 
 interface ActivityItemProps {
   icon: React.ReactNode;
@@ -27,10 +28,13 @@ function SecurityActivityItem({ icon, title, desc, time }: ActivityItemProps) {
 }
 
 export function SecurityView() {
+  const user = useChatStore((s) => s.user);
   const [current, setCurrent]   = useState("");
   const [next, setNext]         = useState("");
   const [saving, setSaving]     = useState(false);
   const [msg, setMsg]           = useState<{ ok: boolean; text: string } | null>(null);
+  const [verifySent, setVerifySent] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   async function handlePasswordUpdate() {
     if (!current || !next) {
@@ -51,8 +55,41 @@ export function SecurityView() {
     }
   }
 
+  async function handleSendVerification() {
+    setVerifyLoading(true);
+    try {
+      await authApi.resendVerification();
+      setVerifySent(true);
+    } catch { /* ignore */ }
+    finally { setVerifyLoading(false); }
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Email verification banner for unverified users */}
+      {user && !user.is_verified && (
+        <div className="lg:col-span-2 flex items-start gap-4 p-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 rounded-xl">
+          <MailCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Email not verified</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              Verify your email address to secure your account and receive important notifications.
+            </p>
+          </div>
+          {verifySent ? (
+            <span className="text-xs font-medium text-gs-green shrink-0">Code sent!</span>
+          ) : (
+            <button
+              onClick={handleSendVerification}
+              disabled={verifyLoading}
+              className="text-xs font-bold text-amber-700 dark:text-amber-300 underline shrink-0 disabled:opacity-50"
+            >
+              {verifyLoading ? "Sending…" : "Verify now"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Access Control */}
       <section className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card">
         <h3 className="text-[18px] font-bold text-gs-text mb-6">Access Control</h3>

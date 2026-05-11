@@ -138,7 +138,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
     if (!form.name.trim()) { setError("Project name is required."); return; }
     setSaving(true);
     try {
-      await projectApi.create({ ...form, icon_type: null, metadata_: null } as Parameters<typeof projectApi.create>[0]);
+      await projectApi.create({ ...form, icon_type: null });
       onCreated();
       onClose();
     } catch (err) {

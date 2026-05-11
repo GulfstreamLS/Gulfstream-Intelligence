@@ -11,7 +11,7 @@ import type { ActivityItem }                              from "../../../../comp
 import { ConfirmModal }                                   from "../../../../components/ui/ConfirmModal";
 import { useChatStore }                                   from "../../../../store/chatStore";
 import { useChat }                                        from "../../../../hooks/useChat";
-import { chatApi }                                        from "../../../../lib/api";
+import { chatApi, organizationApi }                       from "../../../../lib/api";
 
 // ── Date range options ────────────────────────────────────────────────────────
 
@@ -47,6 +47,7 @@ export default function HistoryPage() {
   const { conversations, user, removeConversation } = useChatStore();
   const { loadConversations }   = useChat();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
 
   // Filter state
   const [search,       setSearch]       = useState("");
@@ -56,14 +57,22 @@ export default function HistoryPage() {
 
   useEffect(() => {
     loadConversations().catch(console.error);
+    if (user?.account_type === "organization_member") {
+      organizationApi.listMembers()
+        .then(members => {
+          const me = members.find(m => m.user_id === user.id);
+          setIsOrgOwner(me?.role === "owner");
+        })
+        .catch(() => null);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map conversations → activities (falls back to static demo data when empty)
   const allActivities = useMemo<ActivityItem[]>(
     () => conversations.length > 0
-      ? mapConversationsToActivities(conversations, user)
+      ? mapConversationsToActivities(conversations, user, isOrgOwner)
       : STATIC_ACTIVITIES,
-    [conversations, user],
+    [conversations, user, isOrgOwner],
   );
 
   // Unique types & users for the dropdowns

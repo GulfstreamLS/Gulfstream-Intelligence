@@ -6,6 +6,7 @@ import { TrustBar } from "../components/marketing/TrustBar";
 import { PricingSection } from "../components/marketing/PricingSection";
 import { CredentialsSection } from "../components/marketing/CredentialsSection";
 import { CTABanner } from "../components/marketing/CtaBanner";
+import { ContactSection } from "../components/marketing/ContactSection";
 import { Footer } from "../components/marketing/Footer";
 
 export default function LandingPage() {
@@ -20,6 +21,7 @@ export default function LandingPage() {
         <PricingSection />
         <CredentialsSection />
         <CTABanner />
+        <ContactSection />
       </main>
       <Footer />
     </>

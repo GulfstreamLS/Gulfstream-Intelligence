@@ -8,6 +8,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: str | None = None
+    account_type: str | None = "solo"
+    org_name: str | None = None
+    org_email: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -41,6 +44,8 @@ class UserResponse(BaseModel):
     avatar_url: str | None
     is_active: bool
     is_verified: bool
+    account_type: str
+    organization_id: uuid.UUID | None = None
     created_at: datetime
     preferences: dict | None = None
 
@@ -51,11 +56,16 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    message: str = "CI/CD test"
+    requires_verification: bool = False
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class VerifyEmailRequest(BaseModel):
+    user_id: uuid.UUID
+    code: str
 
 
 class AuditLogResponse(BaseModel):
@@ -68,5 +78,24 @@ class AuditLogResponse(BaseModel):
     created_at: datetime
     user_email: str | None = None
     user_full_name: str | None = None
+    details: dict | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SubscriptionResponse(BaseModel):
+    id: uuid.UUID
+    plan: str
+    billing_cycle: str
+    status: str
+    trial_ends_at: datetime | None
+    current_period_end: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class ContactSalesRequest(BaseModel):
+    name: str
+    email: EmailStr
+    company: str | None = None
+    message: str

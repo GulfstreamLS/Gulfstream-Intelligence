@@ -21,6 +21,7 @@ export interface ActivityItem {
   iconBg: string;
   iconColor: string;
   conversationId?: string;
+  canDelete?: boolean;
 }
 
 export const STATIC_ACTIVITIES: ActivityItem[] = [
@@ -45,7 +46,11 @@ function formatTimestamp(iso: string): string {
   return `${date}\n${time}`;
 }
 
-export function mapConversationsToActivities(conversations: Conversation[], user: User | null): ActivityItem[] {
+export function mapConversationsToActivities(
+  conversations: Conversation[],
+  user: User | null,
+  isOrgOwner = false,
+): ActivityItem[] {
   return conversations.map(convo => {
     const lastMsg        = convo.messages?.[convo.messages.length - 1];
     const firstUserMsg   = convo.messages?.find(m => m.role === "user");
@@ -62,7 +67,9 @@ export function mapConversationsToActivities(conversations: Conversation[], user
       lastMsg?.role === "user" ? "Follow-up question"    :
                                  "Conversation";
 
-    const userName = user?.full_name ?? user?.email ?? "You";
+    const creatorName = convo.user_full_name ?? convo.user_email ?? (convo.user_id === user?.id ? (user?.full_name ?? user?.email ?? "You") : "Team Member");
+    const isCreator = convo.user_id === user?.id;
+    const canDelete = isCreator || isOrgOwner;
 
     return {
       id:             convo.id,
@@ -72,11 +79,12 @@ export function mapConversationsToActivities(conversations: Conversation[], user
       details,
       project:        convo.project_name ?? "—",
       rawDate:        convo.updated_at,
-      user:           { name: userName, initials: getInitials(userName), color: "bg-blue-600" },
+      user:           { name: creatorName, initials: getInitials(creatorName), color: isCreator ? "bg-blue-600" : "bg-slate-500" },
       timestamp:      formatTimestamp(convo.updated_at),
       icon:           <MessageSquare size={16} />,
       iconBg:         "bg-purple-50",
       iconColor:      "text-purple-600",
+      canDelete,
     };
   });
 }
@@ -210,7 +218,7 @@ export function ActivityTable({ activities = STATIC_ACTIVITIES, onDeleteChat }: 
                 <ExternalLink size={14} /> View Chat
               </button>
             )}
-            {menu.item.conversationId && onDeleteChat && (
+            {menu.item.conversationId && onDeleteChat && menu.item.canDelete && (
               <>
                 <div className="border-t border-slate-100 my-1" />
                 <button

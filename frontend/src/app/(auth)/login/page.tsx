@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Cookies from "js-cookie";
 import { authApi, setTokenCookies } from "../../../lib/api";
 import { useChatStore } from "../../../store/chatStore";
 
@@ -21,6 +22,14 @@ export default function LoginPage() {
     try {
       const tokens = await authApi.login(email, password);
       setTokenCookies(tokens);
+      if (tokens.requires_verification) {
+        try {
+          const user = await authApi.me();
+          Cookies.set("pending_verify_id", user.id, { expires: 1 });
+        } catch { /* non-fatal */ }
+        router.push(`/verify-email?email=${encodeURIComponent(email)}&sent=1`);
+        return;
+      }
       const user = await authApi.me();
       setUser(user);
       router.push("/dashboard");

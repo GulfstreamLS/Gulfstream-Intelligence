@@ -13,23 +13,33 @@ logger = get_logger(__name__)
 
 
 class ChatService:
-    async def get_conversations(self, db: AsyncSession, user_id: uuid.UUID) -> list[Conversation]:
+    async def get_conversations(self, db: AsyncSession, user_id: uuid.UUID, organization_id: uuid.UUID | None = None) -> list[Conversation]:
+        if organization_id:
+            q = select(Conversation).where(Conversation.organization_id == organization_id)
+        else:
+            q = select(Conversation).where(Conversation.user_id == user_id)
         result = await db.execute(
-            select(Conversation)
-            .options(selectinload(Conversation.messages), selectinload(Conversation.project))
-            .where(Conversation.user_id == user_id)
+            q.options(selectinload(Conversation.messages), selectinload(Conversation.project), selectinload(Conversation.user))
             .order_by(Conversation.updated_at.desc())
         )
         return list(result.scalars().all())
 
     async def get_conversation(
-        self, db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
+        self, db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, organization_id: uuid.UUID | None = None
     ) -> Conversation | None:
-        result = await db.execute(
-            select(Conversation)
-            .options(selectinload(Conversation.messages), selectinload(Conversation.project))
-            .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
-        )
+        _opts = [selectinload(Conversation.messages), selectinload(Conversation.project), selectinload(Conversation.user)]
+        if organization_id:
+            result = await db.execute(
+                select(Conversation)
+                .options(*_opts)
+                .where(Conversation.id == conversation_id, Conversation.organization_id == organization_id)
+            )
+        else:
+            result = await db.execute(
+                select(Conversation)
+                .options(*_opts)
+                .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
+            )
         return result.scalar_one_or_none()
 
     async def create_conversation(self, db: AsyncSession, user_id: uuid.UUID, data: ConversationCreate) -> Conversation:

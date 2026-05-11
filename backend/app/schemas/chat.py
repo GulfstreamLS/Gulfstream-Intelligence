@@ -79,6 +79,10 @@ class ConversationResponse(BaseModel):
     system_prompt: str | None = None
     project_id: Optional[uuid.UUID] = None
     project_name: Optional[str] = None
+    organization_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
+    user_full_name: Optional[str] = None
+    user_email: Optional[str] = None
     uploaded_filename: Optional[str] = None
     uploaded_url: Optional[str] = None
     uploaded_type: Optional[str] = None

@@ -16,6 +16,9 @@ class SimulationSession(Base, UUIDMixin, TimestampMixin):
     project_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Input parameters
     authority: Mapped[str] = mapped_column(String(100), nullable=False)

@@ -12,6 +12,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "projects"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False, default="IND")
     indication: Mapped[str | None] = mapped_column(String(500))

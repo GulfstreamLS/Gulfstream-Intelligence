@@ -25,6 +25,7 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(500))
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(100))
@@ -36,6 +37,14 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="conversations")
     project: Mapped["Project"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at")
+
+    @property
+    def user_full_name(self) -> str | None:
+        return self.user.full_name if self.user else None
+
+    @property
+    def user_email(self) -> str | None:
+        return self.user.email if self.user else None
 
     @property
     def project_name(self) -> str | None:

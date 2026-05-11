@@ -22,6 +22,8 @@ async def log_audit(
     resource_id: _uuid.UUID | str | None = None,
     resource_name: str | None = None,
     ip_address: str | None = None,
+    organization_id: _uuid.UUID | None = None,
+    details: dict | None = None,
 ) -> None:
     db.add(AuditLog(
         user_id=user_id,
@@ -30,4 +32,6 @@ async def log_audit(
         resource_id=str(resource_id) if resource_id else None,
         resource_name=resource_name,
         ip_address=ip_address,
+        organization_id=organization_id,
+        details=details,
     ))

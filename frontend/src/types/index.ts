@@ -14,6 +14,8 @@ export interface User {
   avatar_url: string | null;
   is_active: boolean;
   is_verified: boolean;
+  account_type: "solo" | "organization_member";
+  organization_id: string | null;
   created_at: string;
   preferences?: UserPreferences | null;
 }
@@ -28,6 +30,7 @@ export interface AuditLog {
   created_at: string;
   user_email: string | null;
   user_full_name: string | null;
+  details: Record<string, unknown> | null;
 }
 
 export interface Message {
@@ -50,6 +53,10 @@ export interface Conversation {
   system_prompt: string | null;
   project_id: string | null;
   project_name: string | null;
+  organization_id: string | null;
+  user_id: string | null;
+  user_full_name: string | null;
+  user_email: string | null;
   uploaded_filename: string | null;
   uploaded_url: string | null;
   uploaded_type: string | null;
@@ -62,6 +69,7 @@ export interface TokenResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
+  requires_verification?: boolean;
 }
 
 export type ProjectStatus = "On Track" | "At Risk" | "Planning";
@@ -78,6 +86,7 @@ export interface Project {
   authorities: string[] | null;
   product_type: string | null;
   icon_type: string | null;
+  organization_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -217,9 +226,59 @@ export interface StreamChunk {
   conversation_id?: string;
   error?: string;
   data?: Record<string, unknown>;
-  // conversation_ready fields
   id?: string;
   model?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// ── Organization / Tenant ─────────────────────────────────────────────────────
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  org_email: string | null;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface OrgMember {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  role: "owner" | "member";
+  status: "active" | "invited";
+  joined_at: string;
+}
+
+export interface InviteDetails {
+  email: string;
+  org_name: string;
+  token: string;
+}
+
+// ── Subscription ──────────────────────────────────────────────────────────────
+
+export interface Subscription {
+  id: string;
+  plan: "trial" | "starter" | "professional" | "business" | "enterprise";
+  billing_cycle: "monthly" | "annual";
+  status: "trialing" | "active" | "expired" | "cancelled";
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  is_read: boolean;
+  created_at: string;
 }

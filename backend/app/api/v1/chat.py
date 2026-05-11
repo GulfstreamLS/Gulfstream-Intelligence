@@ -17,6 +17,8 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.middleware.auth import get_user_or_none
 from app.models.chat import MessageRole
+from app.models.notification import Notification, NotificationType
+from app.models.organization import MemberRole, MemberStatus, OrganizationMember
 from app.models.user import User
 from app.schemas.chat import (
     ChatRequest,
@@ -66,8 +68,9 @@ async def send(
 
     # 1. Get or create conversation
     new_convo_payload = None
+    org_id = current_user.organization_id if current_user else None
     if conversation_id:
-        convo = await chat_service.get_conversation(db, uuid.UUID(conversation_id), user_id)
+        convo = await chat_service.get_conversation(db, uuid.UUID(conversation_id), user_id, org_id)
         if not convo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     else:
@@ -75,13 +78,32 @@ async def send(
             db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
         )
         if current_user:
+            convo.organization_id = org_id
             await log_audit(
                 db, current_user.id, "CHAT_CREATED",
                 resource_type="chat",
                 resource_id=convo.id,
                 resource_name=convo.title or "New Chat",
                 ip_address=get_ip(request),
+                organization_id=org_id,
             )
+            if org_id:
+                org_members = await db.execute(
+                    select(OrganizationMember).where(
+                        OrganizationMember.organization_id == org_id,
+                        OrganizationMember.user_id != current_user.id,
+                        OrganizationMember.status == MemberStatus.ACTIVE,
+                    )
+                )
+                for m in org_members.scalars().all():
+                    db.add(Notification(
+                        user_id=m.user_id,
+                        type=NotificationType.CHAT_CREATED,
+                        title="New chat started",
+                        body=f"{current_user.full_name or current_user.email} started a new chat",
+                        resource_type="chat",
+                        resource_id=str(convo.id),
+                    ))
         if project_id:
             try:
                 convo.project_id = uuid.UUID(project_id)
@@ -332,7 +354,8 @@ async def list_conversations(
     db: AsyncSession = Depends(get_db),
 ):
     user_id = await _get_user_id_fallback(db, current_user)
-    return await chat_service.get_conversations(db, user_id)
+    org_id = current_user.organization_id if current_user else None
+    return await chat_service.get_conversations(db, user_id, org_id)
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
@@ -348,11 +371,13 @@ async def create_conversation(
             raise HTTPException(status_code=500, detail="No users found in database.")
 
     convo = await chat_service.create_conversation(db, current_user.id, data)
+    convo.organization_id = current_user.organization_id
     await log_audit(
         db, current_user.id, "CHAT_CREATED",
         resource_type="chat",
         resource_id=convo.id,
         resource_name=convo.title or "New Chat",
+        organization_id=current_user.organization_id,
     )
     return convo
 
@@ -364,8 +389,8 @@ async def get_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     user_id = await _get_user_id_fallback(db, current_user)
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
-
+    org_id = current_user.organization_id if current_user else None
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     return convo
@@ -379,8 +404,8 @@ async def update_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     user_id = await _get_user_id_fallback(db, current_user)
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
-
+    org_id = current_user.organization_id if current_user else None
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     return await chat_service.update_conversation(db, convo, data)
@@ -394,10 +419,23 @@ async def delete_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     user_id = await _get_user_id_fallback(db, current_user)
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
-
+    org_id = current_user.organization_id if current_user else None
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    # Delete permission: creator or org owner only
+    if current_user and convo.user_id != current_user.id and org_id:
+        owner_check = await db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.organization_id == org_id,
+            )
+        )
+        member = owner_check.scalar_one_or_none()
+        if not member or member.role != MemberRole.OWNER:
+            raise HTTPException(status_code=403, detail="Only the chat creator or organization owner can delete this chat")
+
     convo_title = convo.title or "Untitled Chat"
     convo_id = convo.id
     await chat_service.delete_conversation(db, convo)
@@ -407,7 +445,25 @@ async def delete_conversation(
         resource_id=convo_id,
         resource_name=convo_title,
         ip_address=get_ip(request),
+        organization_id=org_id,
     )
+    if org_id and current_user:
+        org_members = await db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.organization_id == org_id,
+                OrganizationMember.user_id != current_user.id,
+                OrganizationMember.status == MemberStatus.ACTIVE,
+            )
+        )
+        for m in org_members.scalars().all():
+            db.add(Notification(
+                user_id=m.user_id,
+                type=NotificationType.CHAT_DELETED,
+                title="Chat deleted",
+                body=f"{current_user.full_name or current_user.email} deleted chat \"{convo_title}\"",
+                resource_type="chat",
+                resource_id=str(convo_id),
+            ))
 
 
 @router.patch("/conversations/{conversation_id}/authorities", response_model=ConversationResponse)
@@ -419,7 +475,8 @@ async def update_authorities(
 ):
     """Update the active regulatory authorities for a conversation."""
     user_id = await _get_user_id_fallback(db, current_user)
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
+    org_id = current_user.organization_id if current_user else None
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
 
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -468,7 +525,8 @@ async def upload_file_to_chat(
 ):
     """Upload a document to a conversation for regulatory analysis."""
     user_id = await _get_user_id_fallback(db, current_user)
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
+    org_id = current_user.organization_id if current_user else None
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
 
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -517,8 +575,9 @@ async def send_message(
         current_user = user_result.scalar_one_or_none()
 
     user_id = current_user.id if current_user else None
+    org_id = current_user.organization_id if current_user else None
 
-    convo = await chat_service.get_conversation(db, conversation_id, user_id)
+    convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
 
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
