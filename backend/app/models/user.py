@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
     from app.models.chat import Conversation
     from app.models.organization import OrganizationMember
+    from app.models.subscription import Subscription
 
 
 class AccountType(StrEnum):
@@ -43,4 +44,10 @@ class User(Base, UUIDMixin, TimestampMixin):
         foreign_keys="OrganizationMember.user_id",
         back_populates="user",
         uselist=False,
+    )
+    subscription: Mapped["Subscription | None"] = relationship(
+        "Subscription",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

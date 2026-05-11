@@ -55,6 +55,22 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 60
     RATE_LIMIT_WINDOW_SECONDS: int = 60
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
+    # Stripe Price IDs (Placeholders)
+    STRIPE_PRICE_STARTER_MONTHLY: str = "price_starter_mo"
+    STRIPE_PRICE_STARTER_ANNUAL: str = "price_starter_ann"
+    STRIPE_PRICE_PROFESSIONAL_MONTHLY: str = "price_prof_mo"
+    STRIPE_PRICE_PROFESSIONAL_ANNUAL: str = "price_prof_ann"
+    STRIPE_PRICE_BUSINESS_MONTHLY: str = "price_biz_mo"
+    STRIPE_PRICE_BUSINESS_ANNUAL: str = "price_biz_ann"
+
+    # Frontend URLs
+    FRONTEND_URL: str = "http://localhost:3000"
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"

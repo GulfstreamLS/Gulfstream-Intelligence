@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, check_active_subscription
 from app.models.chat import Conversation
 from app.models.project import Project as ProjectModel
 from app.models.simulation import SimulationSession
@@ -35,7 +35,7 @@ async def run_simulation(
     request: Request,
     body: SimulationRunRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_active_subscription),
 ):
     """Run a new simulation and return the full session with all results."""
     # Require at least one regulatory chat before running a project simulation
@@ -84,7 +84,7 @@ async def run_simulation(
 async def list_sessions(
     project_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_active_subscription),
 ):
     """List all simulation sessions for the current user, optionally filtered by project."""
     stmt = (
@@ -128,7 +128,7 @@ async def list_sessions(
 async def get_session(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_active_subscription),
 ):
     result = await db.execute(
         select(SimulationSession)
@@ -145,7 +145,7 @@ async def get_session(
 async def delete_session(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_active_subscription),
 ):
     result = await db.execute(
         select(SimulationSession).where(
