@@ -7,6 +7,7 @@ import { DashboardSidebar } from "../../components/dashboard/DashboardSidebar";
 import { DashboardTopNav } from "../../components/dashboard/DashboardTopNav";
 import { subscriptionApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
+import { useThemeStore } from "../../store/themeStore";
 import type { Subscription } from "../../types";
 
 export default function DashboardLayout({
@@ -19,10 +20,21 @@ export default function DashboardLayout({
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const router = useRouter();
   const user = useChatStore((s) => s.user);
+  const setTheme = useThemeStore((s) => s.theme);
+  const themeToggle = useThemeStore((s) => s.toggle);
 
   useEffect(() => {
     subscriptionApi.get().then(setSubscription).catch(() => null);
   }, []);
+
+  // Sync dark_mode preference from user profile to local themeStore so it
+  // persists across sessions and devices, not just localStorage on this device.
+  useEffect(() => {
+    if (user?.preferences?.dark_mode === undefined) return;
+    const wantDark = user.preferences.dark_mode;
+    if (wantDark && setTheme !== "dark") themeToggle();
+    if (!wantDark && setTheme === "dark") themeToggle();
+  }, [user?.id, user?.preferences?.dark_mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isExpired = subscription?.status === "expired" || subscription?.status === "cancelled";
   const showBanner = isExpired && !bannerDismissed;

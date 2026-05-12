@@ -1,8 +1,8 @@
 export const DEFAULT_CHAT_MODEL = "gpt-4o";
 
 export const CHAT_MODELS = [
-  { id: "gpt-4o", label: "GPT-4o", provider: "OpenAI" },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet", provider: "Anthropic" },
+  { id: "gpt-4o", label: "GPT", provider: "OpenAI" },
+  { id: "claude-sonnet-4-6", label: "Claude", provider: "Anthropic" },
 ] as const;
 
 export type ChatModelId = (typeof CHAT_MODELS)[number]["id"];

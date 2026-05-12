@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader";
 import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
 import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
@@ -14,12 +15,16 @@ import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
 function RegulatoryChatPage() {
-  const [conversationId, setConversationId]     = useState<string | null>(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("conversation") : null);
+  const searchParams = useSearchParams();
+  const urlConversationId = searchParams.get("conversation");
+  const urlProjectId      = searchParams.get("projectId");
+
+  const [conversationId, setConversationId]     = useState<string | null>(urlConversationId);
   const [input, setInput]                       = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("projectId") : null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(urlProjectId);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
   // Pre-populate displayMessages from sessionStorage on the very first render so
@@ -47,6 +52,15 @@ function RegulatoryChatPage() {
   useEffect(() => {
     loadConversations().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync conversationId when URL param changes (client-side navigation from history/projects)
+  useEffect(() => {
+    if (urlConversationId !== null) setConversationId(urlConversationId);
+  }, [urlConversationId]);
+
+  useEffect(() => {
+    if (urlProjectId !== null) setSelectedProjectId(urlProjectId);
+  }, [urlProjectId]);
 
   const pendingAutoMessage = useRef<string | null>(null);
 
@@ -340,5 +354,9 @@ function RegulatoryChatPage() {
 }
 
 export default function Page() {
-  return <RegulatoryChatPage />;
+  return (
+    <Suspense>
+      <RegulatoryChatPage />
+    </Suspense>
+  );
 }

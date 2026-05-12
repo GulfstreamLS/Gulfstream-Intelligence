@@ -5,6 +5,16 @@ export interface UserPreferences {
   timezone?: string;
   job_title?: string;
   organization?: string;
+  dark_mode?: boolean;
+  ai_auto_summarize?: boolean;
+  high_priority_alerts?: boolean;
+  default_workspace_view?: string;
+}
+
+export interface BillingUsage {
+  plan: string;
+  uploads_this_month: number;
+  upload_limit: number | null;
 }
 
 export interface User {

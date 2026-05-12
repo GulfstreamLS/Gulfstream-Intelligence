@@ -53,18 +53,18 @@ function ProjectFormFields({
   return (
     <>
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Project Name *</label>
+        <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Project Name *</label>
         <input
-          className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="w-full h-10 px-3 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gs-muted"
           value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           placeholder="e.g. AAV Gene Therapy Program"
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Submission Type</label>
+        <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Submission Type</label>
         <div className="flex gap-2 flex-wrap">
           {["IND", "BLA", "NDA", "ANDA"].map(t => (
-            <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+            <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600" : "border-gs-border text-gs-muted hover:border-gs-border"}`}>
               <input type="radio" className="hidden" value={t} checked={form.type === t} onChange={() => setForm(f => ({ ...f, type: t }))} />
               {t}
             </label>
@@ -73,7 +73,7 @@ function ProjectFormFields({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Product Type</label>
+          <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Product Type</label>
           <DynamicSelect
             category="product_type"
             value={form.product_type}
@@ -82,7 +82,7 @@ function ProjectFormFields({
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Development Phase</label>
+          <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Development Phase</label>
           <DynamicSelect
             category="dev_phase"
             value={form.dev_phase}
@@ -92,15 +92,15 @@ function ProjectFormFields({
         </div>
       </div>
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Indication</label>
+        <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Indication</label>
         <input
-          className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="w-full h-10 px-3 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gs-muted"
           value={form.indication} onChange={e => setForm(f => ({ ...f, indication: e.target.value }))}
           placeholder="e.g. Duchenne Muscular Dystrophy"
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Therapeutic Area</label>
+        <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Therapeutic Area</label>
         <DynamicSelect
           category="therapeutic_area"
           value={form.therapeutic_area}
@@ -109,13 +109,13 @@ function ProjectFormFields({
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Target Authorities</label>
+        <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-2">Target Authorities</label>
         <div className="flex flex-wrap gap-2">
           {ALL_AUTHORITIES.map(auth => (
             <button
               key={auth} type="button"
               onClick={() => toggleAuth(auth)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600" : "border-gs-border text-gs-muted hover:border-gs-border"}`}
             >
               {form.authorities.includes(auth) && <Check size={12} />}
               {auth}
@@ -151,16 +151,16 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">New Project</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+      <div className="bg-gs-card rounded-2xl shadow-2xl dark:shadow-black/40 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gs-border">
+          <h2 className="text-lg font-bold text-gs-text">New Project</h2>
+          <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <ProjectFormFields form={form} setForm={setForm} />
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
               {saving ? "Creating…" : "Create Project"}
             </button>
@@ -214,21 +214,21 @@ function EditProjectModal({ project, onClose, onSaved }: { project: Project; onC
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+      <div className="bg-gs-card rounded-2xl shadow-2xl dark:shadow-black/40 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gs-border">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Edit Project</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{project.name}</p>
+            <h2 className="text-lg font-bold text-gs-text">Edit Project</h2>
+            <p className="text-xs text-gs-muted mt-0.5">{project.name}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <ProjectFormFields form={form} setForm={setForm} />
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Status</label>
             <div className="flex gap-2 flex-wrap">
               {STATUSES.map(s => (
-                <label key={s} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.status === s ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                <label key={s} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.status === s ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600" : "border-gs-border text-gs-muted hover:border-gs-border"}`}>
                   <input type="radio" className="hidden" value={s} checked={form.status === s} onChange={() => setForm(f => ({ ...f, status: s as Project["status"] }))} />
                   {s}
                 </label>
@@ -237,7 +237,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: Project; onC
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
               {saving ? "Saving…" : "Save Changes"}
             </button>
@@ -273,27 +273,27 @@ function ImportProjectModal({ onClose, onImported }: { onClose: () => void; onIm
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Import Projects</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+      <div className="bg-gs-card rounded-2xl shadow-2xl dark:shadow-black/40 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gs-border">
+          <h2 className="text-lg font-bold text-gs-text">Import Projects</h2>
+          <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-gs-muted">
             Upload an Excel file (.xlsx) to bulk import projects.{" "}
             <a href="/project-import-template.xlsx" download className="text-blue-600 hover:underline font-semibold">Download template</a>
           </p>
-          <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3 font-medium">
+          <p className="text-xs text-gs-muted bg-gs-bg rounded-lg p-3 font-medium">
             Columns: Name, Type, Indication, Therapeutic Area, Dev Phase, Status, Authorities, Readiness Score, Product Type
           </p>
-          <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+          <div className="border-2 border-dashed border-gs-border rounded-xl p-6 text-center">
             <input
               type="file" accept=".xlsx,.xls" id="excel-upload" className="hidden"
               onChange={e => { setFile(e.target.files?.[0] ?? null); setResult(null); setError(""); }}
             />
             <label htmlFor="excel-upload" className="cursor-pointer">
               <p className="text-sm font-semibold text-blue-600">{file ? file.name : "Click to choose a file"}</p>
-              <p className="text-xs text-slate-400 mt-1">XLSX or XLS, up to 10 MB</p>
+              <p className="text-xs text-gs-muted mt-1">XLSX or XLS, up to 10 MB</p>
             </label>
           </div>
           {result && (
@@ -308,7 +308,7 @@ function ImportProjectModal({ onClose, onImported }: { onClose: () => void; onIm
           )}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">
+            <button onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">
               {result ? "Close" : "Cancel"}
             </button>
             {!result && (
@@ -372,25 +372,25 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-gs-bg p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Projects</h1>
-            <p className="text-slate-500 text-sm mt-1">Organize and manage your regulatory programs and projects in one place.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gs-text tracking-tight">Projects</h1>
+            <p className="text-gs-muted text-sm mt-1">Organize and manage your regulatory programs and projects in one place.</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setModalOpen("import")}
-              className="flex items-center gap-2 px-4 py-2.5 border border-blue-600 text-blue-600 rounded-sm text-sm font-bold bg-white hover:bg-blue-50 transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 border border-blue-600 text-blue-600 rounded-sm text-sm font-bold bg-gs-card hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all shadow-sm"
             >
               <Download size={18} /> Import Project
             </button>
             <button
               onClick={() => setModalOpen("new")}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 transition-all"
             >
               <Plus size={18} /> New Project
             </button>
@@ -402,17 +402,17 @@ export default function ProjectsPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative flex-1 min-w-[300px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted" size={18} />
             <input
               type="text"
               placeholder="Search projects by name, indication, or therapeutic area..."
-              className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+              className="w-full h-11 pl-10 pr-4 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-gs-muted"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
           <select
-            className="flex items-center h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 cursor-pointer focus:outline-none"
+            className="flex items-center h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-sm font-semibold text-gs-text cursor-pointer focus:outline-none dark:[color-scheme:dark]"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >

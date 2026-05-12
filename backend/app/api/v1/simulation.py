@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
-from app.middleware.auth import get_current_user, check_active_subscription
+from app.middleware.auth import get_current_user, check_active_subscription, require_plan
 from app.models.chat import Conversation
 from app.models.project import Project as ProjectModel
 from app.models.simulation import SimulationSession
@@ -35,7 +35,7 @@ async def run_simulation(
     request: Request,
     body: SimulationRunRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(check_active_subscription),
+    current_user: User = Depends(require_plan("professional")),
 ):
     """Run a new simulation and return the full session with all results."""
     # Require at least one regulatory chat before running a project simulation

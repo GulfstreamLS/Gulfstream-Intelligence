@@ -7,6 +7,8 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.schemas.billing import CheckoutSessionRequest, CheckoutSessionResponse, SubscriptionSchema
 from app.services.stripe_service import StripeService
+from app.services.auth_service import auth_service
+from app.services.plan_service import get_upload_limit, get_monthly_upload_count
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -162,3 +164,27 @@ async def cancel_subscription(
     if not success:
         raise HTTPException(status_code=400, detail="Failed to cancel subscription or no active subscription found.")
     return {"message": "Subscription cancelled successfully. It will remain active until the end of the period."}
+
+
+@router.get("/usage")
+async def get_usage(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return current plan and file-upload usage for the billing period.
+    Resolves the correct subscription for both solo users and org members
+    (org members use their organization's subscription).
+    """
+    sub = await auth_service.get_subscription(db, current_user)
+    upload_limit = get_upload_limit(sub)
+
+    uploads_this_month = 0
+    if upload_limit is not None and upload_limit > 0:
+        uploads_this_month = await get_monthly_upload_count(db, current_user.id)
+
+    return {
+        "plan": sub.plan if sub else "trial",
+        "uploads_this_month": uploads_this_month,
+        "upload_limit": upload_limit,
+    }

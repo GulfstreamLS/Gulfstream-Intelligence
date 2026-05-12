@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Check, X, Plus } from "lucide-react";
 import { lookupApi } from "../../lib/api";
 
 interface DynamicSelectProps {
@@ -17,20 +17,34 @@ export function DynamicSelect({
   value,
   onChange,
   placeholder = "Select…",
-  className = "",
 }: DynamicSelectProps) {
   const [options, setOptions] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState(false);
   const [showInput, setShowInput] = useState(false);
   const [inputVal, setInputVal] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     lookupApi.list(category)
       .then(items => { setOptions(items); setLoaded(true); })
       .catch(() => setLoaded(true));
   }, [category]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setShowInput(false);
+        setInputVal("");
+        setError("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   async function handleAdd() {
     const trimmed = inputVal.trim();
@@ -41,6 +55,7 @@ export function DynamicSelect({
       const saved = await lookupApi.add(category, trimmed);
       setOptions(prev => prev.includes(saved) ? prev : [...prev, saved]);
       onChange(saved);
+      setOpen(false);
       setShowInput(false);
       setInputVal("");
     } catch {
@@ -50,71 +65,100 @@ export function DynamicSelect({
     }
   }
 
-  const baseClass =
-    "w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 bg-white";
-
-  // Always keep current value in the list so the select renders correctly while loading
   const visibleOptions = value && !options.includes(value)
     ? [value, ...options]
     : options;
 
-  if (showInput) {
-    return (
-      <div className="space-y-1">
-        <div className="flex gap-1.5 w-full">
-          <input
-            autoFocus
-            value={inputVal}
-            onChange={e => setInputVal(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
-              if (e.key === "Escape") { setShowInput(false); setInputVal(""); setError(""); }
-            }}
-            placeholder="Type new value…"
-            className="min-w-0 flex-1 h-10 px-3 border border-indigo-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={adding || !inputVal.trim()}
-            className="shrink-0 h-10 px-3 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {adding ? "…" : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowInput(false); setInputVal(""); setError(""); }}
-            className="shrink-0 w-9 h-10 flex items-center justify-center border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50"
-          >
-            <X size={13} />
-          </button>
-        </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
-      </div>
-    );
-  }
-
   return (
-    <select
-      value={value}
-      disabled={!loaded}
-      onChange={e => {
-        if (e.target.value === "__other__") {
-          setShowInput(true);
-        } else {
-          onChange(e.target.value);
-        }
-      }}
-      className={`${className || baseClass} ${!loaded ? "opacity-60" : ""}`}
-    >
-      {!value && <option value="">{loaded ? placeholder : "Loading…"}</option>}
-      {visibleOptions.map(o => <option key={o} value={o}>{o}</option>)}
-      {loaded && (
-        <>
-          <option disabled>─────────</option>
-          <option value="__other__">+ Add custom…</option>
-        </>
+    <div ref={ref} className="relative w-full">
+      {/* Trigger */}
+      <button
+        type="button"
+        disabled={!loaded}
+        onClick={() => setOpen(v => !v)}
+        className="w-full h-10 px-3 flex items-center justify-between gap-2 bg-gs-card border border-gs-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-60 cursor-pointer"
+      >
+        <span className={value ? "text-gs-text font-medium" : "text-gs-muted"}>
+          {!loaded ? "Loading…" : (value || placeholder)}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`text-gs-muted shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-full bg-gs-card border border-gs-border rounded-xl shadow-lg z-50 overflow-hidden py-1 max-h-60 overflow-y-auto">
+          {visibleOptions.length === 0 && !showInput && (
+            <p className="px-4 py-3 text-xs text-gs-muted">No options yet.</p>
+          )}
+
+          {visibleOptions.map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
+                opt === value
+                  ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 font-semibold"
+                  : "text-gs-text hover:bg-gs-bg"
+              }`}
+            >
+              <span>{opt}</span>
+              {opt === value && <Check size={13} className="text-blue-600 shrink-0" />}
+            </button>
+          ))}
+
+          {/* Divider + Add custom */}
+          {loaded && (
+            <>
+              <div className="my-1 border-t border-gs-border" />
+              {showInput ? (
+                <div className="px-3 pb-3 pt-2 space-y-1.5">
+                  <div className="flex gap-1.5">
+                    <input
+                      autoFocus
+                      value={inputVal}
+                      onChange={e => setInputVal(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+                        if (e.key === "Escape") { setShowInput(false); setInputVal(""); setError(""); }
+                      }}
+                      placeholder="Type new value…"
+                      className="min-w-0 flex-1 h-9 px-2.5 bg-gs-bg border border-gs-border rounded-lg text-sm text-gs-text placeholder:text-gs-muted focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAdd}
+                      disabled={adding || !inputVal.trim()}
+                      className="shrink-0 h-9 px-3 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {adding ? "…" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowInput(false); setInputVal(""); setError(""); }}
+                      className="shrink-0 w-9 h-9 flex items-center justify-center border border-gs-border rounded-lg text-gs-muted hover:bg-gs-bg"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowInput(true)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-blue-600 font-semibold hover:bg-gs-bg transition-colors"
+                >
+                  <Plus size={14} /> Add custom…
+                </button>
+              )}
+            </>
+          )}
+        </div>
       )}
-    </select>
+    </div>
   );
 }

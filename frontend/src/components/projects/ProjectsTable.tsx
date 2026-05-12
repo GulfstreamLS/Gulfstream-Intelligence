@@ -47,7 +47,7 @@ function SkeletonRow() {
     <tr>
       {Array.from({ length: 8 }).map((_, i) => (
         <td key={i} className="px-6 py-5">
-          <div className="h-4 bg-slate-100 rounded animate-pulse w-3/4" />
+          <div className="h-4 bg-gs-border rounded animate-pulse w-3/4" />
         </td>
       ))}
     </tr>
@@ -94,11 +94,11 @@ export function ProjectsTable({
   const end = Math.min(page * pageSize, total);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden mb-8">
+    <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mb-8">
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[1000px]">
-          <thead className="bg-[#FAFBFF] border-b border-slate-100">
-            <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+          <thead className="bg-gs-bg border-b border-gs-border">
+            <tr className="text-[11px] font-bold text-gs-muted uppercase tracking-widest">
               <th className="px-6 py-4">Project Name</th>
               <th className="px-6 py-4">Indication</th>
               <th className="px-6 py-4">Therapeutic Area</th>
@@ -115,7 +115,7 @@ export function ProjectsTable({
               : projects.length === 0
               ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center text-slate-400 text-sm font-medium">
+                  <td colSpan={8} className="px-6 py-16 text-center text-gs-muted text-sm font-medium">
                     No projects found. Create your first project to get started.
                   </td>
                 </tr>
@@ -131,7 +131,7 @@ export function ProjectsTable({
                 return (
                   <tr
                     key={project.id}
-                    className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                    className="hover:bg-gs-bg transition-colors group cursor-pointer"
                     onClick={() => onViewDetail(project.id)}
                   >
                     <td className="px-6 py-5">
@@ -140,28 +140,28 @@ export function ProjectsTable({
                           <Icon size={18} />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-800 leading-tight">{project.name}</span>
-                          <span className="text-[11px] font-bold text-slate-400 uppercase mt-0.5">{project.type}</span>
+                          <span className="text-sm font-bold text-gs-text leading-tight">{project.name}</span>
+                          <span className="text-[11px] font-bold text-gs-muted uppercase mt-0.5">{project.type}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5"><span className="text-[13px] font-medium text-slate-500">{project.indication ?? "—"}</span></td>
-                    <td className="px-6 py-5"><span className="text-[13px] font-medium text-slate-500">{project.therapeutic_area ?? "—"}</span></td>
+                    <td className="px-6 py-5"><span className="text-[13px] font-medium text-gs-muted">{project.indication ?? "—"}</span></td>
+                    <td className="px-6 py-5"><span className="text-[13px] font-medium text-gs-muted">{project.therapeutic_area ?? "—"}</span></td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-1.5">
                         {shownFlags.map((auth, i) => (
                           <span key={i} className="text-base grayscale-[0.2]">{AUTHORITY_FLAGS[auth] ?? auth}</span>
                         ))}
                         {extra > 0 && (
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded ml-1">+{extra}</span>
+                          <span className="text-[10px] font-bold text-gs-muted bg-gs-border px-1.5 py-0.5 rounded ml-1">+{extra}</span>
                         )}
-                        {authorities.length === 0 && <span className="text-[13px] text-slate-400">—</span>}
+                        {authorities.length === 0 && <span className="text-[13px] text-gs-muted">—</span>}
                       </div>
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-col gap-1.5 w-32">
-                        <span className="text-[13px] font-bold text-slate-800">{project.readiness_score}%</span>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <span className="text-[13px] font-bold text-gs-text">{project.readiness_score}%</span>
+                        <div className="h-1.5 w-full bg-gs-border rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${project.readiness_score > 70 ? "bg-emerald-500" : project.readiness_score > 40 ? "bg-orange-400" : "bg-red-500"}`}
                             style={{ width: `${project.readiness_score}%` }}
@@ -171,11 +171,11 @@ export function ProjectsTable({
                     </td>
                     <td className="px-6 py-5"><StatusBadge status={project.status} /></td>
                     <td className="px-6 py-5">
-                      <p className="text-[11px] font-bold text-slate-400 leading-tight text-center">{dateStr}<br />{timeStr}</p>
+                      <p className="text-[11px] font-bold text-gs-muted leading-tight text-center">{dateStr}<br />{timeStr}</p>
                     </td>
                     <td className="px-6 py-5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="text-slate-300 hover:text-slate-500 transition-colors"
+                        className="text-gs-muted hover:text-gs-muted transition-colors"
                         onClick={(e) => openMenu(e, project.id)}
                       >
                         <MoreHorizontal size={20} />
@@ -189,15 +189,15 @@ export function ProjectsTable({
         </table>
       </div>
 
-      <div className="px-6 py-4 bg-white border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-sm font-medium text-slate-400">
+      <div className="px-6 py-4 bg-gs-card border-t border-gs-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p className="text-sm font-medium text-gs-muted">
           {total === 0 ? "No projects" : `Showing ${start} to ${end} of ${total} projects`}
         </p>
         <div className="flex items-center gap-2">
           <button
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
-            className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-300 disabled:opacity-40"
+            className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted disabled:opacity-40"
           >
             <ChevronLeft size={16} />
           </button>
@@ -208,7 +208,7 @@ export function ProjectsTable({
               className={`w-8 h-8 flex items-center justify-center rounded text-sm font-bold ${
                 p === page
                   ? "border border-blue-600 bg-blue-50 text-blue-600"
-                  : "text-slate-400 hover:bg-slate-50"
+                  : "text-gs-muted hover:bg-gs-bg"
               }`}
             >
               {p}
@@ -217,7 +217,7 @@ export function ProjectsTable({
           <button
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
-            className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-300 disabled:opacity-40"
+            className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted disabled:opacity-40"
           >
             <ChevronRight size={16} />
           </button>
@@ -229,32 +229,32 @@ export function ProjectsTable({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div
-            className="fixed z-50 bg-white border border-slate-100 shadow-xl rounded-lg py-1 w-44"
+            className="fixed z-50 bg-gs-card border border-gs-border shadow-xl rounded-lg py-1 w-44"
             style={{ top: menu.top, right: menu.right }}
           >
             <button
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg"
               onClick={() => { setMenu(null); onViewDetail(menu.id); }}
             >
               <ExternalLink size={14} /> View Details
             </button>
             {onEdit && (
               <button
-                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg"
                 onClick={() => { setMenu(null); onEdit(menu.id); }}
               >
                 <Pencil size={14} /> Edit Project
               </button>
             )}
             <button
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg"
               onClick={() => { setMenu(null); onStartChat(menu.id); }}
             >
               <MessageSquare size={14} /> Start Chat
             </button>
             {activeProject && (canDeleteProject?.(activeProject) ?? true) && (
               <>
-                <div className="border-t border-slate-100 my-1" />
+                <div className="border-t border-gs-border my-1" />
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                   onClick={() => { setMenu(null); onDelete(menu.id); }}

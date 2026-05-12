@@ -59,7 +59,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     loadConversations().catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (user?.organization_id) {
@@ -81,7 +81,6 @@ export default function HistoryPage() {
     [conversations, user, isOrgOwner],
   );
 
-  // Unique types & users for the dropdowns
   const activityTypes = useMemo(
     () => ["all", ...Array.from(new Set(allActivities.map(a => a.type)))],
     [allActivities],
@@ -91,7 +90,6 @@ export default function HistoryPage() {
     [allActivities],
   );
 
-  // Apply all filters
   const filtered = useMemo<ActivityItem[]>(() => {
     const q = search.toLowerCase().trim();
     return allActivities.filter(item => {
@@ -107,16 +105,16 @@ export default function HistoryPage() {
   const dateLabelText = DATE_OPTIONS.find(o => o.value === dateRange)?.label ?? "All Time";
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-gs-bg p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">History</h1>
-            <p className="text-slate-500 text-sm mt-1">View and track all recent activity across the platform.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gs-text tracking-tight">History</h1>
+            <p className="text-gs-muted text-sm mt-1">View and track all recent activity across the platform.</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg text-sm font-bold bg-white hover:bg-blue-50 transition-colors shadow-sm self-start md:self-center">
+          <button className="flex items-center gap-2 px-4 py-2 border border-gs-blue text-gs-blue rounded-lg text-sm font-bold bg-gs-card hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors shadow-sm self-start md:self-center">
             <Download size={16} /> Export History
           </button>
         </div>
@@ -133,21 +131,21 @@ export default function HistoryPage() {
 
           {/* Search */}
           <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted" size={18} />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by activity, document name, project, or user..."
-              className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400 font-medium"
+              className="w-full h-10 pl-10 pr-4 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-gs-blue/20 transition-all placeholder:text-gs-muted font-medium"
             />
           </div>
 
-          {/* Date range — invisible <select> overlaid on the styled div */}
-          <div className="relative flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors">
-            <Calendar size={18} className="text-slate-400 shrink-0 pointer-events-none" />
-            <span className="text-sm font-semibold text-slate-700 pointer-events-none">{dateLabelText}</span>
-            <ChevronDown size={14} className="text-slate-400 ml-2 pointer-events-none" />
+          {/* Date range */}
+          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
+            <Calendar size={18} className="text-gs-muted shrink-0 pointer-events-none" />
+            <span className="text-sm font-semibold text-gs-text pointer-events-none">{dateLabelText}</span>
+            <ChevronDown size={14} className="text-gs-muted ml-2 pointer-events-none" />
             <select
               value={dateRange}
               onChange={e => setDateRange(e.target.value as DateRange)}
@@ -160,11 +158,11 @@ export default function HistoryPage() {
           </div>
 
           {/* Activity type */}
-          <div className="relative flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors">
-            <span className="text-sm font-semibold text-slate-700 pointer-events-none">
+          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
+            <span className="text-sm font-semibold text-gs-text pointer-events-none">
               {activityType === "all" ? "All Activity Types" : activityType}
             </span>
-            <ChevronDown size={14} className="text-slate-400 pointer-events-none" />
+            <ChevronDown size={14} className="text-gs-muted pointer-events-none" />
             <select
               value={activityType}
               onChange={e => setActivityType(e.target.value)}
@@ -177,11 +175,11 @@ export default function HistoryPage() {
           </div>
 
           {/* User */}
-          <div className="relative flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors">
-            <span className="text-sm font-semibold text-slate-700 pointer-events-none">
+          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
+            <span className="text-sm font-semibold text-gs-text pointer-events-none">
               {userFilter === "all" ? "All Users" : userFilter}
             </span>
-            <ChevronDown size={14} className="text-slate-400 pointer-events-none" />
+            <ChevronDown size={14} className="text-gs-muted pointer-events-none" />
             <select
               value={userFilter}
               onChange={e => setUserFilter(e.target.value)}
@@ -196,7 +194,7 @@ export default function HistoryPage() {
           {/* Reset filters */}
           <button
             onClick={() => { setSearch(""); setDateRange("all"); setActivityType("all"); setUserFilter("all"); }}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-2 px-3 py-2 bg-gs-card border border-gs-border rounded-lg text-sm font-bold text-gs-muted hover:bg-gs-bg hover:text-gs-text transition-colors"
           >
             <Filter size={18} /> Filters
           </button>
@@ -206,10 +204,10 @@ export default function HistoryPage() {
         <ActivityTable activities={filtered} onDeleteChat={id => setDeleteId(id)} />
 
         <div className="flex flex-col items-center text-center gap-2 pt-6">
-          <div className="flex items-center gap-2 text-slate-400 font-medium text-[10px] uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-gs-muted font-medium text-[10px] uppercase tracking-wider">
             <ShieldCheck size={14} /> All activity data is encrypted and stored securely.
           </div>
-          <p className="text-slate-400 text-[11px] font-medium">
+          <p className="text-gs-muted text-[11px] font-medium">
             Activity logs are for informational purposes and do not replace regulatory judgment.
           </p>
         </div>

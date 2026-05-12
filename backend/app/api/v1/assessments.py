@@ -14,7 +14,7 @@ from app.schemas.assessment import (
     GapSummary,
     ActionItem,
 )
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, require_plan
 from app.models.user import User
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
@@ -81,7 +81,7 @@ async def get_global_gap_assessment(
     authority: Optional[str] = None,
     document_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_plan("professional")),
 ):
     stmt = select(Gap).join(AnalysisDocument).where(AnalysisDocument.user_id == current_user.id)
     if authority:

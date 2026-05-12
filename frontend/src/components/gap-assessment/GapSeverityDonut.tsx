@@ -7,10 +7,10 @@ const SEVERITY_COLORS: Record<string, string> = {
   LOW:      "#10B981",
 };
 const SEVERITY_BG: Record<string, string> = {
-  CRITICAL: "bg-[#EF4444]",
-  HIGH:     "bg-[#F97316]",
-  MEDIUM:   "bg-[#FBBF24]",
-  LOW:      "bg-[#10B981]",
+  CRITICAL: "bg-red-500",
+  HIGH:     "bg-orange-500",
+  MEDIUM:   "bg-yellow-400",
+  LOW:      "bg-emerald-500",
 };
 
 function LegendItem({ label, count, percentage, color }: { label: string; count: number; percentage: number; color: string }) {
@@ -18,9 +18,9 @@ function LegendItem({ label, count, percentage, color }: { label: string; count:
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2.5">
         <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
-        <span className="text-[12px] font-bold text-[#64748B] uppercase tracking-tight">{label}</span>
+        <span className="text-[12px] font-bold text-gs-muted uppercase tracking-tight">{label}</span>
       </div>
-      <span className="text-[12px] font-bold text-[#0F172A]">{count} ({percentage}%)</span>
+      <span className="text-[12px] font-bold text-gs-text">{count} ({percentage}%)</span>
     </div>
   );
 }
@@ -28,7 +28,6 @@ function LegendItem({ label, count, percentage, color }: { label: string; count:
 export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; loading: boolean }) {
   const total = data.reduce((s, d) => s + d.count, 0);
 
-  // Build SVG dasharray segments from percentages
   const circumference = 100;
   let offset = 0;
   const segments = data.map(d => {
@@ -40,24 +39,24 @@ export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; l
 
   if (loading) {
     return (
-      <div className="lg:col-span-3 bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm flex flex-col items-center animate-pulse">
-        <div className="h-4 w-40 bg-slate-200 rounded mb-10 self-start" />
-        <div className="w-48 h-48 rounded-full bg-slate-100 mb-10" />
+      <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm flex flex-col items-center animate-pulse">
+        <div className="h-4 w-40 bg-gs-border rounded mb-10 self-start" />
+        <div className="w-48 h-48 rounded-full bg-gs-border mb-10" />
         <div className="w-full space-y-3.5">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-3 bg-slate-100 rounded" />)}
+          {[...Array(4)].map((_, i) => <div key={i} className="h-3 bg-gs-border rounded" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="lg:col-span-3 bg-white p-8 rounded-xl border border-[#E2E8F0] shadow-sm flex flex-col items-center">
-      <h3 className="text-[16px] font-bold text-[#1E293B] w-full mb-10">Gap Severity Distribution</h3>
+    <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm flex flex-col items-center">
+      <h3 className="text-[16px] font-bold text-gs-text w-full mb-10">Gap Severity Distribution</h3>
 
       {total === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-center w-full">
-          <div className="w-48 h-48 rounded-full border-4 border-dashed border-[#E2E8F0] flex items-center justify-center mb-10">
-            <span className="text-[12px] font-bold text-[#CBD5E1]">No data</span>
+          <div className="w-48 h-48 rounded-full border-4 border-dashed border-gs-border flex items-center justify-center mb-10">
+            <span className="text-[12px] font-bold text-gs-muted">No data</span>
           </div>
         </div>
       ) : (
@@ -76,22 +75,16 @@ export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; l
             ))}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Total</span>
-            <span className="text-[32px] font-bold text-[#0F172A] leading-none my-1">{total}</span>
-            <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Gaps</span>
+            <span className="text-[10px] font-bold text-gs-muted uppercase tracking-widest">Total</span>
+            <span className="text-[32px] font-bold text-gs-text leading-none my-1">{total}</span>
+            <span className="text-[10px] font-bold text-gs-muted uppercase tracking-widest">Gaps</span>
           </div>
         </div>
       )}
 
       <div className="w-full space-y-3.5">
         {data.length > 0 ? data.map(d => (
-          <LegendItem
-            key={d.severity}
-            label={d.severity}
-            count={d.count}
-            percentage={d.percentage}
-            color={SEVERITY_BG[d.severity] ?? "bg-slate-300"}
-          />
+          <LegendItem key={d.severity} label={d.severity} count={d.count} percentage={d.percentage} color={SEVERITY_BG[d.severity] ?? "bg-gs-muted"} />
         )) : ["CRITICAL","HIGH","MEDIUM","LOW"].map(s => (
           <LegendItem key={s} label={s} count={0} percentage={0} color={SEVERITY_BG[s]} />
         ))}

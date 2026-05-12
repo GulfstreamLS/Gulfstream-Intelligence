@@ -62,25 +62,25 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+      <div className="bg-gs-card rounded-2xl shadow-2xl dark:shadow-black/40 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gs-border">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Edit Project</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{project.name}</p>
+            <h2 className="text-lg font-bold text-gs-text">Edit Project</h2>
+            <p className="text-xs text-gs-muted mt-0.5">{project.name}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Project Name *</label>
-            <input className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Project Name *</label>
+            <input className="w-full h-10 px-3 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gs-muted"
               value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Submission Type</label>
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Submission Type</label>
             <div className="flex gap-2 flex-wrap">
               {["IND", "BLA", "NDA", "ANDA"].map(t => (
-                <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600"}`}>
+                <label key={t} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.type === t ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gs-border text-gs-muted"}`}>
                   <input type="radio" className="hidden" value={t} checked={form.type === t} onChange={() => setForm(f => ({ ...f, type: t }))} />
                   {t}
                 </label>
@@ -89,7 +89,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Product Type</label>
+              <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Product Type</label>
               <DynamicSelect
                 category="product_type"
                 value={form.product_type}
@@ -98,7 +98,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Dev Phase</label>
+              <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Dev Phase</label>
               <DynamicSelect
                 category="dev_phase"
                 value={form.dev_phase}
@@ -108,12 +108,12 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Indication</label>
-            <input className="w-full h-10 px-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Indication</label>
+            <input className="w-full h-10 px-3 bg-gs-card border border-gs-border rounded-lg text-sm text-gs-text focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gs-muted"
               value={form.indication} onChange={e => setForm(f => ({ ...f, indication: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Therapeutic Area</label>
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Therapeutic Area</label>
             <DynamicSelect
               category="therapeutic_area"
               value={form.therapeutic_area}
@@ -122,10 +122,10 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Status</label>
             <div className="flex gap-2 flex-wrap">
               {STATUSES.map(s => (
-                <label key={s} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.status === s ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600"}`}>
+                <label key={s} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer transition-all ${form.status === s ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gs-border text-gs-muted"}`}>
                   <input type="radio" className="hidden" value={s} checked={form.status === s} onChange={() => setForm(f => ({ ...f, status: s as typeof form.status }))} />
                   {s}
                 </label>
@@ -133,11 +133,11 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Target Authorities</label>
+            <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-2">Target Authorities</label>
             <div className="flex flex-wrap gap-2">
               {ALL_AUTHORITIES.map(auth => (
                 <button key={auth} type="button" onClick={() => toggleAuth(auth)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600"}`}>
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gs-border text-gs-muted"}`}>
                   {form.authorities.includes(auth) && <Check size={12} />}
                   {auth}
                 </button>
@@ -146,7 +146,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-slate-200 rounded-sm text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
               {saving ? "Saving…" : "Save Changes"}
             </button>
@@ -198,10 +198,10 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8">
+      <div className="min-h-screen bg-gs-bg p-4 md:p-8">
         <div className="max-w-5xl mx-auto space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-16 bg-gs-border rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -213,43 +213,43 @@ export default function ProjectDetailPage() {
   const authorities = project.authorities ?? [];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-gs-bg p-4 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
 
         {/* Back */}
         <button
           onClick={() => router.push("/dashboard/projects")}
-          className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 mb-6 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-gs-muted hover:text-gs-text mb-6 transition-colors"
         >
           <ArrowLeft size={16} /> Back to Projects
         </button>
 
         {/* Header */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 mb-6">
+        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
-                <span className="text-[11px] font-bold text-slate-400 border border-slate-200 px-2 py-0.5 rounded uppercase">{project.type}</span>
+                <h1 className="text-2xl font-bold text-gs-text">{project.name}</h1>
+                <span className="text-[11px] font-bold text-gs-muted border border-gs-border px-2 py-0.5 rounded uppercase">{project.type}</span>
                 <StatusBadge status={project.status} />
               </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 mt-3">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gs-muted mt-3">
                 {project.indication && (
-                  <div><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Indication</span><p className="font-semibold text-slate-700 mt-0.5">{project.indication}</p></div>
+                  <div><span className="text-xs font-bold text-gs-muted uppercase tracking-wide">Indication</span><p className="font-semibold text-gs-text mt-0.5">{project.indication}</p></div>
                 )}
                 {project.dev_phase && (
-                  <div><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Dev Phase</span><p className="font-semibold text-slate-700 mt-0.5">{project.dev_phase}</p></div>
+                  <div><span className="text-xs font-bold text-gs-muted uppercase tracking-wide">Dev Phase</span><p className="font-semibold text-gs-text mt-0.5">{project.dev_phase}</p></div>
                 )}
                 {project.therapeutic_area && (
-                  <div><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Therapeutic Area</span><p className="font-semibold text-slate-700 mt-0.5">{project.therapeutic_area}</p></div>
+                  <div><span className="text-xs font-bold text-gs-muted uppercase tracking-wide">Therapeutic Area</span><p className="font-semibold text-gs-text mt-0.5">{project.therapeutic_area}</p></div>
                 )}
               </div>
               {authorities.length > 0 && (
                 <div className="flex items-center gap-2 mt-4">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Target Authorities</span>
+                  <span className="text-xs font-bold text-gs-muted uppercase tracking-wide">Target Authorities</span>
                   <div className="flex gap-1.5 flex-wrap">
                     {authorities.map((auth, i) => (
-                      <span key={i} className="flex items-center gap-1 text-xs font-semibold border border-slate-200 rounded-full px-2.5 py-1 text-slate-600">
+                      <span key={i} className="flex items-center gap-1 text-xs font-semibold border border-gs-border rounded-full px-2.5 py-1 text-gs-muted">
                         {AUTHORITY_FLAGS[auth] ?? ""} {auth}
                       </span>
                     ))}
@@ -260,14 +260,14 @@ export default function ProjectDetailPage() {
             <div className="flex flex-col items-end gap-3 shrink-0">
               <button
                 onClick={() => setEditOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 border border-gs-border rounded-lg text-xs font-bold text-gs-muted hover:bg-gs-bg transition-colors"
               >
                 <Pencil size={13} /> Edit Project
               </button>
               <div className="text-right">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Overall Readiness</p>
-                <p className="text-3xl font-bold text-slate-800 mt-1">{project.readiness_score}%</p>
-                <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+                <p className="text-xs font-bold text-gs-muted uppercase tracking-wide">Overall Readiness</p>
+                <p className="text-3xl font-bold text-gs-text mt-1">{project.readiness_score}%</p>
+                <div className="w-32 h-2 bg-gs-border rounded-full overflow-hidden mt-2">
                   <div
                     className={`h-full rounded-full ${project.readiness_score > 70 ? "bg-emerald-500" : project.readiness_score > 40 ? "bg-orange-400" : "bg-red-500"}`}
                     style={{ width: `${project.readiness_score}%` }}
@@ -279,9 +279,9 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Conversations */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
-            <h2 className="text-sm font-bold text-slate-700">Regulatory Chats ({conversations.length})</h2>
+        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
+            <h2 className="text-sm font-bold text-gs-text">Regulatory Chats ({conversations.length})</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setConfirmDelete(true)}
@@ -299,8 +299,8 @@ export default function ProjectDetailPage() {
           </div>
           {conversations.length === 0 ? (
             <div className="px-6 py-16 text-center">
-              <MessageSquare size={32} className="mx-auto text-slate-200 mb-3" />
-              <p className="text-sm text-slate-400 font-medium">No chats yet for this project.</p>
+              <MessageSquare size={32} className="mx-auto text-gs-muted mb-3" />
+              <p className="text-sm text-gs-muted font-medium">No chats yet for this project.</p>
               <button
                 onClick={() => router.push(`/dashboard/chat?projectId=${id}`)}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700"
@@ -309,13 +309,13 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-50">
+            <ul className="divide-y divide-gs-border">
               {conversations.map(convo => {
                 const date = new Date(convo.updated_at);
                 return (
                   <li
                     key={convo.id}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 cursor-pointer group"
+                    className="flex items-center justify-between px-6 py-4 hover:bg-gs-bg cursor-pointer group"
                     onClick={() => router.push(`/dashboard/chat?conversation=${convo.id}`)}
                   >
                     <div className="flex items-center gap-3">
@@ -323,11 +323,11 @@ export default function ProjectDetailPage() {
                         <MessageSquare size={16} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">{convo.title ?? "Untitled Chat"}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        <p className="text-sm font-semibold text-gs-text">{convo.title ?? "Untitled Chat"}</p>
+                        <p className="text-xs text-gs-muted mt-0.5">{date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                       </div>
                     </div>
-                    <ExternalLink size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+                    <ExternalLink size={14} className="text-gs-muted group-hover:text-gs-muted transition-colors" />
                   </li>
                 );
               })}
@@ -336,9 +336,9 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Simulations */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden mt-6">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
-            <h2 className="text-sm font-bold text-slate-700">HA Simulations ({simulations.length})</h2>
+        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mt-6">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
+            <h2 className="text-sm font-bold text-gs-text">HA Simulations ({simulations.length})</h2>
             {conversations.length > 0 && (
               <button
                 onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
@@ -350,8 +350,8 @@ export default function ProjectDetailPage() {
           </div>
           {simulations.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <Stethoscope size={28} className="mx-auto text-slate-200 mb-3" />
-              <p className="text-sm text-slate-400 font-medium">No simulations run for this project yet.</p>
+              <Stethoscope size={28} className="mx-auto text-gs-muted mb-3" />
+              <p className="text-sm text-gs-muted font-medium">No simulations run for this project yet.</p>
               {conversations.length > 0 && (
                 <button
                   onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
@@ -362,11 +362,11 @@ export default function ProjectDetailPage() {
               )}
             </div>
           ) : (
-            <ul className="divide-y divide-slate-50">
+            <ul className="divide-y divide-gs-border">
               {simulations.map(sim => (
                 <li
                   key={sim.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 cursor-pointer group"
+                  className="flex items-center justify-between px-6 py-4 hover:bg-gs-bg cursor-pointer group"
                   onClick={() => router.push(`/dashboard/ha-simulation?sessionId=${sim.id}&projectId=${id}`)}
                 >
                   <div className="flex items-center gap-3">
@@ -374,8 +374,8 @@ export default function ProjectDetailPage() {
                       <Stethoscope size={15} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{sim.authority} · {sim.focus_area}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-sm font-semibold text-gs-text">{sim.authority} · {sim.focus_area}</p>
+                      <p className="text-xs text-gs-muted mt-0.5">
                         {sim.submission_type} · {sim.stage} · {sim.total_questions} questions · {Math.round(sim.readiness_score)}% readiness · {new Date(sim.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     </div>
@@ -387,7 +387,7 @@ export default function ProjectDetailPage() {
                     }`}>
                       {sim.confidence_level}
                     </span>
-                    <ExternalLink size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+                    <ExternalLink size={14} className="text-gs-muted group-hover:text-gs-muted transition-colors" />
                   </div>
                 </li>
               ))}

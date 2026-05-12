@@ -25,6 +25,10 @@ class UserPreferences(BaseModel):
     timezone: str | None = None
     job_title: str | None = None
     organization: str | None = None
+    dark_mode: bool | None = None
+    ai_auto_summarize: bool | None = None
+    high_priority_alerts: bool | None = None
+    default_workspace_view: str | None = None
 
 
 class UserUpdate(BaseModel):

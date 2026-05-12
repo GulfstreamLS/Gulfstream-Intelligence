@@ -24,6 +24,8 @@ const PRODUCT_TYPES_BY_SUBMISSION: Record<string, string[]> = {
 };
 const DEFAULT_PRODUCT_TYPES = ["Small Molecule", "Biologic", "Cell & Gene Therapy", "Medical Device", "Combination Product", "Vaccine"];
 
+const selectClass = "w-full appearance-none p-2.5 border border-gs-border rounded-lg text-sm font-medium bg-gs-card text-gs-text pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 dark:[color-scheme:dark]";
+
 function SelectField({
   label, value, options, onChange,
 }: {
@@ -32,16 +34,12 @@ function SelectField({
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-400 uppercase">{label}</label>
+      <label className="text-xs font-bold text-gs-muted uppercase">{label}</label>
       <div className="relative">
-        <select
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="w-full appearance-none p-2.5 border border-slate-200 rounded-lg text-sm font-medium bg-white pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
-        >
+        <select value={value} onChange={e => onChange(e.target.value)} className={selectClass}>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
-        <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+        <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
       </div>
     </div>
   );
@@ -70,7 +68,6 @@ export function SimulationScenario({
 
   const productTypeOptions = PRODUCT_TYPES_BY_SUBMISSION[submissionType] ?? DEFAULT_PRODUCT_TYPES;
 
-  // Auto-reset product type when submission type options change
   useEffect(() => {
     if (!productTypeOptions.includes(productType)) {
       onProductTypeChange(productTypeOptions[0] ?? "");
@@ -79,10 +76,10 @@ export function SimulationScenario({
   }, [submissionType]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 mb-8">
+    <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm p-5 mb-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-bold text-slate-800">Simulation Scenario</h2>
-        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+        <h2 className="font-bold text-gs-text">Simulation Scenario</h2>
+        <span className="text-[10px] uppercase tracking-wider font-bold text-gs-muted">
           {lastRun
             ? `Last run: ${new Date(lastRun.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
             : "No runs yet"}
@@ -90,26 +87,20 @@ export function SimulationScenario({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
-        {/* Authority */}
         <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-400 uppercase">Health Authority</label>
+          <label className="text-xs font-bold text-gs-muted uppercase">Health Authority</label>
           <div className="relative">
-            <select
-              value={authority}
-              onChange={e => onAuthorityChange(e.target.value)}
-              className="w-full appearance-none p-2.5 border border-slate-200 rounded-lg bg-slate-50 text-sm font-medium pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
-            >
+            <select value={authority} onChange={e => onAuthorityChange(e.target.value)} className={selectClass}>
               {authorityOptions.map(a => (
                 <option key={a} value={a}>{AUTHORITY_FLAGS[a] ?? ""} {a}</option>
               ))}
             </select>
-            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
           </div>
         </div>
 
-        {/* Submission Type — changing this resets product type */}
         <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-400 uppercase">Submission Type</label>
+          <label className="text-xs font-bold text-gs-muted uppercase">Submission Type</label>
           <div className="relative">
             <select
               value={submissionType}
@@ -119,24 +110,22 @@ export function SimulationScenario({
                 const opts = PRODUCT_TYPES_BY_SUBMISSION[next] ?? DEFAULT_PRODUCT_TYPES;
                 if (!opts.includes(productType)) onProductTypeChange(opts[0] ?? "");
               }}
-              className="w-full appearance-none p-2.5 border border-slate-200 rounded-lg text-sm font-medium bg-white pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+              className={selectClass}
             >
               {SUBMISSION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
-            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
           </div>
         </div>
 
-        {/* Product Type — options filtered by submission type */}
         <SelectField
           label="Product Type"
           value={productTypeOptions.includes(productType) ? productType : (productTypeOptions[0] ?? "")}
           options={productTypeOptions}
           onChange={onProductTypeChange}
         />
-
-        <SelectField label="Stage"      value={stage}      options={STAGES}      onChange={onStageChange} />
-        <SelectField label="Focus Area" value={focusArea}  options={FOCUS_AREAS} onChange={onFocusAreaChange} />
+        <SelectField label="Stage"      value={stage}     options={STAGES}      onChange={onStageChange} />
+        <SelectField label="Focus Area" value={focusArea} options={FOCUS_AREAS} onChange={onFocusAreaChange} />
       </div>
     </div>
   );

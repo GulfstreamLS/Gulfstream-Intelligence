@@ -10,9 +10,12 @@ import { GapSeverityDonut }     from "../../../../components/gap-assessment/GapS
 import { GapNextSteps }         from "../../../../components/gap-assessment/GapNextSteps";
 import { GapTableSection }      from "../../../../components/gap-assessment/GapTableSection";
 import { assessmentApi }        from "../../../../lib/api";
+import { useSubscription }      from "../../../../hooks/useSubscription";
+import { UpgradeGate }          from "../../../../components/ui/UpgradeGate";
 import type { GapAssessmentResponse } from "../../../../types";
 
 export default function GlobalGapAssessmentPage() {
+  const { canAccess, loading: subLoading } = useSubscription();
   const [data, setData]           = useState<GapAssessmentResponse | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -35,8 +38,11 @@ export default function GlobalGapAssessmentPage() {
 
   useEffect(() => { fetchData(authority); }, [authority, fetchData]);
 
+  if (subLoading) return null;
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-10 font-sans antialiased text-[#1E293B]">
+    <UpgradeGate feature="gap_assessment" canAccess={canAccess("gap_assessment")}>
+    <div className="min-h-screen bg-gs-bg p-4 md:p-10 font-sans antialiased text-gs-text">
       <div className="max-w-7xl mx-auto">
 
         <GapPageHeader />
@@ -80,5 +86,6 @@ export default function GlobalGapAssessmentPage() {
 
       </div>
     </div>
+    </UpgradeGate>
   );
 }

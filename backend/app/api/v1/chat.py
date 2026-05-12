@@ -16,6 +16,8 @@ from app.api.v1._audit import get_ip, log_audit
 from app.core.config import settings
 from app.db.session import get_db
 from app.middleware.auth import get_user_or_none, check_active_subscription
+from app.services.plan_service import get_upload_limit, get_monthly_upload_count
+from app.services.auth_service import auth_service
 from app.models.chat import MessageRole
 from app.models.notification import Notification, NotificationType
 from app.models.organization import MemberRole, MemberStatus, OrganizationMember
@@ -129,6 +131,19 @@ async def send(
 
     # 3. Handle file upload
     if file:
+        # Enforce monthly upload quota for starter / trial plans.
+        # Org members are on business+ (unlimited) so this only affects solo users,
+        # but we check generically via get_subscription for correctness.
+        sub = await auth_service.get_subscription(db, current_user)
+        upload_limit = get_upload_limit(sub)
+        if upload_limit is not None and upload_limit > 0:
+            used = await get_monthly_upload_count(db, current_user.id)
+            if used >= upload_limit:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"upload_limit_reached:{upload_limit}",
+                )
+
         content = await file.read()
         file_extension = file.filename.split(".")[-1].lower()
         from app.services.storage_service import storage_service

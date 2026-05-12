@@ -12,7 +12,7 @@ interface GsLogoProps {
 
 export function GsLogo({ variant = "default", className, iconSize = 44 }: GsLogoProps) {
   const wordmarkClass =
-    variant === "light" ? "text-white" : "text-[#071B4D]";
+    variant === "light" ? "text-white" : "text-gs-text";
 
   return (
     <Link href="/" className={cn("flex items-center gap-2.5 shrink-0", className)}>

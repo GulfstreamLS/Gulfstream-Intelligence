@@ -427,6 +427,8 @@ export const organizationApi = {
 export const subscriptionApi = {
   get: () => request<Subscription | null>("/billing/status"),
 
+  getUsage: () => request<import("../types").BillingUsage>("/billing/usage"),
+
   contactSales: (data: { name: string; email: string; company?: string; message: string }) =>
     request<{ message: string }>("/auth/contact-sales", {
       method: "POST",

@@ -62,5 +62,36 @@ async def check_active_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="Subscription expired or trial ended. Please upgrade your plan."
         )
-    
+
     return current_user
+
+
+def require_plan(min_plan: str):
+    """
+    Dependency factory that enforces a minimum plan rank.
+
+    Usage:
+        current_user: User = Depends(require_plan("professional"))
+
+    Handles both solo users (their own subscription) and org members
+    (their organization's subscription) via auth_service.get_subscription,
+    which already resolves the correct subscription for both tenancy types.
+    """
+    async def _dep(
+        current_user: User = Depends(check_active_subscription),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        from app.services.plan_service import PLAN_RANK, get_plan_rank
+
+        sub = await auth_service.get_subscription(db, current_user)
+        user_rank = get_plan_rank(sub)
+        required_rank = PLAN_RANK.get(min_plan, 99)
+
+        if user_rank < required_rank:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"upgrade_required:{min_plan}",
+            )
+        return current_user
+
+    return _dep
