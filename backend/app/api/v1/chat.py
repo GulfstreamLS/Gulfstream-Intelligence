@@ -139,19 +139,21 @@ async def send(
                 detail=f"Storage Error: {str(e)}"
             )
         convo.active_file_id = uuid.uuid4()
-        convo.metadata_ = convo.metadata_ or {}
-        convo.metadata_["last_uploaded_filename"] = file.filename
-        convo.metadata_["last_uploaded_url"]      = file_url
+        metadata = convo.metadata_ or {}
+        metadata["last_uploaded_filename"] = file.filename
+        metadata["last_uploaded_url"]      = file_url
 
         if file_extension == "zip":
             extracted_texts = _extract_zip(content)
             combined = "\n\n".join(extracted_texts)
-            convo.metadata_["last_uploaded_type"]    = "txt"
-            convo.metadata_["last_uploaded_content"] = combined.encode("utf-8").hex()
-            convo.metadata_["zip_file_count"]        = len(extracted_texts)
+            metadata["last_uploaded_type"]    = "txt"
+            metadata["last_uploaded_content"] = combined.encode("utf-8").hex()
+            metadata["zip_file_count"]        = len(extracted_texts)
         else:
-            convo.metadata_["last_uploaded_type"]    = file_extension
-            convo.metadata_["last_uploaded_content"] = content.hex()
+            metadata["last_uploaded_type"]    = file_extension
+            metadata["last_uploaded_content"] = content.hex()
+        
+        convo.metadata_ = metadata
 
     await db.commit()
     await db.refresh(convo)

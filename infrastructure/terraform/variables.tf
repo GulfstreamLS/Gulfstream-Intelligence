@@ -46,3 +46,45 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+# ── Stripe Configuration ──────────────────────────────────────────────────────
+variable "stripe_secret_key" {
+  description = "Stripe Secret Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_publishable_key" {
+  description = "Stripe Publishable Key"
+  type        = string
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe Webhook Secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_price_starter_monthly" { type = string }
+variable "stripe_price_starter_annual" { type = string }
+variable "stripe_price_professional_monthly" { type = string }
+variable "stripe_price_professional_annual" { type = string }
+variable "stripe_price_business_monthly" { type = string }
+variable "stripe_price_business_annual" { type = string }
+
+# ── Email Configuration ───────────────────────────────────────────────────────
+variable "smtp_user" {
+  description = "SMTP User Email"
+  type        = string
+}
+
+variable "smtp_password" {
+  description = "SMTP Password"
+  type        = string
+  sensitive   = true
+}
+
+variable "frontend_url" {
+  description = "Frontend URL"
+  type        = string
+}

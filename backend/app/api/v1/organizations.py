@@ -191,7 +191,7 @@ async def invite_member(
     db.add(invite)
     await db.flush()
 
-    frontend_base = "http://localhost:3000"
+    frontend_base = "https://gulfstream-frontend-y7fj7rtwsa-uc.a.run.app"
     try:
         from app.core.config import settings as _s
         frontend_base = getattr(_s, "FRONTEND_URL", frontend_base)

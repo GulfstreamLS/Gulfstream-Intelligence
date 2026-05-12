@@ -134,6 +134,54 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "REDIS_URL"
         value = "redis://${google_redis_instance.main.host}:${google_redis_instance.main.port}/0"
       }
+      env {
+        name  = "STRIPE_SECRET_KEY"
+        value = var.stripe_secret_key
+      }
+      env {
+        name  = "STRIPE_PUBLISHABLE_KEY"
+        value = var.stripe_publishable_key
+      }
+      env {
+        name  = "STRIPE_WEBHOOK_SECRET"
+        value = var.stripe_webhook_secret
+      }
+      env {
+        name  = "STRIPE_PRICE_STARTER_MONTHLY"
+        value = var.stripe_price_starter_monthly
+      }
+      env {
+        name  = "STRIPE_PRICE_STARTER_ANNUAL"
+        value = var.stripe_price_starter_annual
+      }
+      env {
+        name  = "STRIPE_PRICE_PROFESSIONAL_MONTHLY"
+        value = var.stripe_price_professional_monthly
+      }
+      env {
+        name  = "STRIPE_PRICE_PROFESSIONAL_ANNUAL"
+        value = var.stripe_price_professional_annual
+      }
+      env {
+        name  = "STRIPE_PRICE_BUSINESS_MONTHLY"
+        value = var.stripe_price_business_monthly
+      }
+      env {
+        name  = "STRIPE_PRICE_BUSINESS_ANNUAL"
+        value = var.stripe_price_business_annual
+      }
+      env {
+        name  = "SMTP_USER"
+        value = var.smtp_user
+      }
+      env {
+        name  = "SMTP_PASSWORD"
+        value = var.smtp_password
+      }
+      env {
+        name  = "FRONTEND_URL"
+        value = var.frontend_url
+      }
 
       resources {
         limits = {
