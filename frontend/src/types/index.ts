@@ -270,6 +270,7 @@ export interface Subscription {
   status: "trialing" | "active" | "expired" | "cancelled";
   trial_ends_at: string | null;
   current_period_end: string | null;
+  cancel_at_period_end?: boolean;
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────

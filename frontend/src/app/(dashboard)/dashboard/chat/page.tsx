@@ -57,7 +57,7 @@ function RegulatoryChatPage() {
     if (!text) return;
     sessionStorage.removeItem("pendingChatMessage");
     pendingAutoMessage.current = text;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!user?.organization_id) {

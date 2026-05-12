@@ -74,7 +74,7 @@ export default function HistoryPage() {
   useEffect(() => {
     assessmentApi.listDocuments().then(docs => setDocsCount(docs.length)).catch(() => {});
     simulationApi.listSessions().then(sims => setSimsCount(sims.length)).catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const allActivities = useMemo<ActivityItem[]>(
     () => mapConversationsToActivities(conversations, user, isOrgOwner),

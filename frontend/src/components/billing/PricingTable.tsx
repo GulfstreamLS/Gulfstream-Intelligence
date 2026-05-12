@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Zap, AlertCircle } from "lucide-react";
+import { Check, Zap, AlertCircle, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { subscriptionApi, billingApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
+import { ConfirmModal } from "../ui/ConfirmModal";
 import type { Subscription } from "../../types";
+
+interface Toast { type: "success" | "error"; message: string; }
 
 interface Plan {
   id: string;
@@ -30,6 +33,8 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   const [loading, setLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [plans, setPlans] = useState<{ solo: Plan[]; organization: Plan[] } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   useEffect(() => {
     // Fetch subscription status
@@ -50,7 +55,14 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       const timer = setTimeout(() => handlePlanClick(initialPlan), 500);
       return () => clearTimeout(timer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, subscription, initialPlan]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const activePlanId = subscription?.plan;
   const isActive = subscription?.status === "active" || subscription?.status === "trialing";
@@ -89,23 +101,25 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       window.location.href = checkout_url;
     } catch (err) {
       console.error("Checkout error:", err);
-      alert(err instanceof Error ? err.message : "Failed to initiate checkout");
+      setToast({ type: "error", message: err instanceof Error ? err.message : "Failed to initiate checkout" });
     } finally {
       setLoading(null);
     }
   }
 
-  async function handleCancel() {
-    if (!confirm("Are you sure you want to cancel your subscription? You will keep access until the end of the billing period.")) return;
-    
+  function handleCancel() {
+    setCancelConfirmOpen(true);
+  }
+
+  async function confirmCancel() {
+    setCancelConfirmOpen(false);
     try {
       setCancelLoading(true);
       await billingApi.cancelSubscription();
-      // Instantly update the local state to show "Ending Soon"
       setSubscription(prev => prev ? { ...prev, cancel_at_period_end: true } : null);
-      alert("Subscription cancelled successfully.");
-    } catch (err) {
-      alert("Failed to cancel subscription.");
+      setToast({ type: "success", message: "Subscription cancelled. You'll keep access until the end of the billing period." });
+    } catch {
+      setToast({ type: "error", message: "Failed to cancel subscription. Please try again." });
     } finally {
       setCancelLoading(false);
     }
@@ -115,10 +129,10 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     try {
       setCancelLoading(true);
       await billingApi.reactivateSubscription();
-      // Instantly update the local state to show "Subscribed"
       setSubscription(prev => prev ? { ...prev, cancel_at_period_end: false } : null);
-    } catch (err) {
-      alert("Failed to reactivate subscription.");
+      setToast({ type: "success", message: "Subscription reactivated successfully." });
+    } catch {
+      setToast({ type: "error", message: "Failed to reactivate subscription. Please try again." });
     } finally {
       setCancelLoading(false);
     }
@@ -157,6 +171,35 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          "flex items-center gap-3 px-4 py-3 mb-6 rounded-xl text-sm font-medium border",
+          toast.type === "success"
+            ? "bg-gs-green/10 border-gs-green/20 text-gs-green"
+            : "bg-gs-red/10 border-gs-red/20 text-gs-red"
+        )}>
+          {toast.type === "success"
+            ? <Check className="w-4 h-4 shrink-0" />
+            : <AlertCircle className="w-4 h-4 shrink-0" />}
+          <span className="flex-1">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Cancel subscription confirmation */}
+      {cancelConfirmOpen && (
+        <ConfirmModal
+          title="Cancel Subscription"
+          message="Are you sure you want to cancel your subscription? You will keep access until the end of the current billing period."
+          confirmLabel="Cancel Subscription"
+          onCancel={() => setCancelConfirmOpen(false)}
+          onConfirm={confirmCancel}
+        />
+      )}
+
       {/* Header */}
       <div className="text-center mb-10 space-y-3">
         <p className="text-xs font-bold tracking-widest uppercase text-gs-blue">Plans &amp; Pricing</p>

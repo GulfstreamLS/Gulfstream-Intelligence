@@ -1,6 +1,15 @@
 import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, InviteDetails, OrgMember, Organization, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
 import Cookies from "js-cookie";
 
+interface BillingPlan {
+  id: string;
+  name: string;
+  description: string;
+  monthly_price: number | null;
+  annual_price: number | null;
+  features: string[];
+}
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
@@ -460,8 +469,8 @@ export const billingApi = {
   getStatus: () => request<Subscription | null>("/billing/status"),
 
   getPlans: () => request<{
-    solo: any[];
-    organization: any[];
+    solo: BillingPlan[];
+    organization: BillingPlan[];
   }>("/billing/plans"),
 
   syncSubscription: () => request<{ message: string }>("/billing/sync"),

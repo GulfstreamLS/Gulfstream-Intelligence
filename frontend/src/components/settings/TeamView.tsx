@@ -29,6 +29,7 @@ export function TeamView() {
   const [confirmOwner, setConfirmOwner] = useState<OrgMember | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   async function loadMembers() {
     try {
@@ -62,12 +63,13 @@ export function TeamView() {
   async function handleMakeOwner() {
     if (!confirmOwner) return;
     setActionLoading(true);
+    setActionError("");
     try {
       await organizationApi.updateMemberRole(confirmOwner.user_id, "owner");
       await loadMembers();
       setConfirmOwner(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed");
+      setActionError(err instanceof Error ? err.message : "Failed to transfer ownership. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -76,12 +78,13 @@ export function TeamView() {
   async function handleRemove() {
     if (!confirmRemove) return;
     setActionLoading(true);
+    setActionError("");
     try {
       await organizationApi.removeMember(confirmRemove.user_id);
       await loadMembers();
       setConfirmRemove(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed");
+      setActionError(err instanceof Error ? err.message : "Failed to remove member. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -217,7 +220,7 @@ export function TeamView() {
 
       {/* Make owner confirmation */}
       {confirmOwner && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => setConfirmOwner(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => { setConfirmOwner(null); setActionError(""); }}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gs-text">Transfer Ownership</h3>
             <p className="text-sm text-gs-muted">
@@ -226,8 +229,11 @@ export function TeamView() {
             <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
               You will become a regular member. This cannot be undone without the new owner&apos;s action.
             </p>
+            {actionError && (
+              <p className="text-sm text-gs-red bg-gs-red/10 border border-gs-red/20 rounded-lg px-3 py-2">{actionError}</p>
+            )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setConfirmOwner(null)} className="flex-1 border border-gs-border rounded-button py-2.5 text-sm font-medium text-gs-text hover:bg-gs-bg">Cancel</button>
+              <button onClick={() => { setConfirmOwner(null); setActionError(""); }} className="flex-1 border border-gs-border rounded-button py-2.5 text-sm font-medium text-gs-text hover:bg-gs-bg">Cancel</button>
               <button onClick={handleMakeOwner} disabled={actionLoading} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-button py-2.5 text-sm font-bold disabled:opacity-50">
                 {actionLoading ? "Updating…" : "Transfer"}
               </button>
@@ -238,15 +244,18 @@ export function TeamView() {
 
       {/* Remove confirmation */}
       {confirmRemove && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => setConfirmRemove(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => { setConfirmRemove(null); setActionError(""); }}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gs-text">Remove Member</h3>
             <p className="text-sm text-gs-muted">
               Are you sure you want to remove <strong className="text-gs-text">{confirmRemove.full_name ?? confirmRemove.email}</strong> from the organization?
               Their account will remain but they will lose access to shared data.
             </p>
+            {actionError && (
+              <p className="text-sm text-gs-red bg-gs-red/10 border border-gs-red/20 rounded-lg px-3 py-2">{actionError}</p>
+            )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setConfirmRemove(null)} className="flex-1 border border-gs-border rounded-button py-2.5 text-sm font-medium text-gs-text hover:bg-gs-bg">Cancel</button>
+              <button onClick={() => { setConfirmRemove(null); setActionError(""); }} className="flex-1 border border-gs-border rounded-button py-2.5 text-sm font-medium text-gs-text hover:bg-gs-bg">Cancel</button>
               <button onClick={handleRemove} disabled={actionLoading} className="flex-1 bg-gs-red hover:bg-red-700 text-white rounded-button py-2.5 text-sm font-bold disabled:opacity-50">
                 {actionLoading ? "Removing…" : "Remove"}
               </button>
