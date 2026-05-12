@@ -414,18 +414,31 @@ async def _stream_send(
             except asyncio.TimeoutError:
                 import logging as _log
                 _log.warning("[CHAT] Structured analysis timed out — falling back to streaming chat")
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
             except Exception as _ae:
                 import logging as _log
                 _log.error(f"[CHAT] Structured analysis failed: {_ae} — falling back to streaming chat")
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
 
         full_response = ""
         async for chunk in ai_service.stream_chat(history, model, system_prompt):
             full_response += chunk
             yield f"data: {json.dumps({'type': 'delta', 'content': chunk})}\n\n"
 
-        msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
-        await db.commit()
-        yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+        try:
+            msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+            await db.commit()
+            yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+        except Exception as _save_err:
+            import logging as _log
+            _log.error(f"[CHAT] Failed to save message after stream: {_save_err}")
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
