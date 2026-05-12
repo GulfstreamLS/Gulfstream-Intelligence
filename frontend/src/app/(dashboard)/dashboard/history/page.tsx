@@ -5,13 +5,13 @@ import {
   Download, Search, Calendar, ChevronDown, Filter, ShieldCheck,
 } from "lucide-react";
 import { HistoryStatCards }                               from "../../../../components/history/HistoryStatCards";
-import { ActivityTable, STATIC_ACTIVITIES,
+import { ActivityTable,
          mapConversationsToActivities }                   from "../../../../components/history/ActivityTable";
 import type { ActivityItem }                              from "../../../../components/history/ActivityTable";
 import { ConfirmModal }                                   from "../../../../components/ui/ConfirmModal";
 import { useChatStore }                                   from "../../../../store/chatStore";
 import { useChat }                                        from "../../../../hooks/useChat";
-import { chatApi, organizationApi }                       from "../../../../lib/api";
+import { chatApi, organizationApi, assessmentApi, simulationApi } from "../../../../lib/api";
 
 // ── Date range options ────────────────────────────────────────────────────────
 
@@ -46,8 +46,10 @@ function isWithinRange(rawDate: string | undefined, range: DateRange): boolean {
 export default function HistoryPage() {
   const { conversations, user, removeConversation } = useChatStore();
   const { loadConversations }   = useChat();
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isOrgOwner, setIsOrgOwner] = useState(false);
+  const [deleteId, setDeleteId]       = useState<string | null>(null);
+  const [isOrgOwner, setIsOrgOwner]   = useState(false);
+  const [docsCount, setDocsCount]     = useState(0);
+  const [simsCount, setSimsCount]     = useState(0);
 
   // Filter state
   const [search,       setSearch]       = useState("");
@@ -69,11 +71,13 @@ export default function HistoryPage() {
     }
   }, [user?.id, user?.organization_id]);
 
-  // Map conversations → activities (falls back to static demo data when empty)
+  useEffect(() => {
+    assessmentApi.listDocuments().then(docs => setDocsCount(docs.length)).catch(() => {});
+    simulationApi.listSessions().then(sims => setSimsCount(sims.length)).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const allActivities = useMemo<ActivityItem[]>(
-    () => conversations.length > 0
-      ? mapConversationsToActivities(conversations, user, isOrgOwner)
-      : STATIC_ACTIVITIES,
+    () => mapConversationsToActivities(conversations, user, isOrgOwner),
     [conversations, user, isOrgOwner],
   );
 
@@ -117,7 +121,12 @@ export default function HistoryPage() {
           </button>
         </div>
 
-        <HistoryStatCards />
+        <HistoryStatCards
+          totalActivities={allActivities.length}
+          docsProcessed={docsCount}
+          simulationsRun={simsCount}
+          filesUploaded={docsCount}
+        />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">

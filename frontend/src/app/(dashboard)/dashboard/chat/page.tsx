@@ -1,8 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader";
 import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
 import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
@@ -16,17 +14,31 @@ import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
 function RegulatoryChatPage() {
-  const searchParams = useSearchParams();
-  const [conversationId, setConversationId]     = useState<string | null>(searchParams.get("conversation"));
+  const [conversationId, setConversationId]     = useState<string | null>(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("conversation") : null);
   const [input, setInput]                       = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(searchParams.get("projectId"));
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("projectId") : null);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const userScrolled       = useRef(false);
+  // Pre-populate displayMessages from sessionStorage on the very first render so
+  // messages.length is never 0 when there's a pending auto-send. This avoids any
+  // race between React state updates and Zustand store updates causing EmptyState flash.
+  const [pendingDisplayMsg, setPendingDisplayMsg] = useState<DisplayMessage | null>(() => {
+    if (typeof window === "undefined") return null;
+    const text = sessionStorage.getItem("pendingChatMessage")?.trim();
+    if (!text) return null;
+    return {
+      id: "pending-init",
+      role: "user" as const,
+      content: text,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+  });
+  const scrollContainerRef  = useRef<HTMLDivElement>(null);
+  const userScrolled        = useRef(false);
+  const autoMessageSent     = useRef(false);
 
   const { conversations, isStreaming, streamingContent, updateConversation, removeConversation } = useChatStore();
   const user = useChatStore((s) => s.user);
@@ -34,6 +46,17 @@ function RegulatoryChatPage() {
 
   useEffect(() => {
     loadConversations().catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pendingAutoMessage = useRef<string | null>(null);
+
+  // Remove the pending message from sessionStorage and store it in the ref for sending.
+  // pendingDisplayMsg (above) already read the text for display — this just primes the send.
+  useLayoutEffect(() => {
+    const text = sessionStorage.getItem("pendingChatMessage")?.trim();
+    if (!text) return;
+    sessionStorage.removeItem("pendingChatMessage");
+    pendingAutoMessage.current = text;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -104,17 +127,26 @@ function RegulatoryChatPage() {
     }));
   }, [currentConversation?.messages]);
 
+  // Clear the synthetic pending message once real store messages are present
+  useEffect(() => {
+    if (stableMessages.length > 0 && pendingDisplayMsg) setPendingDisplayMsg(null);
+  }, [stableMessages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const displayMessages = useMemo<DisplayMessage[]>(() => {
+    // Show the synthetic user bubble until the Zustand optimistic message lands
+    const base = stableMessages.length === 0 && pendingDisplayMsg
+      ? [pendingDisplayMsg]
+      : stableMessages;
     if (isStreaming && streamingContent) {
-      return [...stableMessages, {
+      return [...base, {
         id: "streaming", role: "assistant" as const,
         content: streamingContent,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         isTyping: true,
       }];
     }
-    return stableMessages;
-  }, [stableMessages, isStreaming, streamingContent]);
+    return base;
+  }, [stableMessages, pendingDisplayMsg, isStreaming, streamingContent]);
 
   // Scroll to bottom on every new message (optimistic or streamed) unless user scrolled up
   useEffect(() => {
@@ -141,6 +173,15 @@ function RegulatoryChatPage() {
     });
     if (resolvedId && !conversationId) setConversationId(resolvedId);
   }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, sendAll]);
+
+  // Send the pending message once handleSendMessage is stable (store has user loaded)
+  useEffect(() => {
+    const text = pendingAutoMessage.current;
+    if (!text || autoMessageSent.current) return;
+    autoMessageSent.current = true;
+    pendingAutoMessage.current = null;
+    handleSendMessage(text);
+  }, [handleSendMessage]);
 
   const handleFileUpload = useCallback(async (file: File, text?: string) => {
     userScrolled.current = false;
@@ -299,9 +340,5 @@ function RegulatoryChatPage() {
 }
 
 export default function Page() {
-  return (
-    <Suspense>
-      <RegulatoryChatPage />
-    </Suspense>
-  );
+  return <RegulatoryChatPage />;
 }

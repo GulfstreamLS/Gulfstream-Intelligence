@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -47,13 +48,13 @@ export function FeatureCard({ data }: FeatureCardProps) {
       </ul>
 
       {/* CTA */}
-      <a
+      <Link
         href={data.ctaHref}
         className="btn-secondary w-full justify-center mt-auto"
       >
         {data.ctaLabel}
         <ArrowRight className="w-4 h-4" />
-      </a>
+      </Link>
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface ChatMessagesProps {
   messages: DisplayMessage[];
   isLoading?: boolean;
   onSendMessage?: (text: string) => void;
+  hideEmptyState?: boolean;
 }
 
 const STARTER_CARDS = [
@@ -491,7 +492,7 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
   );
 });
 
-export function ChatMessages({ messages, isLoading, onSendMessage }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, onSendMessage, hideEmptyState }: ChatMessagesProps) {
 
   const showThinking =
     isLoading &&
@@ -499,7 +500,7 @@ export function ChatMessages({ messages, isLoading, onSendMessage }: ChatMessage
 
   return (
     <div className="space-y-8 py-4 pb-4">
-      {messages.length === 0 && !isLoading && <EmptyState onSendMessage={onSendMessage} />}
+      {messages.length === 0 && !isLoading && !hideEmptyState && <EmptyState onSendMessage={onSendMessage} />}
 
       {messages.map((msg) =>
         msg.role === "user"

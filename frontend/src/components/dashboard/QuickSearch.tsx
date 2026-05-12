@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Send } from "lucide-react";
 
 export function QuickSearch() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
-    // navigate to chat with pre-filled query
+    const text = query.trim();
+    if (!text) return;
+    sessionStorage.setItem("pendingChatMessage", text);
+    router.push("/dashboard/chat");
   }
 
   return (
