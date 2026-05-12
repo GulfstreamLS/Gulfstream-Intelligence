@@ -5,6 +5,8 @@ import { ShieldAlert, Activity, FileText, AlertCircle, CheckCircle2 } from "luci
 
 import { assessmentApi }          from "../../../../lib/api";
 import type { AnalyzedDocument, GapAssessmentResponse } from "../../../../types";
+import { useSubscription }        from "../../../../hooks/useSubscription";
+import { UpgradeGate }            from "../../../../components/ui/UpgradeGate";
 
 import { DocPageHeader }        from "../../../../components/document-intelligence/DocPageHeader";
 import { DocStatCard }          from "../../../../components/document-intelligence/DocStatCard";
@@ -36,6 +38,7 @@ function avgConfidence(docs: AnalyzedDocument[]): number {
 }
 
 export default function DocumentIntelligencePage() {
+  const { canAccess, loading: subLoading } = useSubscription();
   const [docs, setDocs]   = useState<AnalyzedDocument[]>([]);
   const [gap, setGap]     = useState<GapAssessmentResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +69,7 @@ export default function DocumentIntelligencePage() {
   const authorities    = buildAuthorities(docs);
   const recentDocs     = [...docs].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3);
 
-  if (loading) {
+  if (loading || subLoading) {
     return (
       <div className="p-10 flex items-center justify-center min-h-[400px]">
         <span className="text-[14px] font-bold text-gs-muted animate-pulse">Loading document intelligence…</span>
@@ -75,6 +78,7 @@ export default function DocumentIntelligencePage() {
   }
 
   return (
+    <UpgradeGate feature="document_intelligence" canAccess={canAccess("document_intelligence")}>
     <div className="p-4 md:p-6 lg:p-10 flex flex-col gap-8 max-w-[1440px] mx-auto w-full">
 
       <DocPageHeader />
@@ -149,5 +153,6 @@ export default function DocumentIntelligencePage() {
         </p>
       </footer>
     </div>
+    </UpgradeGate>
   );
 }

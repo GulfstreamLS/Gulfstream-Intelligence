@@ -23,6 +23,12 @@ const FEATURE_META: Record<PlanFeature, { name: string; requiredPlan: string; de
     description:
       "Upload unlimited documents per month for deep regulatory analysis. Starter plans include 10 uploads per month.",
   },
+  document_intelligence: {
+    name: "Document Intelligence",
+    requiredPlan: "Professional",
+    description:
+      "Unlock AI-powered extraction, gap detection, and regulatory insights across all your uploaded documents in one centralised dashboard.",
+  },
 };
 
 interface UpgradeGateProps {

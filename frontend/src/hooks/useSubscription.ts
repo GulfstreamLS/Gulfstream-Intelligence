@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { subscriptionApi } from "../lib/api";
 import type { Subscription, BillingUsage } from "../types";
 
-export type PlanFeature = "gap_assessment" | "ha_simulation" | "unlimited_uploads";
+export type PlanFeature = "gap_assessment" | "ha_simulation" | "unlimited_uploads" | "document_intelligence";
 
 /**
  * Map plan names to a comparable rank.
@@ -24,9 +24,10 @@ function planRank(plan: string | undefined | null): number {
 }
 
 const REQUIRED_RANK: Record<PlanFeature, number> = {
-  gap_assessment:    2,   // professional+
-  ha_simulation:     2,   // professional+
-  unlimited_uploads: 2,   // professional+
+  gap_assessment:         2,   // professional+
+  ha_simulation:          2,   // professional+
+  unlimited_uploads:      2,   // professional+
+  document_intelligence:  2,   // professional+
 };
 
 export interface SubscriptionState {
