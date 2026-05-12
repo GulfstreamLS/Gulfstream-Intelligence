@@ -84,7 +84,7 @@ async def run_simulation(
 async def list_sessions(
     project_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(check_active_subscription),
+    current_user: User = Depends(get_current_user),
 ):
     """List all simulation sessions for the current user, optionally filtered by project."""
     stmt = (
@@ -128,7 +128,7 @@ async def list_sessions(
 async def get_session(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(check_active_subscription),
+    current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
         select(SimulationSession)

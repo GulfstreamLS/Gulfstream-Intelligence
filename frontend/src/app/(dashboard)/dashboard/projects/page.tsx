@@ -3,16 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Download, Plus, Search, X, Check,
+  AlertTriangle, Download, Plus, Search, X, Check,
 } from "lucide-react";
 import { ProjectStatCards } from "../../../../components/projects/ProjectStatCards";
 import { ProjectsTable } from "../../../../components/projects/ProjectsTable";
 import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVisibilityBanner";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../components/ui/DynamicSelect";
-import { organizationApi, projectApi } from "../../../../lib/api";
+import { isPaymentRequiredError, organizationApi, projectApi, subscriptionApi } from "../../../../lib/api";
 import { useChatStore } from "../../../../store/chatStore";
-import type { Project } from "../../../../types";
+import type { Project, Subscription } from "../../../../types";
 
 const PAGE_SIZE = 10;
 
@@ -32,6 +32,39 @@ const EMPTY_FORM: ProjectFormState = {
   dev_phase: "", status: "Planning", readiness_score: 0,
   authorities: [], product_type: "",
 };
+
+const EXPIRED_SUBSCRIPTION_MESSAGE =
+  "Your free trial has ended. Please upgrade your plan to create or edit projects.";
+
+function BillingError({ message }: { message: string }) {
+  const router = useRouter();
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="flex-1">
+        <p className="text-sm font-semibold">{message}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/subscription")}
+          className="mt-1 text-xs font-bold underline hover:no-underline"
+        >
+          View subscription
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function isSubscriptionExpired(subscription: Subscription | null) {
+  if (!subscription) return false;
+  if (subscription.status === "expired" || subscription.status === "cancelled") return true;
+  return Boolean(
+    subscription.status === "trialing" &&
+    subscription.trial_ends_at &&
+    new Date(subscription.trial_ends_at).getTime() <= Date.now()
+  );
+}
 
 // ── Shared Form Fields ────────────────────────────────────────────────────────
 
@@ -143,7 +176,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project");
+      setError(isPaymentRequiredError(err) ? EXPIRED_SUBSCRIPTION_MESSAGE : err instanceof Error ? err.message : "Failed to create project");
     } finally {
       setSaving(false);
     }
@@ -158,7 +191,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <ProjectFormFields form={form} setForm={setForm} />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (error === EXPIRED_SUBSCRIPTION_MESSAGE ? <BillingError message={error} /> : <p className="text-red-500 text-sm">{error}</p>)}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
@@ -206,7 +239,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: Project; onC
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update project");
+      setError(isPaymentRequiredError(err) ? EXPIRED_SUBSCRIPTION_MESSAGE : err instanceof Error ? err.message : "Failed to update project");
     } finally {
       setSaving(false);
     }
@@ -235,7 +268,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: Project; onC
               ))}
             </div>
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (error === EXPIRED_SUBSCRIPTION_MESSAGE ? <BillingError message={error} /> : <p className="text-red-500 text-sm">{error}</p>)}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
@@ -264,8 +297,8 @@ function ImportProjectModal({ onClose, onImported }: { onClose: () => void; onIm
       const res = await projectApi.importExcel(file);
       setResult(res);
       onImported();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+  } catch (err) {
+      setError(isPaymentRequiredError(err) ? EXPIRED_SUBSCRIPTION_MESSAGE : err instanceof Error ? err.message : "Import failed");
     } finally {
       setLoading(false);
     }
@@ -306,7 +339,7 @@ function ImportProjectModal({ onClose, onImported }: { onClose: () => void; onIm
               )}
             </div>
           )}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (error === EXPIRED_SUBSCRIPTION_MESSAGE ? <BillingError message={error} /> : <p className="text-red-500 text-sm">{error}</p>)}
           <div className="flex justify-end gap-3">
             <button onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">
               {result ? "Close" : "Cancel"}
@@ -337,6 +370,7 @@ export default function ProjectsPage() {
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
   const user = useChatStore((s) => s.user);
 
   const loadProjects = useCallback(async () => {
@@ -364,6 +398,25 @@ export default function ProjectsPage() {
       .catch(() => setIsOrgOwner(false));
   }, [user?.id, user?.organization_id]);
 
+  useEffect(() => {
+    let isCurrent = true;
+    subscriptionApi.get()
+      .then(sub => {
+        if (!isCurrent) return;
+        setSubscriptionExpired(isSubscriptionExpired(sub));
+      })
+      .catch(() => null);
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  function requireActiveSubscription(action: () => void) {
+    if (subscriptionExpired) return;
+    action();
+  }
+
   const stats = {
     total,
     onTrack: projects.filter(p => p.status === "On Track").length,
@@ -383,14 +436,26 @@ export default function ProjectsPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setModalOpen("import")}
-              className="flex items-center gap-2 px-4 py-2.5 border border-blue-600 text-blue-600 rounded-sm text-sm font-bold bg-gs-card hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all shadow-sm"
+              onClick={() => requireActiveSubscription(() => setModalOpen("import"))}
+              disabled={subscriptionExpired}
+              title={subscriptionExpired ? "Upgrade your plan to import projects" : undefined}
+              className={`flex items-center gap-2 px-4 py-2.5 border rounded-sm text-sm font-bold bg-gs-card transition-all shadow-sm ${
+                subscriptionExpired
+                  ? "cursor-not-allowed border-gs-border text-gs-muted opacity-60"
+                  : "border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              }`}
             >
               <Download size={18} /> Import Project
             </button>
             <button
-              onClick={() => setModalOpen("new")}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 transition-all"
+              onClick={() => requireActiveSubscription(() => setModalOpen("new"))}
+              disabled={subscriptionExpired}
+              title={subscriptionExpired ? "Upgrade your plan to create projects" : undefined}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-sm text-sm font-bold transition-all ${
+                subscriptionExpired
+                  ? "cursor-not-allowed bg-gs-border text-gs-muted opacity-60"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
             >
               <Plus size={18} /> New Project
             </button>
@@ -428,13 +493,16 @@ export default function ProjectsPage() {
           page={page}
           pageSize={PAGE_SIZE}
           onPageChange={setPage}
-          onStartChat={id => router.push(`/dashboard/chat?projectId=${id}`)}
+          onStartChat={id => requireActiveSubscription(() => router.push(`/dashboard/chat?projectId=${id}`))}
           onViewDetail={id => router.push(`/dashboard/projects/${id}`)}
-          onDelete={id => setDeleteId(id)}
+          onDelete={id => requireActiveSubscription(() => setDeleteId(id))}
           canDeleteProject={project => project.user_id === user?.id || isOrgOwner}
+          actionsDisabled={subscriptionExpired}
           onEdit={id => {
-            const p = projects.find(pr => pr.id === id);
-            if (p) setEditProject(p);
+            requireActiveSubscription(() => {
+              const p = projects.find(pr => pr.id === id);
+              if (p) setEditProject(p);
+            });
           }}
         />
         <GlobalVisibilityBanner />
@@ -460,7 +528,12 @@ export default function ProjectsPage() {
           confirmLabel="Delete Project"
           onCancel={() => setDeleteId(null)}
           onConfirm={async () => {
-            try { await projectApi.remove(deleteId); loadProjects(); } catch { /* silently fail */ }
+            try {
+              await projectApi.remove(deleteId);
+              loadProjects();
+            } catch (err) {
+              if (isPaymentRequiredError(err)) setDeleteId(null);
+            }
             setDeleteId(null);
           }}
         />

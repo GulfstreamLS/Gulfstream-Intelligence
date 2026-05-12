@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { chatApi } from "../lib/api";
+import { chatApi, isPaymentRequiredError } from "../lib/api";
 import { DEFAULT_CHAT_MODEL } from "../lib/chatModels";
 import { useChatStore } from "../store/chatStore";
 import type { Conversation, Message } from "../types";
@@ -135,11 +135,16 @@ export function useChat() {
           }
         }
       }
-    } catch {
-      if (!accumulated && resolvedId) {
-        store.appendMessage(resolvedId, {
-          id: crypto.randomUUID(), conversation_id: resolvedId,
-          role: "assistant", content: "The request timed out. Please try again.",
+    } catch (error) {
+      const errorTarget = resolvedId ?? tempId;
+      if (!accumulated && errorTarget) {
+        const content = isPaymentRequiredError(error)
+          ? "Your free trial has ended. Please upgrade your plan from Subscription to continue using chat."
+          : "The request could not be completed. Please try again.";
+
+        store.appendMessage(errorTarget, {
+          id: crypto.randomUUID(), conversation_id: errorTarget,
+          role: "assistant", content,
           token_count: null, created_at: new Date().toISOString(),
         });
       }

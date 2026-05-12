@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X,
+  AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X,
 } from "lucide-react";
-import { projectApi, simulationApi } from "../../../../../lib/api";
+import { isPaymentRequiredError, projectApi, simulationApi } from "../../../../../lib/api";
 import { ConfirmModal } from "../../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../../components/ui/DynamicSelect";
-import type { Conversation, Project, SimulationListItem } from "../../../../../types";
+import { useSubscription } from "../../../../../hooks/useSubscription";
+import type { Conversation, Project, SimulationListItem, Subscription } from "../../../../../types";
 
 const AUTHORITY_FLAGS: Record<string, string> = {
   FDA: "🇺🇸", EMA: "🇪🇺", "Health Canada": "🇨🇦", PMDA: "🇯🇵", MHRA: "🇬🇧",
@@ -16,6 +17,39 @@ const AUTHORITY_FLAGS: Record<string, string> = {
 
 const ALL_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
 const STATUSES = ["On Track", "At Risk", "Planning"];
+const EXPIRED_SUBSCRIPTION_MESSAGE =
+  "Your free trial has ended. Please upgrade your plan to edit projects.";
+
+function BillingError({ message }: { message: string }) {
+  const router = useRouter();
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="flex-1">
+        <p className="text-sm font-semibold">{message}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/subscription")}
+          className="mt-1 text-xs font-bold underline hover:no-underline"
+        >
+          View subscription
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function isSubscriptionExpired(subscription: Subscription | null) {
+  if (!subscription) return false;
+  if (subscription.status === "expired" || subscription.status === "cancelled") return true;
+  return Boolean(
+    subscription.status === "trialing" &&
+    subscription.trial_ends_at &&
+    new Date(subscription.trial_ends_at).getTime() <= Date.now()
+  );
+}
+
 function EditProjectModal({ project, onClose, onSaved }: { project: import("../../../../../types").Project; onClose: () => void; onSaved: (p: import("../../../../../types").Project) => void }) {
   const [form, setForm] = useState({
     name: project.name,
@@ -54,7 +88,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
       onSaved(updated);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update project");
+      setError(isPaymentRequiredError(err) ? EXPIRED_SUBSCRIPTION_MESSAGE : err instanceof Error ? err.message : "Failed to update project");
     } finally {
       setSaving(false);
     }
@@ -144,7 +178,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
               ))}
             </div>
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && (error === EXPIRED_SUBSCRIPTION_MESSAGE ? <BillingError message={error} /> : <p className="text-red-500 text-sm">{error}</p>)}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
@@ -176,6 +210,7 @@ function StatusBadge({ status }: { status: Project["status"] }) {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { subscription, canAccess } = useSubscription();
   const [project, setProject] = useState<Project | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [simulations, setSimulations] = useState<SimulationListItem[]>([]);
@@ -211,6 +246,9 @@ export default function ProjectDetailPage() {
   if (!project) return null;
 
   const authorities = project.authorities ?? [];
+  const subscriptionExpired = isSubscriptionExpired(subscription);
+  const writeDisabledTitle = subscriptionExpired ? "Upgrade your plan to continue using this action" : undefined;
+  const showSimulations = canAccess("ha_simulation");
 
   return (
     <div className="min-h-screen bg-gs-bg p-4 md:p-8 font-sans">
@@ -260,7 +298,9 @@ export default function ProjectDetailPage() {
             <div className="flex flex-col items-end gap-3 shrink-0">
               <button
                 onClick={() => setEditOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 border border-gs-border rounded-lg text-xs font-bold text-gs-muted hover:bg-gs-bg transition-colors"
+                disabled={subscriptionExpired}
+                title={writeDisabledTitle}
+                className="flex items-center gap-1.5 px-3 py-2 border border-gs-border rounded-lg text-xs font-bold text-gs-muted hover:bg-gs-bg transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <Pencil size={13} /> Edit Project
               </button>
@@ -285,13 +325,17 @@ export default function ProjectDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-2 px-3 py-2 border border-red-200 text-red-600 rounded-sm text-xs font-bold hover:bg-red-50 transition-all"
+                disabled={subscriptionExpired}
+                title={writeDisabledTitle}
+                className="flex items-center gap-2 px-3 py-2 border border-red-200 text-red-600 rounded-sm text-xs font-bold hover:bg-red-50 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <Trash2 size={14} /> Delete
               </button>
               <button
                 onClick={() => router.push(`/dashboard/chat?projectId=${id}`)}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-sm text-xs font-bold hover:bg-blue-700 transition-all"
+                disabled={subscriptionExpired}
+                title={writeDisabledTitle}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-sm text-xs font-bold hover:bg-blue-700 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600"
               >
                 <Plus size={14} /> Start New Chat
               </button>
@@ -303,7 +347,9 @@ export default function ProjectDetailPage() {
               <p className="text-sm text-gs-muted font-medium">No chats yet for this project.</p>
               <button
                 onClick={() => router.push(`/dashboard/chat?projectId=${id}`)}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700"
+                disabled={subscriptionExpired}
+                title={writeDisabledTitle}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-sm text-sm font-bold hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600"
               >
                 <Plus size={16} /> Start First Chat
               </button>
@@ -336,64 +382,70 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Simulations */}
-        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mt-6">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
-            <h2 className="text-sm font-bold text-gs-text">HA Simulations ({simulations.length})</h2>
-            {conversations.length > 0 && (
-              <button
-                onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
-                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-sm text-xs font-bold hover:bg-indigo-700 transition-all"
-              >
-                <Stethoscope size={14} /> Run Simulation
-              </button>
-            )}
-          </div>
-          {simulations.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <Stethoscope size={28} className="mx-auto text-gs-muted mb-3" />
-              <p className="text-sm text-gs-muted font-medium">No simulations run for this project yet.</p>
+        {showSimulations && (
+          <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mt-6">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
+              <h2 className="text-sm font-bold text-gs-text">HA Simulations ({simulations.length})</h2>
               {conversations.length > 0 && (
                 <button
                   onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-sm text-sm font-bold hover:bg-indigo-700"
+                  disabled={subscriptionExpired}
+                  title={writeDisabledTitle}
+                  className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-sm text-xs font-bold hover:bg-indigo-700 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-indigo-600"
                 >
-                  <Plus size={16} /> Run First Simulation
+                  <Stethoscope size={14} /> Run Simulation
                 </button>
               )}
             </div>
-          ) : (
-            <ul className="divide-y divide-gs-border">
-              {simulations.map(sim => (
-                <li
-                  key={sim.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-gs-bg cursor-pointer group"
-                  onClick={() => router.push(`/dashboard/ha-simulation?sessionId=${sim.id}&projectId=${id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                      <Stethoscope size={15} />
+            {simulations.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <Stethoscope size={28} className="mx-auto text-gs-muted mb-3" />
+                <p className="text-sm text-gs-muted font-medium">No simulations run for this project yet.</p>
+                {conversations.length > 0 && (
+                  <button
+                    onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
+                    disabled={subscriptionExpired}
+                    title={writeDisabledTitle}
+                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-sm text-sm font-bold hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-indigo-600"
+                  >
+                    <Plus size={16} /> Run First Simulation
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ul className="divide-y divide-gs-border">
+                {simulations.map(sim => (
+                  <li
+                    key={sim.id}
+                    className="flex items-center justify-between px-6 py-4 hover:bg-gs-bg cursor-pointer group"
+                    onClick={() => router.push(`/dashboard/ha-simulation?sessionId=${sim.id}&projectId=${id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <Stethoscope size={15} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gs-text">{sim.authority} · {sim.focus_area}</p>
+                        <p className="text-xs text-gs-muted mt-0.5">
+                          {sim.submission_type} · {sim.stage} · {sim.total_questions} questions · {Math.round(sim.readiness_score)}% readiness · {new Date(sim.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gs-text">{sim.authority} · {sim.focus_area}</p>
-                      <p className="text-xs text-gs-muted mt-0.5">
-                        {sim.submission_type} · {sim.stage} · {sim.total_questions} questions · {Math.round(sim.readiness_score)}% readiness · {new Date(sim.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                        sim.readiness_score >= 70 ? "bg-emerald-50 text-emerald-600" :
+                        sim.readiness_score >= 40 ? "bg-orange-50 text-orange-600" : "bg-red-50 text-red-600"
+                      }`}>
+                        {sim.confidence_level}
+                      </span>
+                      <ExternalLink size={14} className="text-gs-muted group-hover:text-gs-muted transition-colors" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                      sim.readiness_score >= 70 ? "bg-emerald-50 text-emerald-600" :
-                      sim.readiness_score >= 40 ? "bg-orange-50 text-orange-600" : "bg-red-50 text-red-600"
-                    }`}>
-                      {sim.confidence_level}
-                    </span>
-                    <ExternalLink size={14} className="text-gs-muted group-hover:text-gs-muted transition-colors" />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {confirmDelete && (
@@ -403,7 +455,12 @@ export default function ProjectDetailPage() {
           confirmLabel="Delete Project"
           onCancel={() => setConfirmDelete(false)}
           onConfirm={async () => {
-            try { await projectApi.remove(id); router.push("/dashboard/projects"); } catch { setConfirmDelete(false); }
+            try {
+              await projectApi.remove(id);
+              router.push("/dashboard/projects");
+            } catch {
+              setConfirmDelete(false);
+            }
           }}
         />
       )}

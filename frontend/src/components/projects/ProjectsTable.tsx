@@ -68,6 +68,7 @@ export function ProjectsTable({
   onDelete,
   onEdit,
   canDeleteProject,
+  actionsDisabled = false,
 }: {
   projects: Project[];
   loading: boolean;
@@ -80,6 +81,7 @@ export function ProjectsTable({
   onDelete: (id: string) => void;
   onEdit?: (id: string) => void;
   canDeleteProject?: (project: Project) => boolean;
+  actionsDisabled?: boolean;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const activeProject = menu ? projects.find(project => project.id === menu.id) : undefined;
@@ -240,14 +242,18 @@ export function ProjectsTable({
             </button>
             {onEdit && (
               <button
-                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg"
+                disabled={actionsDisabled}
+                title={actionsDisabled ? "Upgrade your plan to edit projects" : undefined}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                 onClick={() => { setMenu(null); onEdit(menu.id); }}
               >
                 <Pencil size={14} /> Edit Project
               </button>
             )}
             <button
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg"
+              disabled={actionsDisabled}
+              title={actionsDisabled ? "Upgrade your plan to start chats" : undefined}
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gs-text hover:bg-gs-bg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               onClick={() => { setMenu(null); onStartChat(menu.id); }}
             >
               <MessageSquare size={14} /> Start Chat
@@ -256,7 +262,9 @@ export function ProjectsTable({
               <>
                 <div className="border-t border-gs-border my-1" />
                 <button
-                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  disabled={actionsDisabled}
+                  title={actionsDisabled ? "Upgrade your plan to delete projects" : undefined}
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                   onClick={() => { setMenu(null); onDelete(menu.id); }}
                 >
                   <Trash2 size={14} /> Delete Project

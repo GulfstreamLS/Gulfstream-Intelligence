@@ -14,6 +14,32 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
 
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(status: number, message: string, detail?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function getDetailMessage(detail: unknown, fallback: string) {
+  return typeof detail === "string" && detail.trim() ? detail : fallback;
+}
+
+async function throwApiError(res: Response): Promise<never> {
+  const body = await res.json().catch(() => ({}));
+  const detail = (body as { detail?: unknown }).detail;
+  throw new ApiError(res.status, getDetailMessage(detail, `HTTP ${res.status}`), detail);
+}
+
+export function isPaymentRequiredError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 402;
+}
+
 export function setTokenCookies(tokens: TokenResponse) {
   Cookies.set("access_token", tokens.access_token, { expires: 1 });
   Cookies.set("refresh_token", tokens.refresh_token, { expires: 30 });
@@ -64,8 +90,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `HTTP ${res.status}`);
+    await throwApiError(res);
   }
 
   if (res.status === 204) return undefined as T;
@@ -180,8 +205,7 @@ export const chatApi = {
       body: formData,
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail ?? `HTTP ${res.status}`);
+      await throwApiError(res);
     }
     const data = await res.json();
     return data.text as string;
@@ -202,8 +226,7 @@ export const chatApi = {
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail ?? `HTTP ${res.status}`);
+      await throwApiError(res);
     }
     return res.json();
   },
@@ -231,7 +254,8 @@ export const chatApi = {
       body:    form,
     });
 
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) await throwApiError(res);
+    if (!res.body) throw new ApiError(res.status, "No response body", null);
 
     const reader  = res.body.getReader();
     const decoder = new TextDecoder();
@@ -272,7 +296,8 @@ export const chatApi = {
       body: JSON.stringify({ message, model, stream: true }),
     });
 
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) await throwApiError(res);
+    if (!res.body) throw new ApiError(res.status, "No response body", null);
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -351,8 +376,7 @@ export const projectApi = {
       body: form,
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail ?? `HTTP ${res.status}`);
+      await throwApiError(res);
     }
     return res.json();
   },

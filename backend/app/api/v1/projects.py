@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
-from app.middleware.auth import get_current_user, get_user_or_none
+from app.middleware.auth import check_active_subscription, get_current_user, get_user_or_none
 from app.models.chat import Conversation
 from app.models.notification import Notification, NotificationType
 from app.models.organization import MemberRole, OrganizationMember
@@ -105,11 +105,9 @@ async def list_projects(
 async def create_project(
     request: Request,
     data: ProjectCreate,
-    current_user: Optional[User] = Depends(get_user_or_none),
+    current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
     project = Project(
         user_id=current_user.id,
         organization_id=_org_id(current_user),
@@ -150,11 +148,9 @@ async def update_project(
     request: Request,
     project_id: uuid.UUID,
     data: ProjectUpdate,
-    current_user: Optional[User] = Depends(get_user_or_none),
+    current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -180,11 +176,9 @@ async def update_project(
 async def delete_project(
     request: Request,
     project_id: uuid.UUID,
-    current_user: Optional[User] = Depends(get_user_or_none),
+    current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -213,21 +207,21 @@ async def delete_project(
 @router.get("/{project_id}/conversations", response_model=list[ConversationResponse])
 async def get_project_conversations(
     project_id: uuid.UUID,
-    current_user: Optional[User] = Depends(get_user_or_none),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    accessible = not current_user or (project.user_id == current_user.id) or (current_user.organization_id and project.organization_id == current_user.organization_id)
+    accessible = (project.user_id == current_user.id) or (current_user.organization_id and project.organization_id == current_user.organization_id)
     if not accessible:
         raise HTTPException(status_code=404, detail="Project not found")
 
     result = await db.execute(
         select(Conversation)
         .where(Conversation.project_id == project_id)
-        .options(selectinload(Conversation.messages), selectinload(Conversation.project))
+        .options(selectinload(Conversation.messages), selectinload(Conversation.project), selectinload(Conversation.user))
         .order_by(Conversation.updated_at.desc())
     )
     return result.scalars().all()
@@ -236,11 +230,9 @@ async def get_project_conversations(
 @router.post("/import", response_model=dict)
 async def import_projects(
     file: UploadFile = File(...),
-    current_user: Optional[User] = Depends(get_user_or_none),
+    current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
     try:
         import openpyxl
     except ImportError:
