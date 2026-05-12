@@ -278,31 +278,7 @@ async def send(
                 f"\n\nACTIVE DOCUMENT ({label}):\n{doc_text[:6000]}"
             )
 
-    # 7. Detect analysis
-    analysis_triggers = [
-        "analyze",
-        "analysis",
-        "gap",
-        "audit",
-        "this document",
-        "the document",
-        "thoughts",
-        "review",
-        "check",
-        "evaluate",
-        "assess",
-        "is this okay",
-    ]
-    is_analysis = any(t in message.lower() for t in analysis_triggers) and bool(convo.active_file_id)
-
-    file_bytes, file_type = None, None
-    if is_analysis and convo.metadata_:
-        hex_val = convo.metadata_.get("last_uploaded_content")
-        if hex_val:
-            file_bytes = bytes.fromhex(hex_val)
-            file_type = convo.metadata_.get("last_uploaded_type", "txt")
-
-    # 8. Detect export
+    # 7. Detect export
     export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert"]
     msg_lower = message.lower()
     is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
@@ -342,22 +318,14 @@ async def send(
     used_model = model or convo.model or settings.DEFAULT_MODEL
     eff_authorities = selected_authorities or ["Global"]
 
-    uploaded_filename = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
-
     return StreamingResponse(
         _stream_send(
             db,
             convo.id,
-            user_id,
             history,
             used_model,
             system_prompt,
             new_convo_payload,
-            is_analysis and file_bytes is not None,
-            file_bytes,
-            file_type,
-            uploaded_filename,
-            eff_authorities,
         ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
@@ -380,65 +348,23 @@ async def _stream_export_response(text: str, new_convo_payload: dict | None) -> 
 async def _stream_send(
     db: AsyncSession,
     conversation_id: uuid.UUID,
-    user_id: uuid.UUID,
     history: list[dict],
     model: str,
     system_prompt: str | None,
     new_convo_payload: dict | None,
-    run_analysis: bool,
-    file_bytes: bytes | None,
-    file_type: str | None,
-    filename: str,
-    authorities: list[str],
 ) -> AsyncGenerator[str, None]:
     try:
         if new_convo_payload:
             yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
-
-        if run_analysis and file_bytes:
-            import asyncio
-            try:
-                msg = await asyncio.wait_for(
-                    chat_service.perform_analysis_for_chat(db, conversation_id, user_id, file_bytes, filename, file_type, authorities),
-                    timeout=180,
-                )
-                analysis_payload = {
-                    "type": "analysis",
-                    "content": msg.content,
-                    "data": msg.analysis_data,
-                    "message_id": str(msg.id),
-                }
-                yield f"data: {json.dumps(analysis_payload)}\n\n"
-                yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
-                return
-            except asyncio.TimeoutError:
-                import logging as _log
-                _log.warning("[CHAT] Structured analysis timed out — falling back to streaming chat")
-                try:
-                    await db.rollback()
-                except Exception:
-                    pass
-            except Exception as _ae:
-                import logging as _log
-                _log.error(f"[CHAT] Structured analysis failed: {_ae} — falling back to streaming chat")
-                try:
-                    await db.rollback()
-                except Exception:
-                    pass
 
         full_response = ""
         async for chunk in ai_service.stream_chat(history, model, system_prompt):
             full_response += chunk
             yield f"data: {json.dumps({'type': 'delta', 'content': chunk})}\n\n"
 
-        try:
-            msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
-            await db.commit()
-            yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
-        except Exception as _save_err:
-            import logging as _log
-            _log.error(f"[CHAT] Failed to save message after stream: {_save_err}")
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+        await db.commit()
+        yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
