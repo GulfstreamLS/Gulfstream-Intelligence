@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Monitor, Lock, ShieldCheck, Smartphone, Fingerprint, AlertTriangle, MailCheck } from "lucide-react";
+import { Monitor, Lock, ShieldCheck, AlertTriangle, MailCheck } from "lucide-react";
 import { authApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
 
@@ -93,33 +93,9 @@ export function SecurityView() {
       {/* Access Control */}
       <section className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card">
         <h3 className="text-[18px] font-bold text-gs-text mb-6">Access Control</h3>
-        <div className="space-y-6">
-          <div className="p-5 border border-gs-border rounded-xl bg-gs-bg flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Smartphone className="text-gs-blue w-5 h-5 shrink-0" />
-              <div>
-                <p className="text-[14px] font-bold text-gs-text">Multi-Factor Authentication (MFA)</p>
-                <p className="text-[12px] text-gs-muted">Add an extra layer of security to your account.</p>
-              </div>
-            </div>
-            <span className="bg-green-100 text-green-700 text-[11px] font-bold px-3 py-1 rounded-full uppercase shrink-0">
-              Enabled
-            </span>
-          </div>
-          <div className="p-5 border border-gs-border rounded-xl flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Fingerprint className="text-gs-muted w-5 h-5 shrink-0" />
-              <div>
-                <p className="text-[14px] font-bold text-gs-text">Biometric Authentication</p>
-                <p className="text-[12px] text-gs-muted">Unlock using Windows Hello or Apple Touch ID.</p>
-              </div>
-            </div>
-            <button className="text-[13px] font-bold text-gs-blue hover:underline shrink-0">Set Up</button>
-          </div>
-        </div>
 
         {/* Password Management */}
-        <div className="mt-10">
+        <div>
           <h4 className="text-[14px] font-bold text-gs-text mb-4">Password Management</h4>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">

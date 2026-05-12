@@ -12,7 +12,6 @@ export function NotificationsView() {
           <div className="space-y-5">
             <ToggleRow title="Email Notifications"        desc="Weekly summaries and critical document alerts."            enabled />
             <ToggleRow title="In-App Push Notifications"  desc="Real-time updates on document analysis status."            enabled />
-            <ToggleRow title="Slack Integration"          desc="Sync alerts directly to your team Slack channel." />
           </div>
         </section>
 

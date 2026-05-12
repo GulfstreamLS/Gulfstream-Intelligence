@@ -1,4 +1,5 @@
 import random
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from app.models.email_verification import EmailVerification
+from app.models.password_reset import PasswordResetToken
 from app.models.organization import MemberRole, MemberStatus, Organization, OrganizationMember
 from app.models.subscription import BillingCycle, Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.user import AccountType, User
@@ -136,6 +138,42 @@ class AuthService:
             return False
         ev.verified_at = now
         return True
+
+    async def create_password_reset_token(self, db: AsyncSession, email: str) -> str | None:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if not user or not user.is_active:
+            return None
+
+        token = secrets.token_urlsafe(32)
+        prt = PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_password(token),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        db.add(prt)
+        await db.flush()
+        return token
+
+    async def reset_password(self, db: AsyncSession, token: str, new_password: str) -> bool:
+        now = datetime.now(UTC)
+        result = await db.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.expires_at > now,
+                PasswordResetToken.used_at.is_(None),
+            )
+        )
+        tokens = result.scalars().all()
+        for prt in tokens:
+            if verify_password(token, prt.token_hash):
+                prt.used_at = now
+                user_result = await db.execute(select(User).where(User.id == prt.user_id))
+                user = user_result.scalar_one_or_none()
+                if not user or not user.is_active:
+                    return False
+                user.hashed_password = hash_password(new_password)
+                return True
+        return False
 
     async def get_subscription(self, db: AsyncSession, user: User) -> Subscription | None:
         if user.organization_id:

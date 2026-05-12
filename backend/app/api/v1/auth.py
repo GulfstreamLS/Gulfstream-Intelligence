@@ -16,8 +16,10 @@ from app.models.user import AccountType, User
 from app.schemas.user import (
     AuditLogResponse,
     ContactSalesRequest,
+    ForgotPasswordRequest,
     PasswordUpdate,
     RefreshRequest,
+    ResetPasswordRequest,
     SubscriptionResponse,
     TokenResponse,
     UserCreate,
@@ -324,6 +326,35 @@ async def accept_invite(token: _uuid.UUID, data: dict, db: AsyncSession = Depend
     await log_audit(db, user.id, "MEMBER_JOINED", resource_type="organization", resource_id=str(org.id), resource_name=org.name)
     await db.commit()
     return auth_service.create_tokens(user.id)
+
+
+# ── Password Reset ─────────────────────────────────────────────────────────────
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    token = await auth_service.create_password_reset_token(db, data.email)
+    if token:
+        reset_url = f"{_FRONTEND_BASE}/reset-password?token={token}"
+        try:
+            email_service.send_password_reset_email(data.email, reset_url)
+            logger.info("password_reset_email_sent", email=data.email)
+        except Exception as e:
+            logger.exception("password_reset_email_failed", email=data.email, error=str(e))
+    else:
+        logger.info("password_reset_email_skipped", email=data.email, reason="no_account")
+    await db.commit()
+    return {"message": "If an account with that email exists, a password reset link has been sent."}
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters")
+    ok = await auth_service.reset_password(db, data.token, data.new_password)
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
+    return {"message": "Password reset successfully"}
 
 
 # ── Contact Sales ─────────────────────────────────────────────────────────────

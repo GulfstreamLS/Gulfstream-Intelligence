@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Lock, Smartphone, Monitor } from "lucide-react";
-import { InputGroup, SelectGroup, GsSelect, SecurityLink } from "./SettingsPrimitives";
+import { FileText } from "lucide-react";
+import { InputGroup, SelectGroup, GsSelect } from "./SettingsPrimitives";
 import { useAuth } from "../../hooks/useAuth";
 import { authApi, organizationApi } from "../../lib/api";
 
@@ -188,21 +188,6 @@ export function ProfileView() {
               <p className="text-[13px] text-gs-muted mt-0.5 font-medium">Enterprise Plan</p>
               <p className="text-[11px] text-gs-muted font-bold mt-2">Member since {memberSince}</p>
             </div>
-          </div>
-        </div>
-
-        {/* Security Quick Links */}
-        <div className="bg-gs-card rounded-xl border border-gs-border p-6 shadow-card">
-          <h3 className="text-[15px] font-bold text-gs-text mb-5">Security Quick Links</h3>
-          <div className="space-y-1">
-            <SecurityLink icon={<Lock className="w-[18px] h-[18px]" />}       label="Change Password" />
-            <SecurityLink
-              icon={<Smartphone className="w-[18px] h-[18px]" />}
-              label="Multi-Factor Authentication"
-              badge="Enabled"
-              badgeColor="bg-green-50 text-green-600"
-            />
-            <SecurityLink icon={<Monitor className="w-[18px] h-[18px]" />}    label="Active Sessions" count="3" />
           </div>
         </div>
       </div>

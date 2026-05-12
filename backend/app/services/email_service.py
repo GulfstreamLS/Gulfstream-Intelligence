@@ -133,6 +133,25 @@ def send_trial_expired(to: str, pricing_url: str) -> None:
     _send(to, "Your Gulfstream Intelligence trial has ended", _base_template(body))
 
 
+def send_password_reset_email(to: str, reset_url: str) -> None:
+    body = f"""
+    <p style="color:#334155;font-size:16px;margin:0 0 16px;">
+      We received a request to reset your Gulfstream Intelligence password.
+    </p>
+    <p style="color:#64748b;font-size:14px;margin:0 0 24px;">
+      Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
+    </p>
+    <a href="{reset_url}"
+       style="display:inline-block;background:#1a237e;color:#ffffff;text-decoration:none;
+              padding:14px 28px;border-radius:8px;font-weight:bold;font-size:15px;">
+      Reset Password
+    </a>
+    <p style="color:#94a3b8;font-size:13px;margin:24px 0 0;">
+      If you did not request a password reset, you can safely ignore this email.
+    </p>"""
+    _send(to, "Reset your Gulfstream Intelligence password", _base_template(body))
+
+
 def send_contact_sales(name: str, email: str, company: str, message: str) -> None:
     body = f"""
     <p style="color:#334155;font-size:16px;margin:0 0 16px;">
