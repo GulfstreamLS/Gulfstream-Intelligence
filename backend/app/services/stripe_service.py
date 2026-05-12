@@ -31,7 +31,47 @@ class StripeService:
         # Get or create Stripe Customer
         customer_id = await StripeService.get_or_create_customer(db, user)
 
-        # Create session
+        # Get existing subscription
+        subscription = await StripeService.get_subscription_status(user, db)
+
+        # If user already has an active subscription, we should natively update it
+        if subscription and subscription.stripe_subscription_id and subscription.status == SubscriptionStatus.ACTIVE:
+            try:
+                # Retrieve current subscription to get the item ID
+                stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+                item_id = stripe_sub["items"]["data"][0]["id"]
+                
+                # Perform native upgrade/downgrade
+                stripe.Subscription.modify(
+                    subscription.stripe_subscription_id,
+                    items=[{
+                        "id": item_id,
+                        "price": price_id,
+                    }],
+                    proration_behavior="create_prorations", # Automatically calculate price difference for the next invoice
+                    metadata={
+                        "plan": plan_id,
+                        "billing_cycle": billing_cycle
+                    }
+                )
+                
+                # Immediately update local DB
+                subscription.stripe_price_id = price_id
+                subscription.billing_cycle = billing_cycle
+                subscription.plan = plan_id
+                await db.commit()
+                
+                return success_url
+            except Exception as e:
+                print(f"Error performing native upgrade: {e}")
+                # Fallback to customer portal if native upgrade fails for any reason
+                portal_session = stripe.billing_portal.Session.create(
+                    customer=subscription.stripe_customer_id,
+                    return_url=success_url,
+                )
+                return portal_session.url
+
+        # Create session for new subscription
         session = stripe.checkout.Session.create(
             customer=customer_id,
             payment_method_types=["card"],
@@ -170,6 +210,12 @@ class StripeService:
         stripe_sub = stripe.Subscription.retrieve(stripe_sub_id)
         subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start, tz=UTC)
         subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end, tz=UTC)
+        subscription.status = SubscriptionStatus.ACTIVE
+        
+        # Ensure plan matches the metadata from checkout
+        if plan:
+            subscription.plan = plan
+        
         subscription.stripe_price_id = stripe_sub["items"]["data"][0]["price"]["id"]
 
         await db.commit()
@@ -210,6 +256,7 @@ class StripeService:
             subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end, tz=UTC)
             
             # Update plan if changed
+            subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
             price_id = stripe_sub["items"]["data"][0]["price"]["id"]
             if price_id != subscription.stripe_price_id:
                 subscription.stripe_price_id = price_id
@@ -254,6 +301,73 @@ class StripeService:
             return True
         except Exception as e:
             print(f"Error cancelling subscription: {e}")
+            return False
+
+    @staticmethod
+    async def sync_subscription_status(user: User, db: AsyncSession) -> bool:
+        # Get subscription record
+        subscription = await StripeService.get_subscription_status(user, db)
+        if not subscription or not subscription.stripe_customer_id:
+            return False
+        
+        try:
+            # List subscriptions for this customer
+            subscriptions = stripe.Subscription.list(customer=subscription.stripe_customer_id, limit=1)
+            if not subscriptions.data:
+                # No active subscription found in Stripe, maybe they are still on trial?
+                return True
+            
+            stripe_sub = subscriptions.data[0]
+            
+            # Update local DB with latest Stripe data
+            subscription.stripe_subscription_id = stripe_sub.id
+            subscription.status = SubscriptionStatus.ACTIVE if stripe_sub.status in ["active", "trialing"] else SubscriptionStatus.EXPIRED
+            
+            # Detect plan and cycle from price ID
+            price_id = stripe_sub["items"]["data"][0]["price"]["id"]
+            
+            # Map Cycle
+            if price_id in [settings.STRIPE_PRICE_STARTER_MONTHLY, settings.STRIPE_PRICE_PROFESSIONAL_MONTHLY, settings.STRIPE_PRICE_BUSINESS_MONTHLY]:
+                subscription.billing_cycle = "monthly"
+            elif price_id in [settings.STRIPE_PRICE_STARTER_ANNUAL, settings.STRIPE_PRICE_PROFESSIONAL_ANNUAL]:
+                subscription.billing_cycle = "annual"
+            
+            # Map Plan
+            if price_id in [settings.STRIPE_PRICE_STARTER_MONTHLY, settings.STRIPE_PRICE_STARTER_ANNUAL]:
+                subscription.plan = SubscriptionPlan.STARTER
+            elif price_id in [settings.STRIPE_PRICE_PROFESSIONAL_MONTHLY, settings.STRIPE_PRICE_PROFESSIONAL_ANNUAL]:
+                subscription.plan = SubscriptionPlan.PROFESSIONAL
+            elif price_id in [settings.STRIPE_PRICE_BUSINESS_MONTHLY, settings.STRIPE_PRICE_BUSINESS_ANNUAL]:
+                subscription.plan = SubscriptionPlan.BUSINESS
+            
+            subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start, tz=UTC)
+            subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end, tz=UTC)
+            subscription.stripe_price_id = price_id
+            subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
+            
+            await db.commit()
+            return True
+        except Exception as e:
+            print(f"Error syncing subscription: {e}")
+            return False
+
+    @staticmethod
+    async def reactivate_subscription(user: User, db: AsyncSession) -> bool:
+        subscription = await StripeService.get_subscription_status(user, db)
+        if not subscription or not subscription.stripe_subscription_id:
+            return False
+        
+        try:
+            # Un-cancel in Stripe
+            stripe.Subscription.modify(
+                subscription.stripe_subscription_id,
+                cancel_at_period_end=False
+            )
+            subscription.cancel_at_period_end = False
+            await db.commit()
+            return True
+        except Exception as e:
+            print(f"Error reactivating subscription: {e}")
             return False
 
 stripe_service = StripeService()

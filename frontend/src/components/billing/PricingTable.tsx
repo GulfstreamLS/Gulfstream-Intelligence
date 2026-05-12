@@ -37,6 +37,12 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     
     // Fetch plans
     billingApi.getPlans().then(setPlans).catch(console.error);
+
+    // Sync status from Stripe
+    billingApi.syncSubscription()
+      .then(() => subscriptionApi.get())
+      .then(setSubscription)
+      .catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -51,6 +57,9 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   const trialActive = subscription?.status === "trialing";
   const trialEnd = subscription?.trial_ends_at
     ? new Date(subscription.trial_ends_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : null;
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : null;
 
   async function handlePlanClick(planId: string) {
@@ -67,7 +76,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     try {
       setLoading(planId);
       const cycle = annual ? "annual" : "monthly";
-      const successUrl = `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`;
+      const successUrl = `${window.location.origin}/dashboard/subscription?success=true`;
       const cancelUrl = window.location.href;
 
       const { checkout_url } = await billingApi.createCheckoutSession(
@@ -92,11 +101,24 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     try {
       setCancelLoading(true);
       await billingApi.cancelSubscription();
-      const sub = await subscriptionApi.get();
-      setSubscription(sub);
+      // Instantly update the local state to show "Ending Soon"
+      setSubscription(prev => prev ? { ...prev, cancel_at_period_end: true } : null);
       alert("Subscription cancelled successfully.");
     } catch (err) {
       alert("Failed to cancel subscription.");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  async function handleReactivate() {
+    try {
+      setCancelLoading(true);
+      await billingApi.reactivateSubscription();
+      // Instantly update the local state to show "Subscribed"
+      setSubscription(prev => prev ? { ...prev, cancel_at_period_end: false } : null);
+    } catch (err) {
+      alert("Failed to reactivate subscription.");
     } finally {
       setCancelLoading(false);
     }
@@ -111,6 +133,26 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   }
 
   const isOrgUser = user?.account_type === "organization_member";
+  
+  // If the user is an org member but the API didn't return any org plans,
+  // it means they are not the owner.
+  if (isOrgUser && plans.organization.length === 0) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center flex flex-col items-center">
+        <AlertCircle className="w-12 h-12 text-gs-muted mb-4" />
+        <h3 className="text-xl font-bold text-gs-text">Billing Management</h3>
+        <p className="text-sm text-gs-muted mt-2">
+          Only organization owners can manage and view subscription plans.
+        </p>
+        {showDashboardLink && (
+          <button onClick={() => router.push("/dashboard")} className="text-sm text-gs-sky hover:text-gs-blue underline mt-6">
+            Back to dashboard
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const currentPlans = isOrgUser ? plans.organization : plans.solo;
 
   return (
@@ -125,6 +167,17 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
           <div className="inline-flex items-center gap-2 bg-gs-blue/10 border border-gs-blue/20 text-gs-blue text-sm font-medium px-4 py-2 rounded-full">
             <Zap className="w-3.5 h-3.5" />
             Free trial active · expires {trialEnd}
+          </div>
+        )}
+        {!trialActive && isActive && periodEnd && (
+          <div className={cn(
+            "inline-flex items-center gap-2 border text-sm font-medium px-4 py-2 rounded-full",
+            subscription?.cancel_at_period_end 
+              ? "bg-gs-red/10 border-gs-red/20 text-gs-red" 
+              : "bg-gs-green/10 border-gs-green/20 text-gs-green"
+          )}>
+            {subscription?.cancel_at_period_end ? <AlertCircle className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+            {subscription?.cancel_at_period_end ? `Plan ends · ${periodEnd}` : `Plan active · expires ${periodEnd}`}
           </div>
         )}
       </div>
@@ -146,7 +199,11 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       <div className={cn("grid gap-6", currentPlans.length === 2 ? "max-w-2xl mx-auto grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}>
         {currentPlans.map((plan) => {
           const isEnterprise = plan.id === "enterprise";
-          const isCurrent = activePlanId === plan.id;
+          const currentCycle = annual ? "annual" : "monthly";
+          const isCurrentPlan = activePlanId === plan.id;
+          const isCurrentCycle = subscription?.billing_cycle === currentCycle;
+          const isCurrent = isCurrentPlan && isCurrentCycle;
+          
           const price = annual ? plan.annual_price : plan.monthly_price;
           const isPopular = plan.id === "professional" || plan.id === "business";
 
@@ -221,7 +278,9 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                   {loading === plan.id ? (
                     <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : isCurrent ? (
-                    "Subscribed"
+                    subscription?.cancel_at_period_end ? "Ending Soon" : "Subscribed"
+                  ) : isCurrentPlan ? (
+                    "Switch to " + (annual ? "Annual" : "Monthly")
                   ) : isEnterprise ? (
                     "Contact Sales"
                   ) : user ? (
@@ -231,13 +290,23 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                   )}
                 </button>
 
-                {isCurrent && !trialActive && (
+                {isCurrent && !trialActive && !subscription?.cancel_at_period_end && (
                   <button
                     onClick={handleCancel}
                     disabled={cancelLoading}
-                    className="w-full text-xs text-gs-red hover:underline flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 rounded-xl text-xs font-semibold border border-gs-red/20 text-gs-red hover:bg-gs-red/5 transition-all flex items-center justify-center gap-1.5 mt-2"
                   >
                     {cancelLoading ? "Processing..." : "Cancel Subscription"}
+                  </button>
+                )}
+
+                {isCurrent && subscription?.cancel_at_period_end && (
+                  <button
+                    onClick={handleReactivate}
+                    disabled={cancelLoading}
+                    className="w-full py-2.5 rounded-xl text-xs font-semibold border border-gs-blue/20 text-gs-blue hover:bg-gs-blue/5 transition-all flex items-center justify-center gap-1.5 mt-2"
+                  >
+                    {cancelLoading ? "Processing..." : "Reactivate Subscription"}
                   </button>
                 )}
               </div>

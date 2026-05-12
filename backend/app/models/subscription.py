@@ -52,6 +52,7 @@ class Subscription(Base, UUIDMixin, TimestampMixin):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_price_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cancel_at_period_end: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     user: Mapped["User | None"] = relationship(back_populates="subscription")
     organization: Mapped["Organization | None"] = relationship(back_populates="subscription")

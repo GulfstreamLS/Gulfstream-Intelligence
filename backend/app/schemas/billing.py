@@ -24,6 +24,7 @@ class SubscriptionSchema(BaseModel):
     current_period_end: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    cancel_at_period_end: bool = False
 
 class PlanDetails(BaseModel):
     id: str
