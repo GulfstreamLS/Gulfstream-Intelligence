@@ -9,6 +9,7 @@ interface DocStatCardProps {
   icon?: React.ReactNode;
   color: ColorKey;
   isProgress?: boolean;
+  progressValue?: number;
 }
 
 const iconColors: Record<ColorKey, string> = {
@@ -19,7 +20,7 @@ const iconColors: Record<ColorKey, string> = {
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
 };
 
-export function DocStatCard({ title, value, trend, icon, color, isProgress }: DocStatCardProps) {
+export function DocStatCard({ title, value, trend, icon, color, isProgress, progressValue = 0 }: DocStatCardProps) {
   return (
     <div className="bg-gs-card p-5 rounded-2xl border border-gs-border shadow-card">
       <div className="flex justify-between items-start mb-4">
@@ -31,7 +32,7 @@ export function DocStatCard({ title, value, trend, icon, color, isProgress }: Do
           <div className="w-8 h-8 relative">
             <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
               <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="4" className="text-gs-border" />
-              <circle cx="18" cy="18" r="16" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="92, 100" />
+              <circle cx="18" cy="18" r="16" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray={`${progressValue}, 100`} />
             </svg>
           </div>
         )}

@@ -31,6 +31,7 @@ class AnalyzedDocumentSummary(BaseModel):
     filename: str
     authority: Optional[str]
     gap_count: int
+    confidence_score: Optional[float]
     created_at: datetime
 
 class GapAssessmentResponse(BaseModel):

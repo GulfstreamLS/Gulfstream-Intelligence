@@ -52,6 +52,7 @@ async def list_analyzed_documents(
             AnalysisDocument.id,
             AnalysisDocument.filename,
             AnalysisDocument.authority,
+            AnalysisDocument.confidence_score,
             AnalysisDocument.created_at,
             func.count(Gap.id).label("gap_count"),
         )
@@ -67,6 +68,7 @@ async def list_analyzed_documents(
             id=r.id,
             filename=r.filename,
             authority=r.authority,
+            confidence_score=r.confidence_score,
             gap_count=r.gap_count,
             created_at=r.created_at,
         )

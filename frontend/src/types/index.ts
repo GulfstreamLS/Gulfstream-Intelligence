@@ -131,6 +131,7 @@ export interface AnalyzedDocument {
   filename: string;
   authority: string | null;
   gap_count: number;
+  confidence_score: number | null;
   created_at: string;
 }
 
