@@ -124,6 +124,8 @@ async def send(
             convo.authorities = json.loads(authorities)
         except (json.JSONDecodeError, ValueError):
             pass
+    if model:
+        convo.model = model
 
     # 3. Handle file upload
     if file:
@@ -410,7 +412,10 @@ async def update_conversation(
     convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    return await chat_service.update_conversation(db, convo, data)
+    updated = await chat_service.update_conversation(db, convo, data)
+    await db.commit()
+    await db.refresh(updated)
+    return updated
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

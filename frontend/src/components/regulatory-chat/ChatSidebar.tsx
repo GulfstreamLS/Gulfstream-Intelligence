@@ -64,6 +64,7 @@ export interface RecentChatItem {
   id: string;
   title: string;
   date: string;
+  canDelete?: boolean;
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -412,8 +413,10 @@ export function ChatSidebar({
             >
               <span className="text-xs font-semibold truncate max-w-[160px]">{chat.title}</span>
               <div className="flex items-center gap-1 ml-2 shrink-0">
-                <span className="text-[10px] font-medium opacity-60 group-hover/chat:hidden">{chat.date}</span>
-                {onDeleteChat && (
+                <span className={`text-[10px] font-medium opacity-60 ${chat.canDelete ? "group-hover/chat:hidden" : ""}`}>
+                  {chat.date}
+                </span>
+                {onDeleteChat && chat.canDelete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }}
                     className="hidden group-hover/chat:flex items-center justify-center w-6 h-6 rounded-md text-gs-muted hover:text-red-500 hover:bg-red-50 transition-colors"

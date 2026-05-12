@@ -27,6 +27,12 @@ export default function LoginPage() {
           const user = await authApi.me();
           Cookies.set("pending_verify_id", user.id, { expires: 1 });
         } catch { /* non-fatal */ }
+        try {
+          await authApi.resendVerification();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Could not send verification email. Please try again.");
+          return;
+        }
         router.push(`/verify-email?email=${encodeURIComponent(email)}&sent=1`);
         return;
       }

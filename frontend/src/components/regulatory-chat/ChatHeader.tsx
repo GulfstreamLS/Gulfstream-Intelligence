@@ -1,13 +1,25 @@
-import { Plus, Share2, PanelRight, Trash2 } from "lucide-react";
+import { Bot, ChevronDown, Plus, Share2, PanelRight, Trash2 } from "lucide-react";
+import { CHAT_MODELS, getChatModelLabel } from "../../lib/chatModels";
 
 interface ChatHeaderProps {
   onNewChat?: () => void;
   onToggleSidebar?: () => void;
   onDeleteChat?: () => void;
   hasActiveChat?: boolean;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
+  modelDisabled?: boolean;
 }
 
-export function ChatHeader({ onNewChat, onToggleSidebar, onDeleteChat, hasActiveChat }: ChatHeaderProps) {
+export function ChatHeader({
+  onNewChat,
+  onToggleSidebar,
+  onDeleteChat,
+  hasActiveChat,
+  selectedModel,
+  onModelChange,
+  modelDisabled,
+}: ChatHeaderProps) {
   return (
     <div className="flex justify-between items-center gap-4">
       <div>
@@ -19,7 +31,26 @@ export function ChatHeader({ onNewChat, onToggleSidebar, onDeleteChat, hasActive
         </p>
       </div>
 
-      <div className="flex gap-2 shrink-0">
+      <div className="flex gap-2 shrink-0 items-center">
+        <div className="relative flex items-center gap-2 px-2.5 sm:px-3 py-2 bg-gs-card border border-gs-border rounded-lg shadow-sm min-h-[40px] md:min-h-[44px]">
+          <Bot size={16} className="text-gs-blue shrink-0 pointer-events-none" />
+          <select
+            value={selectedModel}
+            onChange={(event) => onModelChange(event.target.value)}
+            disabled={modelDisabled}
+            aria-label="AI model"
+            title={`Model: ${getChatModelLabel(selectedModel)}`}
+            className="appearance-none bg-transparent text-sm font-semibold text-gs-text focus:outline-none disabled:opacity-60 cursor-pointer pr-5"
+          >
+            {CHAT_MODELS.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="text-gs-muted shrink-0 pointer-events-none absolute right-2" />
+        </div>
+
         {/* Mobile: icon only. Desktop: icon + label */}
         <button
           onClick={onNewChat}

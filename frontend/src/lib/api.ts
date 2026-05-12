@@ -19,6 +19,7 @@ let isRefreshing = false;
 
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const token = Cookies.get("access_token");
+  const isAuthEndpoint = path === "/auth/login" || path === "/auth/register" || path === "/auth/refresh";
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -28,7 +29,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     },
   });
 
-  if (res.status === 401 && retry && !isRefreshing && path !== "/auth/refresh") {
+  if (res.status === 401 && retry && !isRefreshing && !isAuthEndpoint) {
     isRefreshing = true;
     try {
       const refreshToken = Cookies.get("refresh_token");
@@ -47,7 +48,9 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     }
     isRefreshing = false;
     clearTokenCookies();
-    if (typeof window !== "undefined") window.location.href = "/login";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
     throw new Error("Session expired. Please log in again.");
   }
 
@@ -130,7 +133,7 @@ export const chatApi = {
 
   getConversation: (id: string) => request<Conversation>(`/chat/conversations/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null }) =>
+  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null; model?: string }) =>
     request<Conversation>(`/chat/conversations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),

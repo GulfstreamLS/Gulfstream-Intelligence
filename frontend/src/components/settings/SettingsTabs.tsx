@@ -11,7 +11,6 @@ import { NotificationsView } from "./NotificationsView";
 import { AuditLogView }      from "./AuditLogView";
 import { useChatStore }      from "../../store/chatStore";
 import { organizationApi }   from "../../lib/api";
-import type { OrgMember }    from "../../types";
 
 type Tab = "Profile" | "Preferences" | "Security" | "Notifications" | "Audit Log" | "Organization" | "Team";
 
@@ -39,11 +38,8 @@ export function SettingsTabs() {
 
   useEffect(() => {
     if (!isOrgMember || !user) return;
-    organizationApi.listMembers()
-      .then((members: OrgMember[]) => {
-        const me = members.find((m) => m.user_id === user.id);
-        setIsOwner(me?.role === "owner");
-      })
+    organizationApi.get()
+      .then((org) => setIsOwner(org.owner_id === user.id))
       .catch(() => setIsOwner(false));
   }, [isOrgMember, user]);
 

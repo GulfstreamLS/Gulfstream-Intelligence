@@ -76,6 +76,7 @@ export type ProjectStatus = "On Track" | "At Risk" | "Planning";
 
 export interface Project {
   id: string;
+  user_id: string;
   name: string;
   type: string;
   indication: string | null;

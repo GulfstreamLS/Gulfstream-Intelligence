@@ -23,9 +23,10 @@ class SimulationService:
     @property
     def llm(self):
         if self._llm is None:
+            model_name = getattr(settings, "SIMULATION_MODEL", "gpt-4o")
             self._llm = ChatOpenAI(
                 api_key=settings.OPENAI_API_KEY,
-                model="gpt-4o",
+                model=model_name,
                 temperature=0.3,
             )
         return self._llm

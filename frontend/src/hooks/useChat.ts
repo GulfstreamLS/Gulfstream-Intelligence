@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { chatApi } from "../lib/api";
+import { DEFAULT_CHAT_MODEL } from "../lib/chatModels";
 import { useChatStore } from "../store/chatStore";
 import type { Conversation, Message } from "../types";
 
@@ -23,6 +24,7 @@ export function useChat() {
     message?: string;
     file?: File;
     authorities?: string[];
+    model?: string;
     projectId?: string;
     onConversationReady?: (id: string) => void;
   }): Promise<string | null> => {
@@ -36,7 +38,7 @@ export function useChat() {
       const tempConvo: Conversation = {
         id: tempId,
         title: null,
-        model: "gpt-4o",
+        model: params.model ?? DEFAULT_CHAT_MODEL,
         system_prompt: null,
         project_id: params.projectId ?? null,
         project_name: null,

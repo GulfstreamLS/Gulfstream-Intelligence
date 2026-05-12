@@ -67,6 +67,7 @@ class ConversationUpdate(BaseModel):
     title: str | None = None
     system_prompt: str | None = None
     project_id: uuid.UUID | None = None
+    model: str | None = None
 
 
 class ConversationResponse(BaseModel):

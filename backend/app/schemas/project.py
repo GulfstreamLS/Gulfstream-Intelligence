@@ -33,6 +33,7 @@ class ProjectUpdate(BaseModel):
 
 class ProjectResponse(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID
     name: str
     type: str
     indication: Optional[str] = None

@@ -11,7 +11,8 @@ import type { RecentChatItem } from "../../../../components/regulatory-chat/Chat
 import type { DisplayMessage, AnalysisAuthority } from "../../../../types/chat";
 import { useChatStore } from "../../../../store/chatStore";
 import { useChat }      from "../../../../hooks/useChat";
-import { chatApi }      from "../../../../lib/api";
+import { chatApi, organizationApi } from "../../../../lib/api";
+import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
 function RegulatoryChatPage() {
@@ -22,15 +23,28 @@ function RegulatoryChatPage() {
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(searchParams.get("projectId"));
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrolled       = useRef(false);
 
   const { conversations, isStreaming, streamingContent, updateConversation, removeConversation } = useChatStore();
+  const user = useChatStore((s) => s.user);
   const { loadConversations, sendAll } = useChat();
 
   useEffect(() => {
     loadConversations().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user?.organization_id) {
+      setIsOrgOwner(false);
+      return;
+    }
+    organizationApi.get()
+      .then((org) => setIsOrgOwner(org.owner_id === user.id))
+      .catch(() => setIsOrgOwner(false));
+  }, [user?.id, user?.organization_id]);
 
   // When a specific conversation is requested via URL, always fetch it from the API
   // so we get fresh data with full messages. Only skip if it's already in the store
@@ -61,6 +75,11 @@ function RegulatoryChatPage() {
   // ── Messages ────────────────────────────────────────────────────────────────
 
   const currentConversation = conversations.find(c => c.id === conversationId);
+
+  useEffect(() => {
+    if (!currentConversation?.model) return;
+    setSelectedModel(isChatModelId(currentConversation.model) ? currentConversation.model : DEFAULT_CHAT_MODEL);
+  }, [currentConversation?.model]);
 
   // Sync sidebar project context from loaded conversation (e.g. opened via ?conversation=id)
   useEffect(() => {
@@ -116,11 +135,12 @@ function RegulatoryChatPage() {
       conversationId,
       message:     text,
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
+      model:       selectedModel,
       projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
       onConversationReady: !conversationId ? setConversationId : undefined,
     });
     if (resolvedId && !conversationId) setConversationId(resolvedId);
-  }, [input, isStreaming, conversationId, selectedAuthorities, selectedProjectId, sendAll]);
+  }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, sendAll]);
 
   const handleFileUpload = useCallback(async (file: File, text?: string) => {
     userScrolled.current = false;
@@ -129,11 +149,12 @@ function RegulatoryChatPage() {
       message:     text,
       file,
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
+      model:       selectedModel,
       projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
       onConversationReady: !conversationId ? setConversationId : undefined,
     });
     if (resolvedId && !conversationId) setConversationId(resolvedId);
-  }, [conversationId, selectedAuthorities, selectedProjectId, sendAll]);
+  }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, sendAll]);
 
   const handleAuthoritiesChange = useCallback(async (authorities: string[]) => {
     setSelectedAuthorities(authorities);
@@ -149,6 +170,15 @@ function RegulatoryChatPage() {
     }
   }, [conversationId, updateConversation]);
 
+  const handleModelChange = useCallback((model: string) => {
+    if (!isChatModelId(model)) return;
+    setSelectedModel(model);
+    if (conversationId) {
+      updateConversation(conversationId, { model });
+      chatApi.updateConversation(conversationId, { model }).catch(console.error);
+    }
+  }, [conversationId, updateConversation]);
+
   const handleChatSelect = useCallback((chatId: string) => {
     setConversationId(chatId);
     setInput("");
@@ -158,6 +188,7 @@ function RegulatoryChatPage() {
   const handleNewChat = useCallback(() => {
     setConversationId(null);
     setInput("");
+    setSelectedModel(DEFAULT_CHAT_MODEL);
   }, []);
 
   const handleDeleteChat = useCallback((chatId?: string) => {
@@ -182,16 +213,26 @@ function RegulatoryChatPage() {
     id:    c.id,
     title: c.title ?? "New conversation",
     date:  new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    canDelete: c.user_id === user?.id || isOrgOwner,
   }));
 
   const isLoading = isStreaming && !streamingContent;
+  const canDeleteActiveChat = !!currentConversation && (currentConversation.user_id === user?.id || isOrgOwner);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-4 md:px-6 lg:px-8 pt-6 pb-4">
-        <ChatHeader onNewChat={handleNewChat} onToggleSidebar={() => setMobileSidebarOpen(o => !o)} onDeleteChat={() => handleDeleteChat()} hasActiveChat={!!conversationId} />
+        <ChatHeader
+          onNewChat={handleNewChat}
+          onToggleSidebar={() => setMobileSidebarOpen(o => !o)}
+          onDeleteChat={() => handleDeleteChat()}
+          hasActiveChat={canDeleteActiveChat}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
+          modelDisabled={isStreaming}
+        />
       </div>
 
       <div className="flex flex-1 gap-6 min-h-0 px-4 md:px-6 lg:px-8">

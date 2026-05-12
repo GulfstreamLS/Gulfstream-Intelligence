@@ -67,6 +67,7 @@ export function ProjectsTable({
   onViewDetail,
   onDelete,
   onEdit,
+  canDeleteProject,
 }: {
   projects: Project[];
   loading: boolean;
@@ -78,8 +79,10 @@ export function ProjectsTable({
   onViewDetail: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit?: (id: string) => void;
+  canDeleteProject?: (project: Project) => boolean;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
+  const activeProject = menu ? projects.find(project => project.id === menu.id) : undefined;
 
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, id: string) {
     if (menu?.id === id) { setMenu(null); return; }
@@ -249,13 +252,17 @@ export function ProjectsTable({
             >
               <MessageSquare size={14} /> Start Chat
             </button>
-            <div className="border-t border-slate-100 my-1" />
-            <button
-              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              onClick={() => { setMenu(null); onDelete(menu.id); }}
-            >
-              <Trash2 size={14} /> Delete Project
-            </button>
+            {activeProject && (canDeleteProject?.(activeProject) ?? true) && (
+              <>
+                <div className="border-t border-slate-100 my-1" />
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  onClick={() => { setMenu(null); onDelete(menu.id); }}
+                >
+                  <Trash2 size={14} /> Delete Project
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

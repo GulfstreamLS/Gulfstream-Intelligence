@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { FileText, Lock, Smartphone, Monitor } from "lucide-react";
 import { InputGroup, SelectGroup, GsSelect, SecurityLink } from "./SettingsPrimitives";
 import { useAuth } from "../../hooks/useAuth";
-import { authApi } from "../../lib/api";
+import { authApi, organizationApi } from "../../lib/api";
 
 const LANGUAGES = ["English (US)", "English (UK)", "French", "German", "Spanish", "Japanese"];
 const DATE_FORMATS = [
@@ -33,7 +33,7 @@ export function ProfileView() {
 
   // Profile fields
   const [fullName, setFullName]   = useState(user?.full_name ?? "");
-  const [jobTitle, setJobTitle]   = useState(prefs.job_title ?? "");
+  // const [jobTitle, setJobTitle] = useState(prefs.job_title ?? "");
   const [org, setOrg]             = useState(prefs.organization ?? "");
   const [timezone, setTimezone]   = useState(prefs.timezone ?? "(UTC-05:00) Eastern Time (US & Canada)");
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -49,20 +49,34 @@ export function ProfileView() {
   // Sync when user loads / changes
   useEffect(() => {
     if (!user) return;
+    let isCurrent = true;
     const p = user.preferences ?? {};
     setFullName(user.full_name ?? "");
-    setJobTitle(p.job_title ?? "");
+    // setJobTitle(p.job_title ?? "");
     setOrg(p.organization ?? "");
     setTimezone(p.timezone ?? "(UTC-05:00) Eastern Time (US & Canada)");
     setLanguage(p.language ?? "English (US)");
     setDateFormat(p.date_format ?? "May 10, 2025 (MMM D, YYYY)");
     setNumFormat(p.number_format ?? "1,234.56");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]); // intentionally excludes `user` object — we only want to re-sync on id change
+
+    if (!p.organization && user.organization_id) {
+      organizationApi.get()
+        .then((organization) => {
+          if (isCurrent) setOrg(organization.name);
+        })
+        .catch(() => null);
+    }
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [user]);
 
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "—";
+  const isOrgMember = user?.account_type === "organization_member";
+  const overviewOrg = org.trim();
 
   async function saveProfile() {
     setProfileSaving(true);
@@ -70,7 +84,7 @@ export function ProfileView() {
     try {
       await authApi.updateProfile({
         full_name: fullName,
-        preferences: { job_title: jobTitle, organization: org, timezone },
+        preferences: { organization: isOrgMember ? org : undefined, timezone },
       });
       await refreshUser();
       setProfileMsg({ ok: true, text: "Profile saved." });
@@ -105,13 +119,15 @@ export function ProfileView() {
         <section className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card">
           <div className="mb-6">
             <h3 className="text-[16px] font-bold text-gs-text mb-1">Profile Information</h3>
-            <p className="text-[13px] text-gs-muted">Update your personal and organization details.</p>
+            <p className="text-[13px] text-gs-muted">
+              {isOrgMember ? "Update your personal and organization details." : "Update your personal details."}
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
             <InputGroup label="Full Name"    value={fullName}  onChange={setFullName} />
             <InputGroup label="Email"        value={user?.email ?? ""} readOnly />
-            <InputGroup label="Job Title"    value={jobTitle}  onChange={setJobTitle} />
-            <InputGroup label="Organization" value={org}       onChange={setOrg} />
+            {/* <InputGroup label="Job Title" value={jobTitle} onChange={setJobTitle} /> */}
+            {isOrgMember && <InputGroup label="Organization" value={org} onChange={setOrg} />}
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
                 Time Zone
@@ -166,6 +182,9 @@ export function ProfileView() {
             </div>
             <div>
               <h4 className="text-[15px] font-bold text-gs-text">{user?.full_name ?? user?.email ?? "—"}</h4>
+              {isOrgMember && overviewOrg && (
+                <p className="text-[13px] text-gs-muted mt-0.5 font-medium">{overviewOrg}</p>
+              )}
               <p className="text-[13px] text-gs-muted mt-0.5 font-medium">Enterprise Plan</p>
               <p className="text-[11px] text-gs-muted font-bold mt-2">Member since {memberSince}</p>
             </div>

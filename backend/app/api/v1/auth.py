@@ -28,8 +28,10 @@ from app.schemas.user import (
 )
 from app.services.auth_service import auth_service
 from app.services import email_service
+from app.core.logging import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = get_logger(__name__)
 
 _FRONTEND_BASE = settings.FRONTEND_URL if hasattr(settings, "FRONTEND_URL") else "http://localhost:3000"
 
@@ -44,8 +46,8 @@ async def register(data: UserCreate, request: Request, db: AsyncSession = Depend
 
         try:
             email_service.send_verification_code(user.email, code)
-        except Exception:
-            pass  # don't block registration if email fails
+        except Exception as e:
+            logger.exception("verification_email_failed", user_id=str(user.id), email=user.email, error=str(e))
 
         await log_audit(db, user.id, "REGISTER", resource_type="account", resource_name=user.email, ip_address=get_ip(request))
 
@@ -96,8 +98,12 @@ async def resend_verification(
     await db.commit()
     try:
         email_service.send_verification_code(current_user.email, code)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception("verification_email_failed", user_id=str(current_user.id), email=current_user.email, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send verification email. Please check SMTP configuration.",
+        ) from e
     return {"message": "Verification code sent"}
 
 

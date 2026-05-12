@@ -1,17 +1,24 @@
-import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = os.environ["SMTP_USER"]
-SMTP_PASSWORD = os.environ["SMTP_PASSWORD"]
+from app.core.config import settings
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+SMTP_HOST = settings.SMTP_HOST
+SMTP_PORT = settings.SMTP_PORT
+SMTP_USER = settings.SMTP_USER
+SMTP_PASSWORD = settings.SMTP_PASSWORD
 FROM_NAME = "Gulfstream Intelligence"
 FROM_ADDR = SMTP_USER
 
 
 def _send(to: str, subject: str, html: str) -> None:
+    if not SMTP_USER or not SMTP_PASSWORD:
+        raise RuntimeError("SMTP_USER and SMTP_PASSWORD must be configured to send email.")
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{FROM_NAME} <{FROM_ADDR}>"
@@ -22,6 +29,7 @@ def _send(to: str, subject: str, html: str) -> None:
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(FROM_ADDR, [to], msg.as_string())
+    logger.info("email_sent", to=to, subject=subject)
 
 
 def _base_template(body: str) -> str:

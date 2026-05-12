@@ -10,7 +10,8 @@ import { ProjectsTable } from "../../../../components/projects/ProjectsTable";
 import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVisibilityBanner";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../components/ui/DynamicSelect";
-import { projectApi } from "../../../../lib/api";
+import { organizationApi, projectApi } from "../../../../lib/api";
+import { useChatStore } from "../../../../store/chatStore";
 import type { Project } from "../../../../types";
 
 const PAGE_SIZE = 10;
@@ -335,6 +336,8 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState<"new" | "import" | null>(null);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
+  const user = useChatStore((s) => s.user);
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -351,6 +354,15 @@ export default function ProjectsPage() {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
   useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => {
+    if (!user?.organization_id) {
+      setIsOrgOwner(false);
+      return;
+    }
+    organizationApi.get()
+      .then(org => setIsOrgOwner(org.owner_id === user.id))
+      .catch(() => setIsOrgOwner(false));
+  }, [user?.id, user?.organization_id]);
 
   const stats = {
     total,
@@ -419,6 +431,7 @@ export default function ProjectsPage() {
           onStartChat={id => router.push(`/dashboard/chat?projectId=${id}`)}
           onViewDetail={id => router.push(`/dashboard/projects/${id}`)}
           onDelete={id => setDeleteId(id)}
+          canDeleteProject={project => project.user_id === user?.id || isOrgOwner}
           onEdit={id => {
             const p = projects.find(pr => pr.id === id);
             if (p) setEditProject(p);

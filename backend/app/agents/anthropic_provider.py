@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -5,6 +6,8 @@ import anthropic
 
 from app.agents.base_provider import BaseLLMProvider
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicProvider(BaseLLMProvider):
@@ -32,6 +35,14 @@ class AnthropicProvider(BaseLLMProvider):
             if key not in api_kwargs:
                 api_kwargs[key] = value
 
-        async with self.client.messages.stream(**api_kwargs) as stream:
-            async for text in stream.text_stream:
-                yield text
+        key = settings.ANTHROPIC_API_KEY or ""
+        key_hint = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else ("(not set)" if not key else "(short key)")
+        logger.info(f"[AnthropicProvider] model={self.model}  key={key_hint}  messages={len(messages)}")
+        try:
+            async with self.client.messages.stream(**api_kwargs) as stream:
+                async for text in stream.text_stream:
+                    yield text
+            logger.info(f"[AnthropicProvider] stream complete  model={self.model}")
+        except Exception as e:
+            logger.error(f"[AnthropicProvider] ERROR  model={self.model}  key={key_hint}  error={e}")
+            yield f"Error from Anthropic: {str(e)}"

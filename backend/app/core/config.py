@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     DEFAULT_AI_PROVIDER: Literal["anthropic", "openai"] = "openai"
     DEFAULT_MODEL: str = "gpt-4o-mini"
 
+    # Email
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
     # GCP
     GCP_PROJECT_ID: str = ""
     GCP_REGION: str = "us-central1"

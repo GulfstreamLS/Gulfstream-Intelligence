@@ -57,15 +57,17 @@ export default function HistoryPage() {
 
   useEffect(() => {
     loadConversations().catch(console.error);
-    if (user?.account_type === "organization_member") {
-      organizationApi.listMembers()
-        .then(members => {
-          const me = members.find(m => m.user_id === user.id);
-          setIsOrgOwner(me?.role === "owner");
-        })
-        .catch(() => null);
-    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (user?.organization_id) {
+      organizationApi.get()
+        .then(org => setIsOrgOwner(org.owner_id === user.id))
+        .catch(() => setIsOrgOwner(false));
+    } else {
+      setIsOrgOwner(false);
+    }
+  }, [user?.id, user?.organization_id]);
 
   // Map conversations → activities (falls back to static demo data when empty)
   const allActivities = useMemo<ActivityItem[]>(
