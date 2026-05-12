@@ -464,6 +464,12 @@ export const billingApi = {
     organization: any[];
   }>("/billing/plans"),
 
+  syncSubscription: () => request<{ message: string }>("/billing/sync"),
+
+  reactivateSubscription: () => request<{ message: string }>("/billing/reactivate", {
+    method: "POST"
+  }),
+
   cancelSubscription: () => request<{ message: string }>("/billing/cancel", {
     method: "POST"
   }),

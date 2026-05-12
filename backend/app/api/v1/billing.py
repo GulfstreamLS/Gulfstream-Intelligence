@@ -63,9 +63,26 @@ async def get_billing_status(
     return sub
 
 @router.get("/plans")
-async def get_plans():
+async def get_plans(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """Get available subscription plans."""
-    return {
+    # Check if user is an organization owner
+    is_org_owner = False
+    if current_user.organization_id:
+        from app.models.organization import OrganizationMember, MemberRole
+        from sqlalchemy import select
+        stmt = select(OrganizationMember).where(
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.organization_id == current_user.organization_id,
+            OrganizationMember.role == MemberRole.OWNER
+        )
+        res = await db.execute(stmt)
+        if res.scalar_one_or_none():
+            is_org_owner = True
+
+    plans = {
         "solo": [
             {
                 "id": "starter",
@@ -73,7 +90,8 @@ async def get_plans():
                 "description": "For individuals exploring regulatory intelligence.",
                 "monthly_price": 99,
                 "annual_price": 79,
-                "features": ["Regulatory Chat", "Document Intelligence", "10 uploads / month", "Standard coverage"]
+                "features": ["Regulatory Chat", "Document Intelligence", "10 uploads / month", "Standard coverage"],
+                "popular": False
             },
             {
                 "id": "professional",
@@ -81,20 +99,58 @@ async def get_plans():
                 "description": "For professionals managing regulatory programs.",
                 "monthly_price": 299,
                 "annual_price": 239,
-                "features": ["Everything in Starter", "Unlimited sessions", "Global Gap Assessment", "HA Simulation"]
+                "features": ["Everything in Starter", "Unlimited sessions", "Global Gap Assessment", "HA Simulation"],
+                "popular": True
             }
         ],
-        "organization": [
+        "organization": []
+    }
+
+    if is_org_owner:
+        plans["organization"] = [
             {
                 "id": "business",
                 "name": "Business",
-                "description": "For teams collaborating on multiple programs.",
-                "monthly_price": 699,
-                "annual_price": 559,
-                "features": ["Everything in Professional", "Team access (5 users)", "Shared projects", "Priority support"]
+                "description": "Full-scale solution for regulatory teams.",
+                "monthly_price": 400,
+                "annual_price": 320,
+                "features": ["Everything in Professional", "Team collaboration", "Advanced analytics", "Priority support"],
+                "popular": False
+            },
+            {
+                "id": "enterprise",
+                "name": "Enterprise",
+                "description": "Custom solution for large organizations.",
+                "monthly_price": None,
+                "annual_price": None,
+                "features": ["Everything in Business", "Unlimited users", "Custom integrations", "Dedicated support", "SLA & compliance support"],
+                "popular": False
             }
         ]
-    }
+
+    return plans
+
+@router.get("/sync")
+async def sync_subscription(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually sync subscription status from Stripe."""
+    success = await StripeService.sync_subscription_status(current_user, db)
+    if not success:
+        raise HTTPException(status_code=400, detail="No Stripe customer found for this user.")
+    return {"message": "Subscription status synced successfully."}
+
+@router.post("/reactivate")
+async def reactivate_subscription(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reactivate a cancelled subscription."""
+    success = await StripeService.reactivate_subscription(current_user, db)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to reactivate subscription or no subscription found.")
+    return {"message": "Subscription reactivated successfully."}
 
 @router.post("/cancel")
 async def cancel_subscription(
