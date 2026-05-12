@@ -171,7 +171,7 @@ export const authApi = {
 export const chatApi = {
   listConversations: () => request<Conversation[]>("/chat/conversations"),
 
-  createConversation: (model = "gpt-4o", title?: string) =>
+  createConversation: (model = "gpt-5", title?: string) =>
     request<Conversation>("/chat/conversations", {
       method: "POST",
       body: JSON.stringify({ model, title }),

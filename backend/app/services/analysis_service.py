@@ -22,13 +22,12 @@ class AnalysisService:
     @property
     def llm(self):
         if self._llm is None:
-            # We default to gpt-4o for heavy analysis as it currently handles structured output best
-            # for the regulatory schema. In the future, this can be switched to Claude 3.5 Sonnet.
-            model_name = getattr(settings, "ANALYSIS_MODEL", "gpt-4o")
+            # Use gpt-5 for heavy analysis (structured output, regulatory schema).
+            model_name = getattr(settings, "ANALYSIS_MODEL", "gpt-5")
             self._llm = ChatOpenAI(
                 api_key=settings.OPENAI_API_KEY,
                 model=model_name,
-                temperature=0,
+                temperature=1 if model_name.startswith("gpt-5") else 0,
             )
         return self._llm
 

@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     DEFAULT_AI_PROVIDER: Literal["anthropic", "openai"] = "openai"
-    DEFAULT_MODEL: str = "gpt-4o-mini"
+    DEFAULT_MODEL: str = "gpt-5"
 
     # Email
     SMTP_HOST: str = "smtp.gmail.com"

@@ -396,16 +396,27 @@ async def _stream_send(
             yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
 
         if run_analysis and file_bytes:
-            msg = await chat_service.perform_analysis_for_chat(db, conversation_id, user_id, file_bytes, filename, file_type, authorities)
-            analysis_payload = {
-                "type": "analysis",
-                "content": msg.content,
-                "data": msg.analysis_data,
-                "message_id": str(msg.id),
-            }
-            yield f"data: {json.dumps(analysis_payload)}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
-            return
+            import asyncio
+            try:
+                msg = await asyncio.wait_for(
+                    chat_service.perform_analysis_for_chat(db, conversation_id, user_id, file_bytes, filename, file_type, authorities),
+                    timeout=180,
+                )
+                analysis_payload = {
+                    "type": "analysis",
+                    "content": msg.content,
+                    "data": msg.analysis_data,
+                    "message_id": str(msg.id),
+                }
+                yield f"data: {json.dumps(analysis_payload)}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+                return
+            except asyncio.TimeoutError:
+                import logging as _log
+                _log.warning("[CHAT] Structured analysis timed out — falling back to streaming chat")
+            except Exception as _ae:
+                import logging as _log
+                _log.error(f"[CHAT] Structured analysis failed: {_ae} — falling back to streaming chat")
 
         full_response = ""
         async for chunk in ai_service.stream_chat(history, model, system_prompt):

@@ -31,11 +31,15 @@ class OpenAIProvider(BaseLLMProvider):
             all_messages.append({"role": "system", "content": system_prompt})
         all_messages.extend(messages)
 
+        # gpt-5 and o-series models use max_completion_tokens; older models use max_tokens
+        _new_token_param_models = ("gpt-5", "o1", "o3", "o4")
+        token_param = "max_completion_tokens" if self.model.startswith(_new_token_param_models) else "max_tokens"
+
         try:
             stream = await self.client.chat.completions.create(
                 model=self.model,
                 messages=all_messages,
-                max_tokens=max_tokens,
+                **{token_param: max_tokens},
                 stream=True,
                 **kwargs,
             )
