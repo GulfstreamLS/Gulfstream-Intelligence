@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bot, ChevronDown, Plus, Share2, PanelRight, Trash2, Check } from "lucide-react";
+import { Bot, ChevronDown, Plus, PanelRight, Trash2, Check } from "lucide-react";
 import { CHAT_MODELS, getChatModelLabel } from "../../lib/chatModels";
 
 interface ChatHeaderProps {
@@ -132,13 +132,6 @@ export function ChatHeader({
             <span className="hidden md:inline">Delete</span>
           </button>
         )}
-
-        <button
-          className="p-2.5 bg-gs-card border border-gs-border rounded-lg shadow-sm hover:bg-gs-bg transition-colors min-h-[40px] min-w-[40px] md:min-h-[44px] md:min-w-[44px] flex items-center justify-center"
-          aria-label="Share"
-        >
-          <Share2 size={16} className="text-gs-muted" />
-        </button>
 
         <button
           onClick={onToggleSidebar}

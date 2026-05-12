@@ -5,7 +5,7 @@ import { useState, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  ThumbsUp, ThumbsDown, Copy, Share2,
+  Copy,
   ExternalLink, User, Check, Download,
   Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
   AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
@@ -328,9 +328,9 @@ function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
 }
 
 const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
-  const [vote, setVote]       = useState<"up" | "down" | null>(null);
+  // const [vote, setVote]       = useState<"up" | "down" | null>(null);
   const [copied, setCopied]   = useState(false);
-  const [shared, setShared]   = useState(false);
+  // const [shared, setShared]   = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content).then(() => {
@@ -339,17 +339,17 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
     });
   };
 
-  const handleShare = () => {
-    const url = `${window.location.origin}${window.location.pathname}`;
-    if (navigator.share) {
-      navigator.share({ title: "Regulatory Chat", text: msg.content, url });
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
-      });
-    }
-  };
+  // const handleShare = () => {
+  //   const url = `${window.location.origin}${window.location.pathname}`;
+  //   if (navigator.share) {
+  //     navigator.share({ title: "Regulatory Chat", text: msg.content, url });
+  //   } else {
+  //     navigator.clipboard.writeText(url).then(() => {
+  //       setShared(true);
+  //       setTimeout(() => setShared(false), 2000);
+  //     });
+  //   }
+  // };
 
   return (
     <div className="flex items-start gap-3">
@@ -439,7 +439,7 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
               </span>
 
               <div className="flex gap-1 text-gs-muted">
-                <button
+                {/* <button
                   onClick={() => setVote(v => v === "up" ? null : "up")}
                   className={`p-1.5 rounded-lg transition-colors ${vote === "up" ? "text-gs-blue bg-gs-blue/10" : "hover:text-gs-blue hover:bg-gs-bg"}`}
                   aria-label="Helpful"
@@ -453,7 +453,7 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
                   aria-label="Not helpful"
                 >
                   <ThumbsDown size={14} />
-                </button>
+                </button> */}
 
                 <button
                   onClick={handleCopy}
@@ -464,14 +464,14 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
 
-                <button
+                {/* <button
                   onClick={handleShare}
                   className={`p-1.5 rounded-lg transition-colors ${shared ? "text-gs-green bg-gs-green/10" : "hover:text-gs-text hover:bg-gs-bg"}`}
                   aria-label={shared ? "Link copied!" : "Share"}
                   title={shared ? "Link copied!" : "Share"}
                 >
                   {shared ? <Check size={14} /> : <Share2 size={14} />}
-                </button>
+                </button> */}
 
                 {/* Download response as markdown */}
                 <button

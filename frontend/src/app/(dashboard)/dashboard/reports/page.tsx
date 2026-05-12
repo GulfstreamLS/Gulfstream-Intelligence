@@ -11,7 +11,6 @@ import {
   Filter, 
   Clock, 
   FileText, 
-  Share2, 
   MoreHorizontal, 
   TrendingUp, 
   CheckCircle2,
@@ -189,7 +188,6 @@ const ReportsPage: React.FC = () => {
                     <td className="px-8 py-5 text-right">
                       <div className="flex justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                          <Download size={18} className="text-[#64748B] hover:text-blue-600" />
-                         <Share2 size={18} className="text-[#64748B] hover:text-blue-600" />
                          <MoreHorizontal size={18} className="text-[#CBD5E1]" />
                       </div>
                     </td>
