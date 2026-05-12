@@ -197,12 +197,12 @@ function RegulatoryChatPage() {
     handleSendMessage(text);
   }, [handleSendMessage]);
 
-  const handleFileUpload = useCallback(async (file: File, text?: string) => {
+  const handleFileUpload = useCallback(async (files: File[], text?: string) => {
     userScrolled.current = false;
     const resolvedId = await sendAll({
       conversationId,
       message:     text,
-      file,
+      files,
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
       model:       selectedModel,
       projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,

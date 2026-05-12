@@ -60,7 +60,7 @@ async def send(
     message: Optional[str]         = Form(None),
     authorities: Optional[str]     = Form(None),   # JSON-encoded list e.g. '["EMA","FDA"]'
     model: Optional[str]           = Form(None),
-    file: Optional[UploadFile]     = File(None),
+    files: list[UploadFile]        = File(default=[]),
     project_id: Optional[str]      = Form(None),
     current_user: User              = Depends(check_active_subscription),
     db: AsyncSession               = Depends(get_db),
@@ -129,56 +129,84 @@ async def send(
     if model:
         convo.model = model
 
-    # 3. Handle file upload
-    if file:
-        # Enforce monthly upload quota for starter / trial plans.
-        # Org members are on business+ (unlimited) so this only affects solo users,
-        # but we check generically via get_subscription for correctness.
+    # 3. Handle file upload(s)
+    if files:
+        # Enforce monthly upload quota
         sub = await auth_service.get_subscription(db, current_user)
         upload_limit = get_upload_limit(sub)
         if upload_limit is not None and upload_limit > 0:
             used = await get_monthly_upload_count(db, current_user.id)
-            if used >= upload_limit:
+            if used + len(files) > upload_limit:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"upload_limit_reached:{upload_limit}",
                 )
 
-        content = await file.read()
-        file_extension = file.filename.split(".")[-1].lower()
         from app.services.storage_service import storage_service
 
-        try:
-            file_url = await storage_service.upload_file(content, file.filename, file.content_type)
-        except (RuntimeError, ValueError) as e:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Storage Error: {str(e)}"
-            )
-        convo.active_file_id = uuid.uuid4()
         metadata = convo.metadata_ or {}
-        metadata["last_uploaded_filename"] = file.filename
-        metadata["last_uploaded_url"]      = file_url
+        existing_files: list[dict] = list(metadata.get("uploaded_files") or [])
 
-        if file_extension == "zip":
-            extracted_texts = _extract_zip(content)
-            combined = "\n\n".join(extracted_texts)
-            metadata["last_uploaded_type"]    = "txt"
-            metadata["last_uploaded_content"] = combined.encode("utf-8").hex()
-            metadata["zip_file_count"]        = len(extracted_texts)
-        else:
-            metadata["last_uploaded_type"]    = file_extension
-            metadata["last_uploaded_content"] = content.hex()
-        
+        for file in files:
+            content = await file.read()
+            file_extension = file.filename.split(".")[-1].lower()
+
+            try:
+                file_url = await storage_service.upload_file(content, file.filename, file.content_type)
+            except (RuntimeError, ValueError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Storage Error: {str(e)}"
+                )
+
+            if file_extension == "zip":
+                extracted_texts = _extract_zip(content)
+                combined = "\n\n".join(extracted_texts)
+                entry = {
+                    "filename":    file.filename,
+                    "type":        "txt",
+                    "content_hex": combined.encode("utf-8").hex(),
+                    "url":         file_url,
+                    "zip_count":   len(extracted_texts),
+                }
+            else:
+                entry = {
+                    "filename":    file.filename,
+                    "type":        file_extension,
+                    "content_hex": content.hex(),
+                    "url":         file_url,
+                }
+
+            existing_files.append(entry)
+
+        # Persist accumulated file list
+        metadata["uploaded_files"] = existing_files
+
+        # Keep last_uploaded_* for backward compat (points to most recent file)
+        last = existing_files[-1]
+        metadata["last_uploaded_filename"] = last["filename"]
+        metadata["last_uploaded_url"]      = last["url"]
+        metadata["last_uploaded_type"]     = last["type"]
+        metadata["last_uploaded_content"]  = last["content_hex"]
+        if last.get("zip_count"):
+            metadata["zip_file_count"] = last["zip_count"]
+
+        convo.active_file_id = uuid.uuid4()
         convo.metadata_ = metadata
 
     await db.commit()
     await db.refresh(convo)
 
-    # 4. Add user message to DB (attach file metadata if a file was uploaded in this same request)
+    # 4. Add user message to DB (attach file metadata if files were uploaded in this same request)
     if message:
-        msg_filename = file.filename if file else None
-        msg_file_url = convo.metadata_.get("last_uploaded_url") if file and convo.metadata_ else None
+        if files and convo.metadata_:
+            # For multiple files, show all filenames joined
+            filenames = [f["filename"] for f in (convo.metadata_.get("uploaded_files") or [])]
+            msg_filename = ", ".join(filenames[-len(files):]) if filenames else None
+            msg_file_url = convo.metadata_.get("last_uploaded_url")
+        else:
+            msg_filename = None
+            msg_file_url = None
         await chat_service.add_message(
             db, convo.id, MessageRole.USER, message,
             attached_filename=msg_filename,
@@ -212,9 +240,33 @@ async def send(
             )
 
     if convo.active_file_id and convo.metadata_:
-        file_hex = convo.metadata_.get("last_uploaded_content")
-        if file_hex:
-            doc_text = document_processor.extract_text(bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt"))
+        uploaded_files: list[dict] = convo.metadata_.get("uploaded_files") or []
+        if uploaded_files:
+            parts: list[str] = []
+            chars_per_doc = max(2000, 8000 // len(uploaded_files))
+            for i, uf in enumerate(uploaded_files, 1):
+                try:
+                    doc_text = document_processor.extract_text(
+                        bytes.fromhex(uf["content_hex"]), uf.get("type", "txt")
+                    )
+                except Exception:
+                    doc_text = "[Could not extract text from this file]"
+                label = f"Document {i}: {uf['filename']}"
+                if uf.get("zip_count"):
+                    label += f" (ZIP — {uf['zip_count']} files extracted)"
+                parts.append(f"=== {label} ===\n{doc_text[:chars_per_doc]}")
+            combined_docs = "\n\n".join(parts)
+            system_prompt += (
+                f"\n\nCRITICAL: You have access to {len(uploaded_files)} uploaded document(s). "
+                f"NEVER say you cannot see files or that no documents were provided.\n\n"
+                f"UPLOADED DOCUMENTS:\n{combined_docs}"
+            )
+        elif convo.metadata_.get("last_uploaded_content"):
+            # Backward compat for conversations created before multi-file support
+            file_hex = convo.metadata_["last_uploaded_content"]
+            doc_text = document_processor.extract_text(
+                bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt")
+            )
             zip_count = convo.metadata_.get("zip_file_count")
             label = (
                 f"ZIP ARCHIVE ({zip_count} documents extracted) — {convo.metadata_.get('last_uploaded_filename', 'archive.zip')}"

@@ -9,7 +9,7 @@ interface ChatInputBarProps {
   value: string;
   onChange: Dispatch<SetStateAction<string>>;
   onSend: () => void;
-  onFileUpload?: (file: File, text?: string) => Promise<void>;
+  onFileUpload?: (files: File[], text?: string) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -105,7 +105,7 @@ function Waveform({ analyserRef }: { analyserRef: React.RefObject<AnalyserNode |
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }: ChatInputBarProps) {
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -221,44 +221,48 @@ export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }
 
   // ── File / send ────────────────────────────────────────────────────────────
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setPendingFile(file);
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length) setPendingFiles(prev => [...prev, ...selected]);
     e.target.value = "";
   };
 
   const handleSend = useCallback(async () => {
     if (isUploading) return;
-    if (pendingFile && onFileUpload) {
-      const f = pendingFile, t = value.trim() || undefined;
-      setPendingFile(null); onChange(""); setIsUploading(true);
-      try { await onFileUpload(f, t); } finally { setIsUploading(false); }
+    if (pendingFiles.length > 0 && onFileUpload) {
+      const fs = pendingFiles, t = value.trim() || undefined;
+      setPendingFiles([]); onChange(""); setIsUploading(true);
+      try { await onFileUpload(fs, t); } finally { setIsUploading(false); }
     } else {
       onSend();
     }
-  }, [isUploading, pendingFile, onFileUpload, value, onSend, onChange]);
+  }, [isUploading, pendingFiles, onFileUpload, value, onSend, onChange]);
 
   const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const isBusy = disabled || isUploading || isTranscribing;
-  const canSend = !isBusy && (!!value.trim() || !!pendingFile);
-  const isZip = pendingFile?.name.toLowerCase().endsWith(".zip");
+  const canSend = !isBusy && (!!value.trim() || pendingFiles.length > 0);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="border-t border-gs-border bg-gs-bg pt-3 pb-4">
 
-      {/* File chip */}
-      {pendingFile && !isRecording && (
-        <div className="flex items-center gap-2 mb-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gs-card border border-gs-blue/30 rounded-lg text-xs text-gs-text max-w-xs">
-            {isZip ? <Archive size={13} className="text-gs-blue shrink-0" /> : <FileText size={13} className="text-gs-blue shrink-0" />}
-            <span className="truncate font-medium">{pendingFile.name}</span>
-            <span className="text-gs-muted shrink-0">({(pendingFile.size / 1024).toFixed(0)} KB)</span>
-            {isZip && <span className="text-[10px] font-bold text-gs-blue bg-blue-50 px-1.5 py-0.5 rounded shrink-0">ZIP</span>}
-            <button onClick={() => setPendingFile(null)} className="text-gs-muted hover:text-red-500 transition-colors shrink-0 ml-1"><X size={13} /></button>
-          </div>
+      {/* File chips — one per pending file */}
+      {pendingFiles.length > 0 && !isRecording && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {pendingFiles.map((f, i) => {
+            const isZip = f.name.toLowerCase().endsWith(".zip");
+            return (
+              <div key={i} className="inline-flex items-center gap-2 px-3 py-1.5 bg-gs-card border border-gs-blue/30 rounded-lg text-xs text-gs-text max-w-xs">
+                {isZip ? <Archive size={13} className="text-gs-blue shrink-0" /> : <FileText size={13} className="text-gs-blue shrink-0" />}
+                <span className="truncate font-medium">{f.name}</span>
+                <span className="text-gs-muted shrink-0">({(f.size / 1024).toFixed(0)} KB)</span>
+                {isZip && <span className="text-[10px] font-bold text-gs-blue bg-blue-50 px-1.5 py-0.5 rounded shrink-0">ZIP</span>}
+                <button onClick={() => setPendingFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-gs-muted hover:text-red-500 transition-colors shrink-0 ml-1"><X size={13} /></button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -289,7 +293,7 @@ export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }
         <div className="flex flex-col gap-1.5">
           {recordingError && <p className="text-xs text-red-500 px-1">{recordingError}</p>}
 
-          <input ref={fileInputRef} type="file" accept={ACCEPTED} className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept={ACCEPTED} multiple className="hidden" onChange={handleFileChange} />
 
           <div className={`flex items-end gap-2 bg-gs-card border rounded-3xl px-3 py-2.5 transition-colors ${isBusy ? "opacity-70" : "border-gs-border focus-within:border-blue-300"}`}>
 
@@ -311,7 +315,7 @@ export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }
               onKeyDown={handleKey}
               rows={1}
               disabled={isBusy}
-              placeholder={pendingFile ? "Add a message or just send the file…" : "Message Gulfstream Intelligence…"}
+              placeholder={pendingFiles.length > 0 ? "Add a message or just send the files…" : "Message Gulfstream Intelligence…"}
               style={{ minHeight: LINE_H, maxHeight: MAX_CONTENT_H, overflowY: "hidden" }}
               className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gs-text placeholder:text-gs-muted leading-5 py-2 disabled:cursor-not-allowed"
             />

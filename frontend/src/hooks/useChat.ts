@@ -22,13 +22,20 @@ export function useChat() {
   const sendAll = useCallback(async (params: {
     conversationId?: string | null;
     message?: string;
-    file?: File;
+    files?: File | File[];
     authorities?: string[];
     model?: string;
     projectId?: string;
     onConversationReady?: (id: string) => void;
   }): Promise<string | null> => {
     const isNew = !params.conversationId;
+    const fileList = params.files
+      ? Array.isArray(params.files) ? params.files : [params.files]
+      : [];
+    const firstFilename = fileList[0]?.name ?? null;
+    const attachedLabel = fileList.length > 1
+      ? fileList.map(f => f.name).join(", ")
+      : firstFilename;
 
     // For new conversations: create a temp conversation immediately so the user
     // sees their message the instant they hit send, before the server responds.
@@ -46,7 +53,7 @@ export function useChat() {
         user_id: store.user?.id ?? null,
         user_full_name: store.user?.full_name ?? null,
         user_email: store.user?.email ?? null,
-        uploaded_filename: params.file?.name ?? null,
+        uploaded_filename: firstFilename,
         uploaded_url: null,
         uploaded_type: null,
         created_at: new Date().toISOString(),
@@ -59,13 +66,13 @@ export function useChat() {
 
     // Optimistic user message — one combined bubble for both file and text
     const optimisticTarget = params.conversationId ?? tempId;
-    if (optimisticTarget && (params.file || params.message)) {
+    if (optimisticTarget && (fileList.length > 0 || params.message)) {
       store.appendMessage(optimisticTarget, {
         id: crypto.randomUUID(),
         conversation_id: optimisticTarget,
         role: "user",
         content: params.message ?? "",
-        attached_filename: params.file?.name ?? null,
+        attached_filename: attachedLabel,
         token_count: null,
         created_at: new Date().toISOString(),
       } as Message);
@@ -78,7 +85,7 @@ export function useChat() {
     let accumulated = "";
 
     try {
-      for await (const chunk of chatApi.send(params)) {
+      for await (const chunk of chatApi.send({ ...params, files: fileList })) {
 
         if (chunk.type === "conversation_ready") {
           resolvedId = chunk.id!;

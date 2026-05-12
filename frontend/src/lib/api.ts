@@ -234,7 +234,7 @@ export const chatApi = {
   async *send(params: {
     conversationId?: string | null;
     message?: string;
-    file?: File;
+    files?: File | File[];
     authorities?: string[];
     model?: string;
     projectId?: string;
@@ -245,8 +245,12 @@ export const chatApi = {
     if (params.message)        form.append("message",         params.message);
     if (params.authorities?.length) form.append("authorities", JSON.stringify(params.authorities));
     if (params.model)          form.append("model",           params.model);
-    if (params.file)           form.append("file",            params.file);
     if (params.projectId)      form.append("project_id",      params.projectId);
+    // Support both single File (legacy) and File[] (multi-upload)
+    const fileList = params.files
+      ? Array.isArray(params.files) ? params.files : [params.files]
+      : [];
+    fileList.forEach(f => form.append("files", f));
 
     const res = await fetch(`${BASE_URL}/chat/send`, {
       method:  "POST",

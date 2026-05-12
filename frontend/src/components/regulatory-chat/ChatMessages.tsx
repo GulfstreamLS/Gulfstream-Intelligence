@@ -122,26 +122,35 @@ function ThinkingBubble() {
 const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) {
   const attachedFilename = msg.attachedFilename ?? null;
   const isAttachmentOnly = !msg.content && !!attachedFilename;
+  // Split comma-joined filenames into individual chips
+  const fileNames = attachedFilename
+    ? attachedFilename.split(", ").map(n => n.trim()).filter(Boolean)
+    : [];
 
   return (
     <div className="flex justify-end items-start gap-3">
       <div className="flex flex-col items-end gap-1.5 max-w-[80%]">
-        {/* File chip — shown when this message had a file attached */}
-        {attachedFilename && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-gs-card border border-gs-blue/30 rounded-2xl rounded-tr-none shadow-sm w-full">
-            <div className="p-1.5 bg-gs-blue/10 rounded-lg shrink-0">
-              <FileText size={16} className="text-gs-blue" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gs-text leading-tight truncate">{attachedFilename}</p>
-              <p className="text-[11px] text-gs-muted mt-0.5">Uploaded document</p>
-            </div>
-            {msg.attachedUrl && (
-              <a href={msg.attachedUrl} target="_blank" rel="noopener noreferrer"
-                className="text-[10px] font-semibold text-gs-blue hover:underline shrink-0">
-                View
-              </a>
-            )}
+        {/* File chips — one per attached file */}
+        {fileNames.length > 0 && (
+          <div className="flex flex-col gap-1.5 w-full">
+            {fileNames.map((name, i) => (
+              <div key={i} className="flex items-center gap-2 px-4 py-2.5 bg-gs-card border border-gs-blue/30 rounded-2xl rounded-tr-none shadow-sm">
+                <div className="p-1.5 bg-gs-blue/10 rounded-lg shrink-0">
+                  <FileText size={14} className="text-gs-blue" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gs-text leading-tight truncate">{name}</p>
+                  <p className="text-[11px] text-gs-muted mt-0.5">Uploaded document</p>
+                </div>
+                {/* Only show View link on the last file (that's where attachedUrl points) */}
+                {i === fileNames.length - 1 && msg.attachedUrl && (
+                  <a href={msg.attachedUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] font-semibold text-gs-blue hover:underline shrink-0">
+                    View
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
