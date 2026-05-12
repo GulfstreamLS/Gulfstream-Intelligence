@@ -88,3 +88,28 @@ variable "frontend_url" {
   description = "Frontend URL"
   type        = string
 }
+
+# ── AI Configuration ──────────────────────────────────────────────────────────
+variable "anthropic_api_key" {
+  description = "Anthropic API Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "openai_api_key" {
+  description = "OpenAI API Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "default_ai_provider" {
+  description = "Default AI Provider (e.g., openai or anthropic)"
+  type        = string
+  default     = "openai"
+}
+
+variable "default_model" {
+  description = "Default AI Model"
+  type        = string
+  default     = "gpt-4o"
+}

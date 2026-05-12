@@ -182,6 +182,22 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "FRONTEND_URL"
         value = var.frontend_url
       }
+      env {
+        name  = "ANTHROPIC_API_KEY"
+        value = var.anthropic_api_key
+      }
+      env {
+        name  = "OPENAI_API_KEY"
+        value = var.openai_api_key
+      }
+      env {
+        name  = "DEFAULT_AI_PROVIDER"
+        value = var.default_ai_provider
+      }
+      env {
+        name  = "DEFAULT_MODEL"
+        value = var.default_model
+      }
 
       resources {
         limits = {
