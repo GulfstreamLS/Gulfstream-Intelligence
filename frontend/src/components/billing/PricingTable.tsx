@@ -279,7 +279,9 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 {price !== null ? (
                   <>
                     <div className="flex items-end gap-1 leading-none">
-                      <span className="text-4xl font-bold text-gs-text">${price}</span>
+                      <span className="text-4xl font-bold text-gs-text">
+                        ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
+                      </span>
                       <span className="text-sm text-gs-muted mb-1">USD / month</span>
                     </div>
                     <p className="text-xs text-gs-blue font-medium mt-1">

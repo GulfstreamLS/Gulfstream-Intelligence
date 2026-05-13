@@ -114,8 +114,8 @@ async def get_plans(
                 "id": "business",
                 "name": "Business",
                 "description": "Full-scale solution for regulatory teams.",
-                "monthly_price": 400,
-                "annual_price": 320,
+                "monthly_price": 699,
+                "annual_price": 599,
                 "features": ["Everything in Professional", "Team collaboration", "Advanced analytics", "Priority support"],
                 "popular": False
             },
