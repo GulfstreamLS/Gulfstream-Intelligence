@@ -130,6 +130,16 @@ export function useChat() {
               created_at: new Date().toISOString(),
             });
           }
+          // Clear streaming state immediately — title_update may still arrive on the
+          // same connection, and we don't want to hold the bubble open for it.
+          store.setIsStreaming(false);
+          store.setStreamingContent("");
+
+        } else if (chunk.type === "title_update") {
+          const target = resolvedId ?? tempId;
+          if (target && chunk.content) {
+            store.updateConversation(target, { title: chunk.content });
+          }
 
         } else if (chunk.type === "error") {
           if (resolvedId) {

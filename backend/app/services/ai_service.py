@@ -32,21 +32,51 @@ class AIService:
         messages: list[dict[str, str]],
         model: str,
         system_prompt: str | None = None,
-        max_tokens: int = 4096,
+        max_tokens: int = 16384,
         tools: list[dict[str, Any]] | None = None,
+        native_files: list[dict] | None = None,
     ) -> AsyncGenerator[str, None]:
         from app.agents.model_router import ModelRouter
 
         provider = ModelRouter.get_provider(model)
 
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if tools:
             kwargs["tools"] = tools
+        if native_files:
+            kwargs["native_files"] = native_files
 
         async for chunk in provider.stream_response(
             messages=messages, system_prompt=system_prompt, max_tokens=max_tokens, **kwargs
         ):
             yield chunk
+
+
+    async def generate_title(self, message: str, response_snippet: str = "") -> str:
+        """Generate a short 4-6 word conversation title using a fast model."""
+        context = message[:300]
+        if response_snippet:
+            context += "\n\nResponse preview: " + response_snippet[:150]
+        try:
+            completion = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Generate a concise 4-6 word title for this conversation. "
+                            "Reply with ONLY the title. No quotes, no punctuation at the end."
+                        ),
+                    },
+                    {"role": "user", "content": context},
+                ],
+                max_tokens=20,
+                temperature=0.7,
+            )
+            title = (completion.choices[0].message.content or "").strip().strip("\"'")
+            return title[:80] if title else message[:60]
+        except Exception:
+            return message[:60]
 
 
 ai_service = AIService()

@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import datetime
 import io
 import json
@@ -12,7 +14,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+import time
+
 from app.api.v1._audit import get_ip, log_audit
+
+logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.db.session import get_db
 from app.middleware.auth import get_user_or_none, check_active_subscription
@@ -65,12 +72,17 @@ async def send(
     current_user: User              = Depends(check_active_subscription),
     db: AsyncSession               = Depends(get_db),
 ):
-    """Single endpoint: create/get conversation, attach file, set authorities, stream AI response."""
-    user_id = await _get_user_id_fallback(db, current_user)
+    """Single endpoint: create/get conversation, attach file, set authorities, stream AI response.
 
-    # 1. Get or create conversation
-    new_convo_payload = None
+    Returns an SSE stream immediately after conversation creation — all heavy work
+    (file upload to GCS, text extraction, RAG search) happens inside the generator
+    so the first chunk reaches the client in ~5-7 seconds instead of 40-50 seconds.
+    """
+    user_id = await _get_user_id_fallback(db, current_user)
     org_id = current_user.organization_id if current_user else None
+
+    # ── 1. Get or create conversation — fast DB op only ───────────────────────
+    is_new_convo = False
     if conversation_id:
         convo = await chat_service.get_conversation(db, uuid.UUID(conversation_id), user_id, org_id)
         if not convo:
@@ -79,8 +91,88 @@ async def send(
         convo = await chat_service.create_conversation(
             db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
         )
-        if current_user:
-            convo.organization_id = org_id
+        convo.organization_id = org_id
+        if project_id:
+            try:
+                convo.project_id = uuid.UUID(project_id)
+            except (ValueError, Exception):
+                pass
+        await db.commit()
+        await db.refresh(convo)
+        is_new_convo = True
+
+    # ── 2. Subscription quota check for files — fast DB reads ─────────────────
+    file_data: list[tuple[str, str, bytes]] = []
+    if files:
+        sub = await auth_service.get_subscription(db, current_user)
+        upload_limit = get_upload_limit(sub)
+        if upload_limit is not None and upload_limit > 0:
+            used = await get_monthly_upload_count(db, current_user.id)
+            if used + len(files) > upload_limit:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"upload_limit_reached:{upload_limit}",
+                )
+        # Read file bytes into memory — already buffered in the request body, instant
+        for f in files:
+            content = await f.read()
+            file_data.append((f.filename, f.content_type or "", content))
+
+    # ── 3. Return SSE stream immediately — generator does the heavy work ──────
+    new_convo_payload = {
+        "id": str(convo.id),
+        "model": convo.model,
+        "created_at": convo.created_at.isoformat(),
+        "updated_at": convo.updated_at.isoformat(),
+    } if is_new_convo else None
+
+    return StreamingResponse(
+        _stream_full(
+            db=db,
+            convo=convo,
+            message=message,
+            authorities_raw=authorities,
+            model=model,
+            file_data=file_data,
+            new_convo_payload=new_convo_payload,
+            current_user=current_user,
+            org_id=org_id,
+            is_new_convo=is_new_convo,
+            request=request,
+        ),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
+
+
+async def _stream_full(
+    db: AsyncSession,
+    convo,
+    message: str | None,
+    authorities_raw: str | None,
+    model: str | None,
+    file_data: list[tuple[str, str, bytes]],
+    new_convo_payload: dict | None,
+    current_user,
+    org_id,
+    is_new_convo: bool,
+    request,
+) -> AsyncGenerator[str, None]:
+    from app.agents.prompts import get_persona
+    from app.services.storage_service import storage_service
+
+    t0 = time.perf_counter()
+    logger.info(f"[Chat] ▶ stream_full start  convo={convo.id}  files={len(file_data)}  has_msg={bool(message)}")
+
+    # ── STEP 1: Yield conversation_ready IMMEDIATELY ──────────────────────────
+    # This is the first thing the frontend receives — no waiting.
+    if new_convo_payload:
+        yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
+        logger.info(f"[Chat] conversation_ready sent  +{time.perf_counter()-t0:.2f}s")
+
+    try:
+        # ── STEP 2: Audit log + org notifications for new convo (fast DB writes)
+        if is_new_convo and current_user:
             await log_audit(
                 db, current_user.id, "CHAT_CREATED",
                 resource_type="chat",
@@ -106,267 +198,461 @@ async def send(
                         resource_type="chat",
                         resource_id=str(convo.id),
                     ))
-        if project_id:
+
+        # ── STEP 3: Update authorities / model (in-memory, instant) ──────────
+        if authorities_raw:
             try:
-                convo.project_id = uuid.UUID(project_id)
-                await db.commit()
-                await db.refresh(convo)
-            except (ValueError, Exception):
+                convo.authorities = json.loads(authorities_raw)
+            except (json.JSONDecodeError, ValueError):
                 pass
-        new_convo_payload = {
-            "id": str(convo.id),
-            "model": convo.model,
-            "created_at": convo.created_at.isoformat(),
-            "updated_at": convo.updated_at.isoformat(),
-        }
+        if model:
+            convo.model = model
 
-    # 2. Update authorities if provided
-    if authorities:
-        try:
-            convo.authorities = json.loads(authorities)
-        except (json.JSONDecodeError, ValueError):
-            pass
-    if model:
-        convo.model = model
+        # ── STEP 4: Fast path — only what the AI needs RIGHT NOW ─────────────
+        # • Native files (PDF / images): base64 encode only — instant, no I/O.
+        # • Text files (DOCX / PPTX / TXT / ZIP): extract text — AI needs it in prompt.
+        # Everything else (GCS upload, native-file text extraction, DB metadata
+        # update with real URLs) runs in a background task after the AI starts.
+        _NATIVE_EXTS = {"pdf", "png", "jpg", "jpeg"}
 
-    # 3. Handle file upload(s)
-    if files:
-        # Enforce monthly upload quota
-        sub = await auth_service.get_subscription(db, current_user)
-        upload_limit = get_upload_limit(sub)
-        if upload_limit is not None and upload_limit > 0:
-            used = await get_monthly_upload_count(db, current_user.id)
-            if used + len(files) > upload_limit:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"upload_limit_reached:{upload_limit}",
-                )
+        if file_data:
+            t_files_start = time.perf_counter()
+            logger.info(f"[Chat] file processing start  count={len(file_data)}  +{t_files_start-t0:.2f}s")
+            loop = asyncio.get_running_loop()
 
-        from app.services.storage_service import storage_service
+            async def _prepare_for_ai(filename: str, content_type: str, content: bytes) -> dict:
+                ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "txt"
+                is_native = ext in _NATIVE_EXTS
 
-        metadata = convo.metadata_ or {}
-        existing_files: list[dict] = list(metadata.get("uploaded_files") or [])
+                if is_native:
+                    media_type = (
+                        "application/pdf" if ext == "pdf"
+                        else f"image/{'jpeg' if ext == 'jpg' else ext}"
+                    )
+                    return {
+                        "filename":     filename,
+                        "content_type": content_type,
+                        "content":      content,
+                        "ext":          ext,
+                        "is_native":    True,
+                        "extracted_text": None,
+                        "zip_count":    None,
+                        "native_block": {
+                            "filename":   filename,
+                            "media_type": media_type,
+                            "data":       base64.b64encode(content).decode(),
+                        },
+                    }
 
-        for file in files:
-            content = await file.read()
-            file_extension = file.filename.split(".")[-1].lower()
-
-            try:
-                file_url = await storage_service.upload_file(content, file.filename, file.content_type)
-            except (RuntimeError, ValueError) as e:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Storage Error: {str(e)}"
-                )
-
-            if file_extension == "zip":
-                extracted_texts = _extract_zip(content)
-                combined = "\n\n".join(extracted_texts)
-                entry = {
-                    "filename":    file.filename,
-                    "type":        "txt",
-                    "content_hex": combined.encode("utf-8").hex(),
-                    "url":         file_url,
-                    "zip_count":   len(extracted_texts),
-                }
-            else:
-                entry = {
-                    "filename":    file.filename,
-                    "type":        file_extension,
-                    "content_hex": content.hex(),
-                    "url":         file_url,
+                # Text file — extract now, AI needs it in the system prompt.
+                if ext == "zip":
+                    texts = await loop.run_in_executor(None, _extract_zip, content)
+                    extracted_text = "\n\n".join(texts)
+                    zip_count = len(texts)
+                else:
+                    extracted_text = await loop.run_in_executor(
+                        None, document_processor.extract_text, content, ext
+                    )
+                    zip_count = None
+                return {
+                    "filename":     filename,
+                    "content_type": content_type,
+                    "content":      content,
+                    "ext":          ext,
+                    "is_native":    False,
+                    "extracted_text": extracted_text,
+                    "zip_count":    zip_count,
+                    "native_block": None,
                 }
 
-            existing_files.append(entry)
+            prepared: list[dict] = list(await asyncio.gather(*[
+                _prepare_for_ai(fn, ct, raw) for fn, ct, raw in file_data
+            ]))
+            native_files = [p["native_block"] for p in prepared if p["native_block"]]
 
-        # Persist accumulated file list
-        metadata["uploaded_files"] = existing_files
+            logger.info(
+                f"[Chat] file processing done  "
+                f"text_files={sum(1 for p in prepared if not p['is_native'])}  "
+                f"native_files={len(native_files)}  "
+                f"+{time.perf_counter()-t0:.2f}s  (files took {time.perf_counter()-t_files_start:.2f}s)"
+            )
 
-        # Keep last_uploaded_* for backward compat (points to most recent file)
-        last = existing_files[-1]
-        metadata["last_uploaded_filename"] = last["filename"]
-        metadata["last_uploaded_url"]      = last["url"]
-        metadata["last_uploaded_type"]     = last["type"]
-        metadata["last_uploaded_content"]  = last["content_hex"]
-        if last.get("zip_count"):
-            metadata["zip_file_count"] = last["zip_count"]
+            # Write preliminary metadata (no GCS URLs yet — background task fills them).
+            metadata: dict = convo.metadata_ or {}
+            existing: list[dict] = list(metadata.get("uploaded_files") or [])
+            for p in prepared:
+                entry: dict = {
+                    "filename":       p["filename"],
+                    "type":           p["ext"] if p["ext"] != "zip" else "txt",
+                    "url":            "",          # filled by background task
+                    "extracted_text": p["extracted_text"] or "",
+                    "is_native":      p["is_native"],
+                }
+                if p.get("zip_count"):
+                    entry["zip_count"] = p["zip_count"]
+                existing.append(entry)
 
-        convo.active_file_id = uuid.uuid4()
-        convo.metadata_ = metadata
+            metadata["uploaded_files"] = existing
+            last_p = prepared[-1]
+            metadata["last_uploaded_filename"] = last_p["filename"]
+            metadata["last_uploaded_url"]      = ""   # filled by background task
+            metadata["last_uploaded_type"]     = last_p["ext"]
+            convo.active_file_id = uuid.uuid4()
+            convo.metadata_ = metadata
 
-    await db.commit()
-    await db.refresh(convo)
-
-    # 4. Add user message to DB (attach file metadata if files were uploaded in this same request)
-    if message:
-        if files and convo.metadata_:
-            # For multiple files, show all filenames joined
-            filenames = [f["filename"] for f in (convo.metadata_.get("uploaded_files") or [])]
-            msg_filename = ", ".join(filenames[-len(files):]) if filenames else None
-            msg_file_url = convo.metadata_.get("last_uploaded_url")
         else:
-            msg_filename = None
-            msg_file_url = None
-        await chat_service.add_message(
-            db, convo.id, MessageRole.USER, message,
-            attached_filename=msg_filename,
-            attached_url=msg_file_url,
+            native_files: list[dict] = []
+            prepared: list[dict] = []
+
+        # ── STEP 5: Save user message + auto-title ────────────────────────────
+        if message:
+            msg_filename = msg_file_url = None
+            if file_data and convo.metadata_:
+                filenames = [e["filename"] for e in (convo.metadata_.get("uploaded_files") or [])]
+                msg_filename = ", ".join(filenames[-len(file_data):]) if filenames else None
+                # URL empty for now; background task will update the metadata entry.
+            await chat_service.add_message(
+                db, convo.id, MessageRole.USER, message,
+                attached_filename=msg_filename,
+                attached_url=None,
+            )
+            if not convo.title:
+                convo.title = await chat_service.auto_title_conversation(convo, message)
+
+        await db.commit()
+
+        # ── STEP 5b: Background task — GCS upload + native extraction + DB ───
+        # Runs concurrently while the AI is streaming. Uses its own DB session
+        # so it never interferes with the main request session.
+        if prepared:
+            _convo_id = convo.id
+            _new_active_file_id = convo.active_file_id
+
+            async def _background_save() -> None:
+                from app.db.session import AsyncSessionLocal
+                from app.models.chat import Conversation as _Convo
+                from sqlalchemy import select as _select
+
+                try:
+                    t_bg = time.perf_counter()
+                    logger.info(f"[Chat] ⬆ background save start  convo={_convo_id}  files={len(prepared)}")
+
+                    # Upload all files to GCS/local in parallel.
+                    urls: list[str] = list(await asyncio.gather(*[
+                        storage_service.upload_file(p["content"], p["filename"], p["content_type"])
+                        for p in prepared
+                    ]))
+
+                    # Extract text for native files (PDF/images) for follow-up context.
+                    async def _extract_native(p: dict) -> str:
+                        if not p["is_native"]:
+                            return p["extracted_text"] or ""
+                        try:
+                            return await loop.run_in_executor(
+                                None, document_processor.extract_text, p["content"], p["ext"]
+                            )
+                        except Exception:
+                            return ""
+
+                    extracted: list[str] = list(await asyncio.gather(*[
+                        _extract_native(p) for p in prepared
+                    ]))
+
+                    # Update conversation metadata with real URLs + extracted text.
+                    async with AsyncSessionLocal() as bg_db:
+                        result = await bg_db.execute(
+                            _select(_Convo).where(_Convo.id == _convo_id)
+                        )
+                        bg_convo = result.scalar_one_or_none()
+                        if not bg_convo:
+                            return
+
+                        bg_meta: dict = bg_convo.metadata_ or {}
+                        bg_files: list[dict] = list(bg_meta.get("uploaded_files") or [])
+
+                        # Match entries by filename + empty URL (the ones we just added).
+                        for p, url, text in zip(prepared, urls, extracted):
+                            for entry in reversed(bg_files):
+                                if entry["filename"] == p["filename"] and entry.get("url") == "":
+                                    entry["url"] = url
+                                    if text:
+                                        entry["extracted_text"] = text
+                                    break
+
+                        bg_meta["uploaded_files"] = bg_files
+                        bg_meta["last_uploaded_url"] = urls[-1]
+                        bg_convo.metadata_ = bg_meta
+                        await bg_db.commit()
+
+                    logger.info(
+                        f"[Chat] ✓ background save done  convo={_convo_id}  "
+                        f"took={time.perf_counter()-t_bg:.2f}s"
+                    )
+                except Exception as exc:
+                    logger.error(f"[Chat] ✗ background save failed  convo={_convo_id}  error={exc}")
+
+            asyncio.create_task(_background_save())
+
+        # ── STEP 6: File-only upload — nothing more to do ────────────────────
+        if not message:
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # ── STEP 7: Detect export request ─────────────────────────────────────
+        export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert"]
+        msg_lower = message.lower()
+        is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
+
+        if is_export:
+            # Query directly to avoid accessing the (potentially expired) messages relationship
+            from app.models.chat import Message as _Msg
+            _res = await db.execute(
+                select(_Msg)
+                .where(_Msg.conversation_id == convo.id, _Msg.is_analysis == True)
+                .order_by(_Msg.created_at.desc())
+                .limit(1)
+            )
+            last_analysis = _res.scalar_one_or_none()
+
+            if last_analysis:
+                from app.services.export_service import export_service
+                fname = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
+                url = label = None
+                try:
+                    if "pdf" in msg_lower:
+                        url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
+                    elif any(w in msg_lower for w in ["word", "docx", "doc"]):
+                        url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
+                    elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
+                        url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
+                except (RuntimeError, ValueError) as exc:
+                    raise exc
+                if url and label:
+                    ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
+                    abs_url = _resolve_export_url(url)
+                    text = f"✅ **{label} Generated Successfully.**\n\n[Regulatory Analysis Report.{ext}]({abs_url})"
+                    await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
+                    await db.commit()
+                    yield f"data: {json.dumps({'type': 'delta', 'content': text})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+
+        # ── STEP 7b: Analysis detection ───────────────────────────────────────
+        # Triggered when the message contains analysis keywords AND a file is attached
+        # to this conversation.  Uses files from THIS request first; falls back to the
+        # legacy hex stored by the old upload endpoint.  On any failure, falls through
+        # to regular AI streaming so nothing breaks.
+        _analysis_kw = {"analyze", "analysis", "gap", "audit", "evaluate", "assess"}
+        is_analysis_req = bool(convo.active_file_id) and any(t in msg_lower for t in _analysis_kw)
+
+        if is_analysis_req:
+            _content: bytes | None  = None
+            _filename: str | None   = None
+            _filetype: str | None   = None
+
+            if prepared:
+                # Files uploaded in this same request — use the last one.
+                _p        = prepared[-1]
+                _content  = _p["content"]
+                _filename = _p["filename"]
+                _filetype = _p["ext"]
+            elif convo.metadata_:
+                # Follow-up request — try legacy raw-content hex (set by /upload endpoint).
+                _hex = convo.metadata_.get("last_uploaded_content")
+                if _hex:
+                    _content  = bytes.fromhex(_hex)
+                    _filename = convo.metadata_.get("last_uploaded_filename", "Document")
+                    _filetype = convo.metadata_.get("last_uploaded_type", "txt")
+
+            if _content and current_user:
+                _effective_auth = convo.authorities or ["Global"]
+                try:
+                    t_analysis = time.perf_counter()
+                    logger.info(
+                        f"[Chat] ◆ analysis start  convo={convo.id}  "
+                        f"file={_filename}  authorities={_effective_auth}"
+                    )
+                    analysis_msg = await chat_service.perform_analysis_for_chat(
+                        db, convo.id, current_user.id,
+                        _content, _filename, _filetype, _effective_auth,
+                    )
+                    logger.info(
+                        f"[Chat] ◆ analysis done  convo={convo.id}  "
+                        f"took={time.perf_counter()-t_analysis:.2f}s"
+                    )
+                    yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'message_id': str(analysis_msg.id)})}\n\n"
+                    if is_new_convo:
+                        try:
+                            ai_title = await ai_service.generate_title(message, analysis_msg.content[:200])
+                            if ai_title and ai_title != convo.title:
+                                convo.title = ai_title
+                                await db.commit()
+                                yield f"data: {json.dumps({'type': 'title_update', 'id': str(convo.id), 'content': ai_title})}\n\n"
+                        except Exception:
+                            pass
+                    return
+                except Exception as exc:
+                    logger.error(
+                        f"[Chat] ◆ analysis failed, falling through to regular chat  "
+                        f"convo={convo.id}  error={exc}"
+                    )
+                    # Fall through to regular AI streaming.
+
+        # ── STEP 8: Build system prompt — RAG + doc context in parallel ───────
+        selected_authorities = convo.authorities or []
+        base_prompt = (
+            get_persona(convo.authority) or convo.system_prompt or "You are a Regulatory Intelligence Assistant."
         )
-        if not convo.title:
-            convo.title = await chat_service.auto_title_conversation(convo, message)
-            await db.commit()
 
-    # 5. If no message — just confirm (file-only upload)
-    if not message:
-        return StreamingResponse(
-            _stream_no_message(new_convo_payload),
-            media_type="text/event-stream",
-            headers=SSE_HEADERS,
-        )
-
-    # 6. Build AI context
-    from app.agents.prompts import get_persona
-
-    selected_authorities = convo.authorities or []
-    system_prompt = (
-        get_persona(convo.authority) or convo.system_prompt or "You are a Regulatory Intelligence Assistant."
-    )
-
-    if selected_authorities:
-        sources = await vector_service.search_regulatory_context(db, message, authority=selected_authorities, limit=3)
-        if sources:
-            system_prompt += "\n\nREGULATORY CONTEXT:\n" + "\n".join(
+        async def _rag_context() -> str:
+            if not selected_authorities:
+                return ""
+            sources = await vector_service.search_regulatory_context(
+                db, message, authority=selected_authorities, limit=3
+            )
+            if not sources:
+                return ""
+            return "\n\nREGULATORY CONTEXT:\n" + "\n".join(
                 f"- {s.title} ({s.authority}): {s.content}" for s in sources
             )
 
-    if convo.active_file_id and convo.metadata_:
-        uploaded_files: list[dict] = convo.metadata_.get("uploaded_files") or []
-        if uploaded_files:
+        # Names of native files being sent directly to the AI this request —
+        # no need to also inject their text into the system prompt.
+        native_filenames_this_req = {b["filename"] for b in native_files}
+
+        async def _doc_context() -> str:
+            if not convo.active_file_id or not convo.metadata_:
+                return ""
+            uploaded_files: list[dict] = convo.metadata_.get("uploaded_files") or []
+            if not uploaded_files:
+                # Legacy single-file path
+                if convo.metadata_.get("last_uploaded_content"):
+                    loop = asyncio.get_running_loop()
+                    file_hex = convo.metadata_["last_uploaded_content"]
+                    doc_text = await loop.run_in_executor(
+                        None, document_processor.extract_text,
+                        bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt")
+                    )
+                    zip_count = convo.metadata_.get("zip_file_count")
+                    label = (
+                        f"ZIP ARCHIVE ({zip_count} docs) — {convo.metadata_.get('last_uploaded_filename', 'archive.zip')}"
+                        if zip_count else convo.metadata_.get("last_uploaded_filename", "document")
+                    )
+                    return (
+                        f"\n\nCRITICAL: You have access to an uploaded document. NEVER say you cannot see files."
+                        f"\n\nACTIVE DOCUMENT ({label}):\n{doc_text[:6000]}"
+                    )
+                return ""
+
+            loop = asyncio.get_running_loop()
             parts: list[str] = []
             chars_per_doc = max(2000, 8000 // len(uploaded_files))
+
             for i, uf in enumerate(uploaded_files, 1):
-                try:
-                    doc_text = document_processor.extract_text(
+                # Skip files being sent natively — AI sees them directly in the message.
+                if uf["filename"] in native_filenames_this_req:
+                    continue
+                # Use pre-stored extracted text — no re-parsing on every request.
+                text = uf.get("extracted_text") or ""
+                if not text and uf.get("content_hex"):
+                    # Legacy fallback for files uploaded before this refactor
+                    text = await loop.run_in_executor(
+                        None, document_processor.extract_text,
                         bytes.fromhex(uf["content_hex"]), uf.get("type", "txt")
                     )
-                except Exception:
-                    doc_text = "[Could not extract text from this file]"
                 label = f"Document {i}: {uf['filename']}"
                 if uf.get("zip_count"):
                     label += f" (ZIP — {uf['zip_count']} files extracted)"
-                parts.append(f"=== {label} ===\n{doc_text[:chars_per_doc]}")
-            combined_docs = "\n\n".join(parts)
-            system_prompt += (
-                f"\n\nCRITICAL: You have access to {len(uploaded_files)} uploaded document(s). "
+                parts.append(f"=== {label} ===\n{text[:chars_per_doc]}")
+
+            if not parts:
+                return ""
+            combined = "\n\n".join(parts)
+            return (
+                f"\n\nCRITICAL: You have access to uploaded document(s). "
                 f"NEVER say you cannot see files or that no documents were provided.\n\n"
-                f"UPLOADED DOCUMENTS:\n{combined_docs}"
-            )
-        elif convo.metadata_.get("last_uploaded_content"):
-            # Backward compat for conversations created before multi-file support
-            file_hex = convo.metadata_["last_uploaded_content"]
-            doc_text = document_processor.extract_text(
-                bytes.fromhex(file_hex), convo.metadata_.get("last_uploaded_type", "txt")
-            )
-            zip_count = convo.metadata_.get("zip_file_count")
-            label = (
-                f"ZIP ARCHIVE ({zip_count} documents extracted) — {convo.metadata_.get('last_uploaded_filename', 'archive.zip')}"
-                if zip_count is not None
-                else convo.metadata_.get("last_uploaded_filename", "document")
-            )
-            system_prompt += (
-                f"\n\nCRITICAL: You have access to an uploaded document. NEVER say you cannot see files."
-                f"\n\nACTIVE DOCUMENT ({label}):\n{doc_text[:6000]}"
+                f"UPLOADED DOCUMENTS:\n{combined}"
             )
 
-    # 7. Detect export
-    export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert"]
-    msg_lower = message.lower()
-    is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
+        rag_ctx, doc_ctx = await asyncio.gather(_rag_context(), _doc_context())
+        system_prompt = base_prompt
+        if rag_ctx:
+            system_prompt += rag_ctx
+        if doc_ctx:
+            system_prompt += doc_ctx
 
-    if is_export:
-        last_analysis = next((m for m in reversed(convo.messages) if m.is_analysis), None)
-        if last_analysis:
-            from app.services.export_service import export_service
+        logger.info(
+            f"[Chat] context ready  "
+            f"prompt_chars={len(system_prompt)}  "
+            f"rag={'yes' if rag_ctx else 'no'}  "
+            f"doc_ctx={'yes' if doc_ctx else 'no'}  "
+            f"+{time.perf_counter()-t0:.2f}s"
+        )
 
-            fname = convo.metadata_.get("last_uploaded_filename", "Document")
-            try:
-                if "pdf" in msg_lower:
-                    url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
-                elif any(w in msg_lower for w in ["word", "docx", "doc"]):
-                    url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
-                elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
-                    url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
-            except (RuntimeError, ValueError) as e:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Export/Storage Error: {str(e)}"
-                )
-            if url:
-                ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
-                display_name = f"Regulatory Analysis Report.{ext}"
-                abs_url = _resolve_export_url(url)
-                text = f"✅ **{label} Generated Successfully.**\n\n[{display_name}]({abs_url})"
-                await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
-                await db.commit()
-                return StreamingResponse(
-                    _stream_export_response(text, new_convo_payload),
-                    media_type="text/event-stream",
-                    headers=SSE_HEADERS,
-                )
+        # ── STEP 9: Stream AI response ─────────────────────────────────────────
+        history = await chat_service.get_messages_as_dicts(db, convo.id)
+        used_model = model or convo.model or settings.DEFAULT_MODEL
 
-    history = await chat_service.get_messages_as_dicts(db, convo.id)
-    used_model = model or convo.model or settings.DEFAULT_MODEL
-    eff_authorities = selected_authorities or ["Global"]
-
-    return StreamingResponse(
-        _stream_send(
-            db,
-            convo.id,
-            history,
-            used_model,
-            system_prompt,
-            new_convo_payload,
-        ),
-        media_type="text/event-stream",
-        headers=SSE_HEADERS,
-    )
-
-
-async def _stream_no_message(new_convo_payload: dict | None) -> AsyncGenerator[str, None]:
-    if new_convo_payload:
-        yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-
-async def _stream_export_response(text: str, new_convo_payload: dict | None) -> AsyncGenerator[str, None]:
-    if new_convo_payload:
-        yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
-    yield f"data: {json.dumps({'type': 'delta', 'content': text})}\n\n"
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-
-async def _stream_send(
-    db: AsyncSession,
-    conversation_id: uuid.UUID,
-    history: list[dict],
-    model: str,
-    system_prompt: str | None,
-    new_convo_payload: dict | None,
-) -> AsyncGenerator[str, None]:
-    try:
-        if new_convo_payload:
-            yield f"data: {json.dumps({'type': 'conversation_ready', **new_convo_payload})}\n\n"
+        t_ai_send = time.perf_counter()
+        logger.info(
+            f"[Chat] ➤ sending to AI  model={used_model}  "
+            f"history_msgs={len(history)}  native_files={len(native_files)}  "
+            f"+{t_ai_send-t0:.2f}s"
+        )
 
         full_response = ""
-        async for chunk in ai_service.stream_chat(history, model, system_prompt):
+        first_chunk_logged = False
+        async for chunk in ai_service.stream_chat(
+            history, used_model, system_prompt, max_tokens=16384, native_files=native_files or None
+        ):
+            if not first_chunk_logged:
+                t_first = time.perf_counter()
+                logger.info(
+                    f"[Chat] ◀ first chunk from AI  "
+                    f"TTFT={t_first-t_ai_send:.2f}s  "
+                    f"total_elapsed={t_first-t0:.2f}s"
+                )
+                first_chunk_logged = True
             full_response += chunk
             yield f"data: {json.dumps({'type': 'delta', 'content': chunk})}\n\n"
 
-        msg = await chat_service.add_message(db, conversation_id, MessageRole.ASSISTANT, full_response)
+        t_done = time.perf_counter()
+        logger.info(
+            f"[Chat] ■ stream complete  "
+            f"response_chars={len(full_response)}  "
+            f"stream_duration={t_done-t_ai_send:.2f}s  "
+            f"total={t_done-t0:.2f}s"
+        )
+
+        msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, full_response)
         await db.commit()
         yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+
+        # Generate AI title for new conversations after the response is committed.
+        # Yielded AFTER done so the streaming bubble clears immediately on the frontend.
+        if is_new_convo and message:
+            try:
+                ai_title = await ai_service.generate_title(message, full_response[:200])
+                if ai_title and ai_title != convo.title:
+                    convo.title = ai_title
+                    await db.commit()
+                    yield f"data: {json.dumps({'type': 'title_update', 'id': str(convo.id), 'content': ai_title})}\n\n"
+                    logger.info(f"[Chat] title_update  convo={convo.id}  title={ai_title!r}")
+            except Exception as exc:
+                logger.warning(f"[Chat] title generation failed  convo={convo.id}  error={exc}")
+
     except Exception as e:
-        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        # ── Always save an error assistant message so the conversation turn is complete.
+        # The frontend will render this inside the chat bubble, not as a toast.
+        error_content = "I encountered an error processing your request. Please try again."
+        try:
+            err_msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, error_content)
+            await db.commit()
+            yield f"data: {json.dumps({'type': 'delta', 'content': error_content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'message_id': str(err_msg.id)})}\n\n"
+        except Exception:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
 
 @router.get("/conversations", response_model=list[ConversationResponse])

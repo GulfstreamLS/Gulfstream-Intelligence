@@ -232,7 +232,7 @@ export interface SimulationRunRequest {
 }
 
 export interface StreamChunk {
-  type: "delta" | "done" | "error" | "analysis" | "conversation_ready";
+  type: "delta" | "done" | "error" | "analysis" | "conversation_ready" | "title_update";
   content?: string;
   message_id?: string;
   conversation_id?: string;

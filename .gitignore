@@ -55,3 +55,5 @@ media/
 gcp-creds.json
 project-*.json
 backend/project-*.json
+
+chat_docs

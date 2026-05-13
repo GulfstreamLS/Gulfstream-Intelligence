@@ -59,7 +59,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     loadConversations().catch(console.error);
-  }, []);
+  }, [loadConversations]);
 
   useEffect(() => {
     if (user?.organization_id) {

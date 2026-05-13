@@ -1,8 +1,7 @@
-import { ChevronRight } from "lucide-react";
 import type { GapAssessmentResponse } from "../../types";
 
 function StatCard({
-  title, value, sub, color, trend, barPct, loading,
+  title, value, sub, color, barPct, loading,
 }: {
   title: string; value: string | number; sub: string; color: string;
   trend?: string; barPct?: number; loading?: boolean;
@@ -29,12 +28,6 @@ function StatCard({
           <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${barPct}%` }} />
         </div>
       )}
-      <div className="mt-auto pt-7 flex justify-between items-center">
-        <span className={`text-[10px] font-bold uppercase tracking-[0.05em] ${trend ? "text-emerald-500" : "text-gs-muted"}`}>
-          {trend || "View details"}
-        </span>
-        <ChevronRight size={14} className="text-gs-muted" />
-      </div>
     </div>
   );
 }

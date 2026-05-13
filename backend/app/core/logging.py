@@ -41,7 +41,25 @@ def configure_logging() -> None:
     root_logger.handlers = [handler]
     root_logger.setLevel(log_level)
 
-    for noisy in ("uvicorn.access", "sqlalchemy.engine"):
+    # Suppress all noisy third-party loggers — only app code logs remain visible.
+    _suppress = (
+        "uvicorn",
+        "uvicorn.access",
+        "uvicorn.error",
+        "sqlalchemy",
+        "sqlalchemy.engine",
+        "sqlalchemy.engine.Engine",
+        "sqlalchemy.pool",
+        "sqlalchemy.dialects",
+        "sqlalchemy.orm",
+        "httpx",
+        "httpcore",
+        "asyncpg",
+        "fastapi",
+        "multipart",
+        "aiofiles",
+    )
+    for noisy in _suppress:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 

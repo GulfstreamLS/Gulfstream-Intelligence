@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from urllib.parse import quote
@@ -32,10 +33,15 @@ class StorageService:
     async def _upload_gcs(self, content: bytes, filename: str, content_type: str) -> str:
         safe_filename = filename.replace(" ", "_")
         blob_name = f"{uuid.uuid4()}-{safe_filename}"
-        try:
+
+        def _do_upload():
             bucket = self.client.bucket(self.bucket_name)
             blob = bucket.blob(f"regulatory-docs/{blob_name}")
             blob.upload_from_string(content, content_type=content_type)
+
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _do_upload)
             encoded = quote(f"regulatory-docs/{blob_name}", safe="/")
             return f"https://storage.googleapis.com/{self.bucket_name}/{encoded}"
         except Exception as e:
@@ -46,8 +52,13 @@ class StorageService:
         os.makedirs(media_dir, exist_ok=True)
         safe_filename = filename.replace(" ", "_")
         blob_name = f"{uuid.uuid4()}-{safe_filename}"
-        with open(os.path.join(media_dir, blob_name), "wb") as f:
-            f.write(content)
+
+        def _do_write():
+            with open(os.path.join(media_dir, blob_name), "wb") as f:
+                f.write(content)
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _do_write)
         # Store as a relative path so the served URL is always built from the
         # current BASE_URL at response time — never baked in as localhost.
         return f"/media/uploads/{quote(blob_name, safe='/')}"
