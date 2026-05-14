@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     STRIPE_PRICE_BUSINESS_MONTHLY: str = "price_biz_mo"
     STRIPE_PRICE_BUSINESS_ANNUAL: str = "price_biz_ann"
 
+    # Admin
+    ADMIN_SECRET_KEY: str = "gs-admin-k3y-2026"
+
     # Frontend URLs
     FRONTEND_URL: str = "http://localhost:3000"
 

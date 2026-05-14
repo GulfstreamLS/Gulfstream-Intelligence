@@ -35,7 +35,7 @@ PLAN_RANK: dict[str, int] = {
 # ── Monthly upload limits (None = unlimited) ─────────────────────────────────
 
 UPLOAD_LIMIT: dict[str, int | None] = {
-    SubscriptionPlan.TRIAL:        10,
+    SubscriptionPlan.TRIAL:        None,  # unlimited during trial — full access
     SubscriptionPlan.STARTER:      10,
     SubscriptionPlan.PROFESSIONAL: None,
     SubscriptionPlan.BUSINESS:     None,

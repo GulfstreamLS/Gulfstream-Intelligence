@@ -53,9 +53,21 @@ export function useSubscription(): SubscriptionState {
   }, []);
 
   const canAccess = useMemo(() => {
+    // Trial plan users (status "trialing" or manually set "active") get full access.
+    const isTrial =
+      subscription?.plan === "trial" && (
+        subscription?.status === "active" ||
+        (
+          subscription?.status === "trialing" &&
+          subscription?.trial_ends_at != null &&
+          new Date(subscription.trial_ends_at) > new Date()
+        )
+      );
+    if (isTrial) return (_feature: PlanFeature) => true;
+
     const rank = planRank(subscription?.plan);
     return (feature: PlanFeature): boolean => rank >= REQUIRED_RANK[feature];
-  }, [subscription?.plan]);
+  }, [subscription?.plan, subscription?.status, subscription?.trial_ends_at]);
 
   return { subscription, usage, loading, canAccess };
 }

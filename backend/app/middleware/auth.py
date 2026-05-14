@@ -69,21 +69,22 @@ async def check_active_subscription(
 def require_plan(min_plan: str):
     """
     Dependency factory that enforces a minimum plan rank.
-
-    Usage:
-        current_user: User = Depends(require_plan("professional"))
-
-    Handles both solo users (their own subscription) and org members
-    (their organization's subscription) via auth_service.get_subscription,
-    which already resolves the correct subscription for both tenancy types.
+    Active trial users always pass — they get full access to every feature.
     """
     async def _dep(
         current_user: User = Depends(check_active_subscription),
         db: AsyncSession = Depends(get_db),
     ) -> User:
-        from app.services.plan_service import PLAN_RANK, get_plan_rank
+        from app.models.subscription import SubscriptionStatus
+        from app.services.plan_service import PLAN_RANK, get_plan_rank, is_sub_active
 
         sub = await auth_service.get_subscription(db, current_user)
+
+        # Trial plan users (any active status) get unrestricted access to all features.
+        from app.models.subscription import SubscriptionPlan
+        if sub and sub.plan == SubscriptionPlan.TRIAL and is_sub_active(sub):
+            return current_user
+
         user_rank = get_plan_rank(sub)
         required_rank = PLAN_RANK.get(min_plan, 99)
 
