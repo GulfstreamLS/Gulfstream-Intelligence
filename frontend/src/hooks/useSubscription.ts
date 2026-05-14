@@ -63,7 +63,7 @@ export function useSubscription(): SubscriptionState {
           new Date(subscription.trial_ends_at) > new Date()
         )
       );
-    if (isTrial) return (_feature: PlanFeature) => true;
+    if (isTrial) return () => true;
 
     const rank = planRank(subscription?.plan);
     return (feature: PlanFeature): boolean => rank >= REQUIRED_RANK[feature];
