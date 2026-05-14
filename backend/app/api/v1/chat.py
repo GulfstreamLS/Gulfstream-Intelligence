@@ -395,46 +395,8 @@ async def _stream_full(
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
-        # ── STEP 7: Detect export request ─────────────────────────────────────
-        export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert", "report"]
+        # ── STEP 7: Normalise message for downstream checks ───────────────────
         msg_lower = message.lower()
-        is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
-
-        if is_export:
-            # Query directly to avoid accessing the (potentially expired) messages relationship
-            from app.models.chat import Message as _Msg
-            _res = await db.execute(
-                select(_Msg)
-                .where(_Msg.conversation_id == convo.id, _Msg.is_analysis == True)
-                .order_by(_Msg.created_at.desc())
-                .limit(1)
-            )
-            last_analysis = _res.scalar_one_or_none()
-
-            if last_analysis:
-                from app.services.export_service import export_service
-                fname = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
-                url = label = None
-                try:
-                    if "pdf" in msg_lower:
-                        url, label = await export_service.generate_pdf(last_analysis.analysis_data, fname), "PDF"
-                    elif any(w in msg_lower for w in ["word", "docx", "doc"]):
-                        url, label = await export_service.generate_docx(last_analysis.analysis_data, fname), "Word"
-                    elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
-                        url, label = await export_service.generate_pptx(last_analysis.analysis_data, fname), "PowerPoint"
-                except (RuntimeError, ValueError) as exc:
-                    raise exc
-                if url and label:
-                    ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
-                    abs_url = _resolve_export_url(url)
-                    text = f"✅ **{label} Generated Successfully.**\n\n[Regulatory Analysis Report.{ext}]({abs_url})"
-                    await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, text)
-                    await db.commit()
-                    yield f"data: {json.dumps({'type': 'delta', 'content': text})}\n\n"
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    return
-            else:
-                pass
 
         # ── STEP 7b: Analysis detection — capture file content only, run AFTER streaming ──
         # We detect whether this is an analysis request and capture the file bytes here,
@@ -615,24 +577,82 @@ async def _stream_full(
             _auths = convo.authorities or ["Global"]
 
             async def _bg_analysis():
+                import traceback as _tb
                 from app.db.session import AsyncSessionLocal
+                from app.models.chat import Conversation as _Convo
+                from app.models.notification import Notification as _Notif, NotificationType as _NT
+                from app.services.export_service import export_service as _exp_svc
+                from sqlalchemy import select as _sel
+
                 async with AsyncSessionLocal() as bg_db:
+                    # ── 1. Run the analysis LLM call ──────────────────────────
                     try:
-                        await chat_service.perform_analysis_for_chat(
+                        logger.info(f"[Analysis] ▶ starting  convo={_convo_id}  file={_analysis_filename}  auths={_auths}")
+                        analysis_msg = await chat_service.perform_analysis_for_chat(
                             bg_db, _convo_id, _user_id,
                             _analysis_content, _analysis_filename, _analysis_filetype, _auths,
                             message_id=_msg_id
                         )
                     except Exception as e:
-                        logger.error(f"Background analysis failed: {e}")
+                        logger.error(f"[Analysis] ✗ failed  convo={_convo_id}  error={e}\n{_tb.format_exc()}")
+                        return
+
+                    if not analysis_msg or not analysis_msg.analysis_data:
+                        logger.warning(f"[Analysis] no data produced  convo={_convo_id}")
+                        return
+
+                    # ── 2. Auto-generate all 3 export formats ─────────────────
+                    try:
+                        results = await asyncio.gather(
+                            _exp_svc.generate_pdf(analysis_msg.analysis_data, _analysis_filename),
+                            _exp_svc.generate_docx(analysis_msg.analysis_data, _analysis_filename),
+                            _exp_svc.generate_pptx(analysis_msg.analysis_data, _analysis_filename),
+                            return_exceptions=True,
+                        )
+                        pdf_res, docx_res, pptx_res = results
+
+                        cached: dict = {}
+                        if not isinstance(pdf_res, Exception):
+                            cached["pdf"] = _resolve_export_url(pdf_res)
+                        else:
+                            logger.warning(f"[Analysis] PDF export failed  convo={_convo_id}  error={pdf_res}")
+                        if not isinstance(docx_res, Exception):
+                            cached["word"] = cached["docx"] = _resolve_export_url(docx_res)
+                        else:
+                            logger.warning(f"[Analysis] DOCX export failed  convo={_convo_id}  error={docx_res}")
+                        if not isinstance(pptx_res, Exception):
+                            cached["ppt"] = cached["pptx"] = _resolve_export_url(pptx_res)
+                        else:
+                            logger.warning(f"[Analysis] PPTX export failed  convo={_convo_id}  error={pptx_res}")
+
+                        if cached:
+                            res = await bg_db.execute(_sel(_Convo).where(_Convo.id == _convo_id))
+                            bg_convo = res.scalar_one_or_none()
+                            if bg_convo:
+                                meta = dict(bg_convo.metadata_ or {})
+                                meta["cached_exports"] = cached
+                                bg_convo.metadata_ = meta
+
+                            # Notify the user that documents are ready
+                            fmt_list = " + ".join(k.upper() for k in ["pdf", "word", "ppt"] if k in cached)
+                            bg_db.add(_Notif(
+                                user_id=_user_id,
+                                type=_NT.EXPORT_READY,
+                                title="Your documents are ready",
+                                body=f"{fmt_list} reports for \"{_analysis_filename}\" are ready to download.",
+                                resource_type="conversation",
+                                resource_id=str(_convo_id),
+                            ))
+                            await bg_db.commit()
+                            logger.info(f"[Analysis] ✓ exports cached + notification sent  convo={_convo_id}  formats={list(cached)}")
+                        else:
+                            logger.error(f"[Analysis] ✗ all export formats failed  convo={_convo_id}")
+                    except Exception as e:
+                        logger.error(f"[Analysis] ✗ export generation error  convo={_convo_id}  error={e}\n{_tb.format_exc()}")
 
             asyncio.create_task(_bg_analysis())
 
-        return
-
-
         # Generate AI title for new conversations after the response is committed.
-        # Yielded AFTER done so the streaming bubble clears immediately on the frontend.
         if is_new_convo and message:
             try:
                 ai_title = await ai_service.generate_title(message, full_response[:200])
@@ -648,6 +668,8 @@ async def _stream_full(
                     logger.info(f"[Chat] title_update  convo={convo_id_for_title}  title={ai_title!r}")
             except Exception as exc:
                 logger.warning(f"[Chat] title generation failed  convo={convo.id}  error={exc}")
+
+        return
 
     except Exception as e:
         # ── Always save an error assistant message so the conversation turn is complete.
@@ -790,47 +812,90 @@ async def export_message_analysis(
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_user_or_none),
 ):
-    """Directly export a specific analysis message to PDF/PPT/Word."""
+    """Export an analysis message to PDF/Word/PPT.
+
+    Returns cached URL immediately if the background job already generated it.
+    Returns 202 when analysis is still running so the frontend can show a
+    "you'll be notified" message instead of a generic error.
+    """
     from app.models.chat import Message, Conversation
     msg = await db.get(Message, message_id)
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    if not msg.is_analysis or not msg.analysis_data:
-        # Fallback: check if it's a normal message but there's a file in the convo
-        convo = await db.get(Conversation, msg.conversation_id)
+    convo = await db.get(Conversation, msg.conversation_id)
+
+    # ── Fast path: return cached export URL if available ─────────────────────
+    if convo:
+        cached = (convo.metadata_ or {}).get("cached_exports", {})
+        # Normalise format aliases → canonical cache key
+        if format in ["word", "docx"]:
+            cache_key = "word" if "word" in cached else "docx"
+        elif format in ["ppt", "pptx"]:
+            cache_key = "ppt" if "ppt" in cached else "pptx"
+        else:
+            cache_key = format
+        if cached.get(cache_key):
+            return {"url": cached[cache_key]}
+
+    # ── Locate analysis data ──────────────────────────────────────────────────
+    analysis_msg = msg if (msg.is_analysis and msg.analysis_data) else None
+    if not analysis_msg:
         res = await db.execute(
             select(Message)
             .where(Message.conversation_id == msg.conversation_id, Message.is_analysis == True)
             .order_by(Message.created_at.desc())
             .limit(1)
         )
-        msg = res.scalar_one_or_none()
-        if not msg or not msg.analysis_data:
-            # Check if there is ANY uploaded file in the convo (meaning analysis is likely pending)
-            if convo.active_file_id or (convo.metadata_ or {}).get("last_uploaded_filename"):
-                raise HTTPException(status_code=409, detail="File making is in progress. Please wait and retry after few seconds.")
-            raise HTTPException(status_code=404, detail="No analysis data found to export")
-    else:
-        convo = await db.get(Conversation, msg.conversation_id)
+        analysis_msg = res.scalar_one_or_none()
 
+    if not analysis_msg or not analysis_msg.analysis_data:
+        # Analysis not ready yet — tell the frontend gracefully
+        raise HTTPException(
+            status_code=202,
+            detail="Your documents are being prepared. You'll receive a notification when they're ready.",
+        )
+
+    # ── On-demand generation (cache miss, analysis exists) ────────────────────
     from app.services.export_service import export_service
-    filename = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
+    filename = (convo.metadata_ or {}).get("last_uploaded_filename", "Document") if convo else "Document"
 
     try:
         if format == "pdf":
-            url = await export_service.generate_pdf(msg.analysis_data, filename)
+            url = await export_service.generate_pdf(analysis_msg.analysis_data, filename)
         elif format in ["word", "docx"]:
-            url = await export_service.generate_docx(msg.analysis_data, filename)
+            url = await export_service.generate_docx(analysis_msg.analysis_data, filename)
         elif format in ["ppt", "pptx"]:
-            url = await export_service.generate_pptx(msg.analysis_data, filename)
+            url = await export_service.generate_pptx(analysis_msg.analysis_data, filename)
         else:
-            raise HTTPException(status_code=400, detail="Invalid format")
+            raise HTTPException(status_code=400, detail="Invalid format. Use pdf, word, or ppt.")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Export failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Export failed  format={format}  msg={message_id}  error={e}")
+        raise HTTPException(status_code=500, detail="Export generation failed. Please try again.")
 
-    return {"url": _resolve_export_url(url)}
+    abs_url = _resolve_export_url(url)
+
+    # Cache the result so subsequent requests are instant
+    if convo:
+        meta = dict(convo.metadata_ or {})
+        cached = dict(meta.get("cached_exports", {}))
+        cached[format] = abs_url
+        # Store both aliases so either key works
+        if format == "word":
+            cached["docx"] = abs_url
+        elif format == "docx":
+            cached["word"] = abs_url
+        elif format == "ppt":
+            cached["pptx"] = abs_url
+        elif format == "pptx":
+            cached["ppt"] = abs_url
+        meta["cached_exports"] = cached
+        convo.metadata_ = meta
+        await db.commit()
+
+    return {"url": abs_url}
 
 
 @router.patch("/conversations/{conversation_id}/authorities", response_model=ConversationResponse)

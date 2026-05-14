@@ -20,6 +20,7 @@ class NotificationType(StrEnum):
     MEMBER_REMOVED = "member_removed"
     TRIAL_EXPIRING = "trial_expiring"
     TRIAL_EXPIRED = "trial_expired"
+    EXPORT_READY = "export_ready"
 
 
 class Notification(Base, UUIDMixin):

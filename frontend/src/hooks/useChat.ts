@@ -56,6 +56,7 @@ export function useChat() {
         uploaded_filename: firstFilename,
         uploaded_url: null,
         uploaded_type: null,
+        active_file_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         messages: [],

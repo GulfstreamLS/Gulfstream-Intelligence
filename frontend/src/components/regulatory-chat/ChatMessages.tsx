@@ -6,10 +6,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Copy,
-  ExternalLink, User, Check, Download,
+  ExternalLink, User, Check, Download, X,
   Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
   AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
-  FileDown, Monitor, Share2,
+  FileDown, Monitor, Bell,
 } from "lucide-react";
 import type { DisplayMessage, AnalysisAuthority } from "../../types/chat";
 import { useChatStore } from "../../store/chatStore";
@@ -374,6 +374,7 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
 
   const [copied, setCopied]   = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<{ type: "pending" | "error"; text: string } | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content).then(() => {
@@ -385,19 +386,25 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
   const handleExport = async (format: string) => {
     if (!msg.id) return;
     setExporting(format);
+    setExportNotice(null);
     try {
       const { chatApi } = await import("../../lib/api");
       const res = await chatApi.exportMessage(msg.id, format);
       if (res.url) {
         window.open(res.url, "_blank");
       }
-    } catch (error: any) {
-      if (error.status === 409 || error.status === 202) {
-        // Expected "pending" state, show friendly message without triggering console error bubble
-        alert(error.message || "File making is in progress. Please wait and retry after few seconds.");
+    } catch (error: unknown) {
+      const status = (error as { status?: number }).status;
+      if (status === 202 || status === 409) {
+        setExportNotice({
+          type: "pending",
+          text: "Your documents are being prepared. You'll receive a notification when they're ready.",
+        });
       } else {
-        console.error("Export failed", error);
-        alert("Something went wrong with the export. Please try again in a moment.");
+        setExportNotice({
+          type: "error",
+          text: "Export failed. Please try again in a moment.",
+        });
       }
     } finally {
       setExporting(null);
@@ -589,6 +596,28 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
                 </button>
               </div>
             </div>
+
+            {/* Export status notice — shown below toolbar, auto-dismissible */}
+            {exportNotice && (
+              <div className={`mt-3 flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm border ${
+                exportNotice.type === "pending"
+                  ? "bg-blue-50 dark:bg-gs-blue/10 border-blue-200 dark:border-gs-blue/30 text-blue-700 dark:text-blue-300"
+                  : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+              }`}>
+                {exportNotice.type === "pending"
+                  ? <Bell size={15} className="shrink-0 mt-0.5 opacity-80" />
+                  : <AlertTriangle size={15} className="shrink-0 mt-0.5 opacity-80" />
+                }
+                <span className="flex-1 leading-snug">{exportNotice.text}</span>
+                <button
+                  onClick={() => setExportNotice(null)}
+                  className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+                  aria-label="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

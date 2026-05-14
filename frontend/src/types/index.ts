@@ -70,6 +70,7 @@ export interface Conversation {
   uploaded_filename: string | null;
   uploaded_url: string | null;
   uploaded_type: string | null;
+  active_file_id: string | null;
   created_at: string;
   updated_at: string;
   messages: Message[];
