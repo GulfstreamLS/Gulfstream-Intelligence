@@ -400,6 +400,7 @@ async def _stream_full(
         msg_lower = message.lower()
         is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
 
+        pending_export = False
         if is_export:
             # Query directly to avoid accessing the (potentially expired) messages relationship
             from app.models.chat import Message as _Msg
@@ -433,13 +434,17 @@ async def _stream_full(
                     yield f"data: {json.dumps({'type': 'delta', 'content': text})}\n\n"
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
+            else:
+                # No previous analysis found; flag for generation after this request's analysis.
+                pending_export = True
 
         # ── STEP 7b: Analysis detection — capture file content only, run AFTER streaming ──
         # We detect whether this is an analysis request and capture the file bytes here,
         # but we do NOT run the analysis yet. The heavy LLM call runs after the AI response
         # has fully streamed so the user sees output immediately instead of waiting 2+ min.
         _analysis_kw = {"analyze", "analysis", "gap", "audit", "evaluate", "assess"}
-        is_analysis_req = bool(convo.active_file_id) and any(t in msg_lower for t in _analysis_kw)
+        # If they asked for a PDF/PPT on the first message, we force analysis so we have data to export.
+        is_analysis_req = bool(convo.active_file_id) and (any(t in msg_lower for t in _analysis_kw) or pending_export)
 
         _analysis_content: bytes | None  = None
         _analysis_filename: str | None   = None
@@ -622,6 +627,30 @@ async def _stream_full(
                     f"took={time.perf_counter()-t_analysis:.2f}s"
                 )
                 yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
+
+                # ── Handle pending export (from first message) ────────────────
+                if pending_export:
+                    from app.services.export_service import export_service
+                    fname = _analysis_filename or "Document"
+                    url = label = None
+                    if "pdf" in msg_lower:
+                        url, label = await export_service.generate_pdf(analysis_msg.analysis_data, fname), "PDF"
+                    elif any(w in msg_lower for w in ["word", "docx", "doc"]):
+                        url, label = await export_service.generate_docx(analysis_msg.analysis_data, fname), "Word"
+                    elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
+                        url, label = await export_service.generate_pptx(analysis_msg.analysis_data, fname), "PowerPoint"
+
+                    if url and label:
+                        ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
+                        abs_url = _resolve_export_url(url)
+                        export_text = f"\n\n✅ **{label} Generated Successfully.**\n\n[Regulatory Analysis Report.{ext}]({abs_url})"
+
+                        # Append to the AI response message
+                        full_response += export_text
+                        msg.content = full_response
+                        await db.commit()
+
+                        yield f"data: {json.dumps({'type': 'delta', 'content': export_text})}\n\n"
             except Exception as exc:
                 logger.error(
                     f"[Chat] ◆ analysis failed (post-stream)  convo={convo.id}  error={exc}"
