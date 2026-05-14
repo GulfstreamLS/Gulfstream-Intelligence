@@ -374,7 +374,14 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
 
   const [copied, setCopied]   = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [exportNotice, setExportNotice] = useState<{ type: "pending" | "error"; text: string } | null>(null);
+  const [exportToast, setExportToast] = useState<{ type: "pending" | "error"; text: string } | null>(null);
+
+  // Auto-dismiss toast after 5 s
+  useEffect(() => {
+    if (!exportToast) return;
+    const t = setTimeout(() => setExportToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [exportToast]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content).then(() => {
@@ -386,26 +393,18 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
   const handleExport = async (format: string) => {
     if (!msg.id) return;
     setExporting(format);
-    setExportNotice(null);
+    setExportToast(null);
     try {
       const { chatApi } = await import("../../lib/api");
-      const res = await chatApi.exportMessage(msg.id, format);
+      // Cast to a wider type: API may return {url} on success or {detail} on 202 pending
+      const res = await chatApi.exportMessage(msg.id, format) as unknown as { url?: string; detail?: string };
       if (res.url) {
         window.open(res.url, "_blank");
+      } else if (res.detail) {
+        setExportToast({ type: "pending", text: res.detail });
       }
-    } catch (error: unknown) {
-      const status = (error as { status?: number }).status;
-      if (status === 202 || status === 409) {
-        setExportNotice({
-          type: "pending",
-          text: "Your documents are being prepared. You'll receive a notification when they're ready.",
-        });
-      } else {
-        setExportNotice({
-          type: "error",
-          text: "Export failed. Please try again in a moment.",
-        });
-      }
+    } catch {
+      setExportToast({ type: "error", text: "Export failed. Please try again in a moment." });
     } finally {
       setExporting(null);
     }
@@ -597,21 +596,25 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
               </div>
             </div>
 
-            {/* Export status notice — shown below toolbar, auto-dismissible */}
-            {exportNotice && (
-              <div className={`mt-3 flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm border ${
-                exportNotice.type === "pending"
-                  ? "bg-blue-50 dark:bg-gs-blue/10 border-blue-200 dark:border-gs-blue/30 text-blue-700 dark:text-blue-300"
-                  : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+            {/* Export toast — fixed bottom-right, auto-dismisses after 5 s */}
+            {exportToast && (
+              <div className={`fixed bottom-6 right-6 z-50 flex items-start gap-3 px-5 py-4 rounded-2xl shadow-xl border max-w-sm w-full text-sm transition-all ${
+                exportToast.type === "pending"
+                  ? "bg-gs-card border-gs-blue/30 text-gs-text"
+                  : "bg-gs-card border-red-300 dark:border-red-700 text-gs-text"
               }`}>
-                {exportNotice.type === "pending"
-                  ? <Bell size={15} className="shrink-0 mt-0.5 opacity-80" />
-                  : <AlertTriangle size={15} className="shrink-0 mt-0.5 opacity-80" />
-                }
-                <span className="flex-1 leading-snug">{exportNotice.text}</span>
+                <div className={`shrink-0 p-1.5 rounded-lg ${
+                  exportToast.type === "pending" ? "bg-gs-blue/10" : "bg-red-100 dark:bg-red-900/30"
+                }`}>
+                  {exportToast.type === "pending"
+                    ? <Bell size={15} className="text-gs-blue" />
+                    : <AlertTriangle size={15} className="text-red-500" />
+                  }
+                </div>
+                <span className="flex-1 leading-snug">{exportToast.text}</span>
                 <button
-                  onClick={() => setExportNotice(null)}
-                  className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+                  onClick={() => setExportToast(null)}
+                  className="shrink-0 text-gs-muted hover:text-gs-text transition-colors mt-0.5"
                   aria-label="Dismiss"
                 >
                   <X size={14} />
