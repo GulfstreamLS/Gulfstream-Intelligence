@@ -25,6 +25,7 @@ export interface DisplayMessage {
   timestamp: string;
   sources?: string[];
   isAnalysis?: boolean;
+  isAnalysisPotential?: boolean;
   analysisData?: Record<string, AnalysisAuthority>;
   attachmentName?: string;
   attachedFilename?: string | null;

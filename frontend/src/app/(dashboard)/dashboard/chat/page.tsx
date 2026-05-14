@@ -134,13 +134,14 @@ function RegulatoryChatPage() {
       content:          msg.content,
       timestamp:        new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isAnalysis:       msg.is_analysis ?? false,
+      isAnalysisPotential: msg.role === "assistant" && (!!currentConversation?.uploaded_filename || !!currentConversation?.active_file_id),
       analysisData:     msg.is_analysis && msg.analysis_data
         ? (msg.analysis_data as Record<string, AnalysisAuthority>)
         : undefined,
       attachedFilename: msg.attached_filename ?? null,
       attachedUrl:      msg.attached_url ?? null,
     }));
-  }, [currentConversation?.messages]);
+  }, [currentConversation?.messages, currentConversation?.uploaded_filename, currentConversation?.active_file_id]);
 
   // Clear the synthetic pending message once real store messages are present
   useEffect(() => {

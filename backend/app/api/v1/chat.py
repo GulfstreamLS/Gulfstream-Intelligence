@@ -603,33 +603,33 @@ async def _stream_full(
         msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, full_response)
         await db.commit()
 
-        # ── Post-stream: Gap Assessment / Document Intelligence ────────────────
-        # Runs AFTER the AI response has fully streamed so the user sees output
-        # immediately. The analysis event is yielded before 'done' so the frontend
-        # receives it on the same open connection.
-        if is_analysis_req and _analysis_content and current_user:
-            _effective_auth = convo.authorities or ["Global"]
-            try:
-                t_analysis = time.perf_counter()
-                logger.info(
-                    f"[Chat] ◆ analysis start (post-stream)  convo={convo.id}  "
-                    f"file={_analysis_filename}  authorities={_effective_auth}"
-                )
-                analysis_msg = await chat_service.perform_analysis_for_chat(
-                    db, convo.id, current_user.id,
-                    _analysis_content, _analysis_filename, _analysis_filetype, _effective_auth,
-                )
-                logger.info(
-                    f"[Chat] ◆ analysis done  convo={convo.id}  "
-                    f"took={time.perf_counter()-t_analysis:.2f}s"
-                )
-                yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
-            except Exception as exc:
-                logger.error(
-                    f"[Chat] ◆ analysis failed (post-stream)  convo={convo.id}  error={exc}"
-                )
-
         yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
+
+        # ── Post-stream: Background Analysis ──────────────────────────────────
+        if is_analysis_req and _analysis_content and current_user:
+            # Run analysis in a truly background task so the SSE stream can close
+            # and the frontend loader clears immediately.
+            _msg_id = msg.id
+            _user_id = current_user.id
+            _convo_id = convo.id
+            _auths = convo.authorities or ["Global"]
+
+            async def _bg_analysis():
+                from app.db.session import AsyncSessionLocal
+                async with AsyncSessionLocal() as bg_db:
+                    try:
+                        await chat_service.perform_analysis_for_chat(
+                            bg_db, _convo_id, _user_id,
+                            _analysis_content, _analysis_filename, _analysis_filetype, _auths,
+                            message_id=_msg_id
+                        )
+                    except Exception as e:
+                        logger.error(f"Background analysis failed: {e}")
+
+            asyncio.create_task(_bg_analysis())
+
+        return
+
 
         # Generate AI title for new conversations after the response is committed.
         # Yielded AFTER done so the streaming bubble clears immediately on the frontend.
@@ -807,6 +807,9 @@ async def export_message_analysis(
         )
         msg = res.scalar_one_or_none()
         if not msg or not msg.analysis_data:
+            # Check if there is ANY uploaded file in the convo (meaning analysis is likely pending)
+            if convo.active_file_id or (convo.metadata_ or {}).get("last_uploaded_filename"):
+                raise HTTPException(status_code=409, detail="File making is in progress. Please wait and retry after few seconds.")
             raise HTTPException(status_code=404, detail="No analysis data found to export")
     else:
         convo = await db.get(Conversation, msg.conversation_id)

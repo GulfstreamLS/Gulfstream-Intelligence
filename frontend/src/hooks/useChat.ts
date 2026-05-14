@@ -108,15 +108,13 @@ export function useChat() {
           }
 
         } else if (chunk.type === "analysis") {
-          if (resolvedId) {
-            const analysisContent = chunk.content ?? "";
-            store.appendMessage(resolvedId, {
-              id: chunk.message_id ?? crypto.randomUUID(),
-              conversation_id: resolvedId, role: "assistant",
-              content: analysisContent, token_count: null,
-              is_analysis: true, analysis_data: chunk.data ?? null,
-              created_at: new Date().toISOString(),
-            } as Message);
+          if (resolvedId && chunk.message_id) {
+            // Update the existing assistant message with analysis data and is_analysis flag.
+            // This attaches the buttons/cards to the bubble that was just streamed.
+            store.updateMessage(resolvedId, chunk.message_id, {
+              is_analysis: true,
+              analysis_data: chunk.data ?? null,
+            });
           }
 
         } else if (chunk.type === "done") {

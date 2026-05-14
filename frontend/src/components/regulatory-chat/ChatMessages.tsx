@@ -9,9 +9,10 @@ import {
   ExternalLink, User, Check, Download,
   Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
   AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
-  FileDown, Monitor,
+  FileDown, Monitor, Share2,
 } from "lucide-react";
 import type { DisplayMessage, AnalysisAuthority } from "../../types/chat";
+import { useChatStore } from "../../store/chatStore";
 
 interface ChatMessagesProps {
   messages: DisplayMessage[];
@@ -359,8 +360,18 @@ function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
   );
 }
 
-const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
-  // const [vote, setVote]       = useState<"up" | "down" | null>(null);
+const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
+  const { conversations, activeConversationId } = useChatStore();
+  const currentConvo = conversations.find(c => c.id === activeConversationId);
+  
+  // Aggressive check: show buttons if the message is already marked as analysis,
+  // OR if the conversation has any indicators of an uploaded file.
+  const hasFiles = !!currentConvo?.uploaded_filename || 
+                   !!currentConvo?.active_file_id || 
+                   currentConvo?.messages.some(m => !!m.attached_filename);
+                   
+  const canExport = msg.isAnalysis || msg.isAnalysisPotential || hasFiles;
+
   const [copied, setCopied]   = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
 
@@ -376,12 +387,18 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
     setExporting(format);
     try {
       const { chatApi } = await import("../../lib/api");
-      const { url } = await chatApi.exportMessage(msg.id, format);
-      if (url) {
-        window.open(url, "_blank");
+      const res = await chatApi.exportMessage(msg.id, format);
+      if (res.url) {
+        window.open(res.url, "_blank");
       }
-    } catch (error) {
-      console.error("Export failed", error);
+    } catch (error: any) {
+      if (error.status === 409 || error.status === 202) {
+        // Expected "pending" state, show friendly message without triggering console error bubble
+        alert(error.message || "File making is in progress. Please wait and retry after few seconds.");
+      } else {
+        console.error("Export failed", error);
+        alert("Something went wrong with the export. Please try again in a moment.");
+      }
     } finally {
       setExporting(null);
     }
@@ -508,7 +525,7 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
 
-                {msg.isAnalysis && msg.analysisData && (
+                {canExport && (
                   <>
                     <button
                       onClick={() => handleExport("pdf")}
@@ -518,6 +535,16 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
                     >
                       <FileDown size={14} />
                       <span className="text-[9px] font-bold tracking-tighter">PDF</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleExport("word")}
+                      disabled={!!exporting}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "word" ? "text-gs-blue bg-gs-blue/10 animate-pulse" : "hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
+                      title="Download DOCS Analysis"
+                    >
+                      <FileText size={14} />
+                      <span className="text-[9px] font-bold tracking-tighter">DOCS</span>
                     </button>
 
                     <button
@@ -567,7 +594,7 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
       </div>
     </div>
   );
-});
+};
 
 export function ChatMessages({ messages, isLoading, onSendMessage, hideEmptyState }: ChatMessagesProps) {
 

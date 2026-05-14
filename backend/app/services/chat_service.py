@@ -222,23 +222,36 @@ class ChatService:
         file_content: bytes, 
         filename: str,
         file_type: str, 
-        authorities: list[str]
+        authorities: list[str],
+        message_id: uuid.UUID | None = None
     ) -> Message:
-        """Analyze document and save results to a chat message."""
-
+        """Analyze document and save results to a chat message.
+        
+        If message_id is provided, it updates that existing message with analysis_data
+        instead of creating a new one.
+        """
         from app.services.analysis_service import analysis_service
 
         results = await analysis_service.analyze_document_multi(
             db, user_id, file_content, filename, file_type, authorities
         )
 
-        # Format a summary for the chat bubble
+        # Convert results to dict for JSON storage
+        analysis_dict = {auth: analysis.model_dump() for auth, analysis in results.items()}
+
+        if message_id:
+            msg = await db.get(Message, message_id)
+            if msg:
+                msg.is_analysis = True
+                msg.analysis_data = analysis_dict
+                await db.commit()
+                await db.refresh(msg)
+                return msg
+
+        # Fallback: create a summary for the chat bubble if no message_id provided
         summary = f"I have analyzed the document against {', '.join(authorities)}.\n"
         for auth, analysis in results.items():
             summary += f"\n**{auth} Summary:** {analysis.summary[:200]}..."
-
-        # Convert results to dict for JSON storage
-        analysis_dict = {auth: analysis.model_dump() for auth, analysis in results.items()}
 
         msg = await self.add_message(
             db, conversation_id, MessageRole.ASSISTANT, summary, is_analysis=True, analysis_data=analysis_dict

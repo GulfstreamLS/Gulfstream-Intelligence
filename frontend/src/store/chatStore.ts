@@ -18,6 +18,7 @@ interface ChatState {
   replaceConversationId: (oldId: string, newId: string) => void;
   setActiveConversation: (id: string | null) => void;
   appendMessage: (conversationId: string, message: Message) => void;
+  updateMessage: (conversationId: string, messageId: string, patch: Partial<Message>) => void;
   setStreamingContent: (content: string) => void;
   setIsStreaming: (v: boolean) => void;
   getActiveConversation: () => Conversation | null;
@@ -36,7 +37,9 @@ export const useChatStore = create<ChatState>()(
       logout: () => set({ user: null, conversations: [], activeConversationId: null }),
       setConversations: (conversations) => set({ conversations }),
       addConversation: (convo) =>
-        set((s) => ({ conversations: [convo, ...s.conversations] })),
+        set((s) => ({
+          conversations: [convo, ...s.conversations.filter((c) => c.id !== convo.id)],
+        })),
       updateConversation: (id, patch) =>
         set((s) => ({
           conversations: s.conversations.map((c) => (c.id === id ? { ...c, ...patch } : c)),
@@ -59,6 +62,19 @@ export const useChatStore = create<ChatState>()(
         set((s) => ({
           conversations: s.conversations.map((c) =>
             c.id === conversationId ? { ...c, messages: [...c.messages, message] } : c,
+          ),
+        })),
+      updateMessage: (conversationId, messageId, patch) =>
+        set((s) => ({
+          conversations: s.conversations.map((c) =>
+            c.id === conversationId
+              ? {
+                  ...c,
+                  messages: c.messages.map((m) =>
+                    m.id === messageId ? { ...m, ...patch } : m
+                  ),
+                }
+              : c
           ),
         })),
       setStreamingContent: (streamingContent) => set({ streamingContent }),
