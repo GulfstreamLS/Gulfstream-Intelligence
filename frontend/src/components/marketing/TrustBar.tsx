@@ -14,7 +14,7 @@ const TRUST_ITEMS: TrustItem[] = [
   { icon: FolderLock,   text: "Built for confidential submissions & dossiers." },
   { icon: ShieldCheck,  text: "Enterprise-grade security (SOC 2 Type II roadmap)." },
   { icon: Lock,         text: "AES-256 encryption in transit & at rest." },
-  { icon: Cloud,        text: "Hosted on GCS with 99.9% uptime." },
+  { icon: Cloud,        text: "Hosted on GCP with 99.9% uptime." },
 ];
 
 export function TrustBar() {

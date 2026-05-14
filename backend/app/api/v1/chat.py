@@ -437,67 +437,43 @@ async def _stream_full(
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
 
-        # ── STEP 7b: Analysis detection ───────────────────────────────────────
-        # Triggered when the message contains analysis keywords AND a file is attached
-        # to this conversation.  Uses files from THIS request first; falls back to the
-        # legacy hex stored by the old upload endpoint.  On any failure, falls through
-        # to regular AI streaming so nothing breaks.
+        # ── STEP 7b: Analysis detection — capture file content only, run AFTER streaming ──
+        # We detect whether this is an analysis request and capture the file bytes here,
+        # but we do NOT run the analysis yet. The heavy LLM call runs after the AI response
+        # has fully streamed so the user sees output immediately instead of waiting 2+ min.
         _analysis_kw = {"analyze", "analysis", "gap", "audit", "evaluate", "assess"}
         is_analysis_req = bool(convo.active_file_id) and any(t in msg_lower for t in _analysis_kw)
 
-        if is_analysis_req:
-            _content: bytes | None  = None
-            _filename: str | None   = None
-            _filetype: str | None   = None
+        _analysis_content: bytes | None  = None
+        _analysis_filename: str | None   = None
+        _analysis_filetype: str | None   = None
 
+        if is_analysis_req:
             if prepared:
-                # Files uploaded in this same request — use the last one.
-                _p        = prepared[-1]
-                _content  = _p["content"]
-                _filename = _p["filename"]
-                _filetype = _p["ext"]
+                _p                 = prepared[-1]
+                _analysis_content  = _p["content"]
+                _analysis_filename = _p["filename"]
+                _analysis_filetype = _p["ext"]
             elif convo.metadata_:
-                # Follow-up request — try legacy raw-content hex (set by /upload endpoint).
+                # Try legacy raw-content hex first (set by old /upload endpoint).
                 _hex = convo.metadata_.get("last_uploaded_content")
                 if _hex:
-                    _content  = bytes.fromhex(_hex)
-                    _filename = convo.metadata_.get("last_uploaded_filename", "Document")
-                    _filetype = convo.metadata_.get("last_uploaded_type", "txt")
+                    _analysis_content  = bytes.fromhex(_hex)
+                    _analysis_filename = convo.metadata_.get("last_uploaded_filename", "Document")
+                    _analysis_filetype = convo.metadata_.get("last_uploaded_type", "txt")
+                else:
+                    # New upload path stores extracted_text per file — use last file.
+                    _uploaded_files: list[dict] = convo.metadata_.get("uploaded_files") or []
+                    if _uploaded_files:
+                        _uf = _uploaded_files[-1]
+                        _text = _uf.get("extracted_text") or ""
+                        if _text:
+                            _analysis_content  = _text.encode("utf-8")
+                            _analysis_filename = _uf.get("filename", "Document")
+                            _analysis_filetype = "txt"  # already extracted
 
-            if _content and current_user:
-                _effective_auth = convo.authorities or ["Global"]
-                try:
-                    t_analysis = time.perf_counter()
-                    logger.info(
-                        f"[Chat] ◆ analysis start  convo={convo.id}  "
-                        f"file={_filename}  authorities={_effective_auth}"
-                    )
-                    analysis_msg = await chat_service.perform_analysis_for_chat(
-                        db, convo.id, current_user.id,
-                        _content, _filename, _filetype, _effective_auth,
-                    )
-                    logger.info(
-                        f"[Chat] ◆ analysis done  convo={convo.id}  "
-                        f"took={time.perf_counter()-t_analysis:.2f}s"
-                    )
-                    yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
-                    yield f"data: {json.dumps({'type': 'done', 'message_id': str(analysis_msg.id)})}\n\n"
-                    if is_new_convo:
-                        try:
-                            ai_title = await ai_service.generate_title(message, analysis_msg.content[:200])
-                            if ai_title and ai_title != convo.title:
-                                convo.title = ai_title
-                                await db.commit()
-                                yield f"data: {json.dumps({'type': 'title_update', 'id': str(convo.id), 'content': ai_title})}\n\n"
-                        except Exception:
-                            pass
-                    return
-                except Exception as exc:
-                    logger.error(
-                        f"[Chat] ◆ analysis failed, falling through to regular chat  "
-                        f"convo={convo.id}  error={exc}"
-                    )
-                    # Fall through to regular AI streaming.
+            if not _analysis_content:
+                is_analysis_req = False  # No file content available — treat as normal chat
 
         # ── STEP 8: Build system prompt — RAG + doc context in parallel ───────
         selected_authorities = convo.authorities or []
@@ -627,6 +603,33 @@ async def _stream_full(
 
         msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, full_response)
         await db.commit()
+
+        # ── Post-stream: Gap Assessment / Document Intelligence ────────────────
+        # Runs AFTER the AI response has fully streamed so the user sees output
+        # immediately. The analysis event is yielded before 'done' so the frontend
+        # receives it on the same open connection.
+        if is_analysis_req and _analysis_content and current_user:
+            _effective_auth = convo.authorities or ["Global"]
+            try:
+                t_analysis = time.perf_counter()
+                logger.info(
+                    f"[Chat] ◆ analysis start (post-stream)  convo={convo.id}  "
+                    f"file={_analysis_filename}  authorities={_effective_auth}"
+                )
+                analysis_msg = await chat_service.perform_analysis_for_chat(
+                    db, convo.id, current_user.id,
+                    _analysis_content, _analysis_filename, _analysis_filetype, _effective_auth,
+                )
+                logger.info(
+                    f"[Chat] ◆ analysis done  convo={convo.id}  "
+                    f"took={time.perf_counter()-t_analysis:.2f}s"
+                )
+                yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
+            except Exception as exc:
+                logger.error(
+                    f"[Chat] ◆ analysis failed (post-stream)  convo={convo.id}  error={exc}"
+                )
+
         yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
 
         # Generate AI title for new conversations after the response is committed.
