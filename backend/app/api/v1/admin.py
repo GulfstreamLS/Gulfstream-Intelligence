@@ -74,15 +74,28 @@ async def update_subscription(
     _: None = Depends(_verify),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
+    uid = uuid.UUID(user_id)
+
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == uid))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sub_result = await db.execute(
         select(Subscription)
-        .where(Subscription.user_id == uuid.UUID(user_id))
+        .where(Subscription.user_id == uid)
         .order_by(Subscription.created_at.desc())
         .limit(1)
     )
-    sub = result.scalar_one_or_none()
+    sub = sub_result.scalar_one_or_none()
     if not sub:
-        raise HTTPException(status_code=404, detail="Subscription not found for this user")
+        sub = Subscription(
+            user_id=uid,
+            plan=SubscriptionPlan.TRIAL,
+            status=SubscriptionStatus.TRIALING,
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
+        )
+        db.add(sub)
 
     if body.plan is not None:
         if body.plan not in [p.value for p in SubscriptionPlan]:
