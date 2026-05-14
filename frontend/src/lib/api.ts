@@ -277,7 +277,7 @@ export const chatApi = {
             const chunk = JSON.parse(line.slice(6)) as StreamChunk;
             yield chunk;
             if (chunk.type === "delta") {
-              await new Promise<void>(resolve => setTimeout(resolve, 25));
+              await new Promise<void>(resolve => setTimeout(resolve, 0));
             }
           } catch { /* skip malformed */ }
         }
@@ -323,7 +323,7 @@ export const chatApi = {
             // Wait for the next animation frame between delta chunks so the
             // browser paints each word before processing the next one.
             if (chunk.type === "delta") {
-              await new Promise<void>(resolve => setTimeout(resolve, 25));
+              await new Promise<void>(resolve => setTimeout(resolve, 0));
             }
           } catch {
             // skip malformed chunk

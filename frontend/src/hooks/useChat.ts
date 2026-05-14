@@ -83,6 +83,12 @@ export function useChat() {
 
     let resolvedId = params.conversationId ?? null;
     let accumulated = "";
+    let rafId: number | null = null;
+
+    const flushToUI = () => {
+      store.setStreamingContent(accumulated);
+      rafId = null;
+    };
 
     try {
       for await (const chunk of chatApi.send({ ...params, files: fileList })) {
@@ -97,21 +103,13 @@ export function useChat() {
 
         } else if (chunk.type === "delta" && chunk.content) {
           accumulated += chunk.content;
-          store.setStreamingContent(accumulated);
+          if (rafId === null) {
+            rafId = requestAnimationFrame(flushToUI);
+          }
 
         } else if (chunk.type === "analysis") {
           if (resolvedId) {
-            // Stream the analysis text word-by-word before committing to messages
             const analysisContent = chunk.content ?? "";
-            if (analysisContent) {
-              let streamed = "";
-              for (const word of analysisContent.split(" ")) {
-                streamed += (streamed ? " " : "") + word;
-                store.setStreamingContent(streamed);
-                await new Promise<void>(r => setTimeout(r, 25));
-              }
-              store.setStreamingContent("");
-            }
             store.appendMessage(resolvedId, {
               id: chunk.message_id ?? crypto.randomUUID(),
               conversation_id: resolvedId, role: "assistant",
@@ -122,6 +120,7 @@ export function useChat() {
           }
 
         } else if (chunk.type === "done") {
+          if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
           if (accumulated && resolvedId) {
             store.appendMessage(resolvedId, {
               id: chunk.message_id ?? crypto.randomUUID(),

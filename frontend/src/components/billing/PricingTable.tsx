@@ -37,16 +37,26 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   useEffect(() => {
-    // Fetch subscription status
-    subscriptionApi.get().then(setSubscription).catch(() => null);
-    
+    // Fetch subscription status and set toggle to match billing cycle
+    subscriptionApi.get().then(sub => {
+      setSubscription(sub);
+      if (sub?.billing_cycle) {
+        setAnnual(sub.billing_cycle === "annual");
+      }
+    }).catch(() => null);
+
     // Fetch plans
     billingApi.getPlans().then(setPlans).catch(console.error);
 
     // Sync status from Stripe
     billingApi.syncSubscription()
       .then(() => subscriptionApi.get())
-      .then(setSubscription)
+      .then(sub => {
+        setSubscription(sub);
+        if (sub?.billing_cycle) {
+          setAnnual(sub.billing_cycle === "annual");
+        }
+      })
       .catch(() => null);
   }, []);
 

@@ -45,7 +45,8 @@ export function GapTableSection({ data, loading }: { data: GapSummary[]; loading
         <div className="px-8 py-7 border-b border-gs-border">
           <h3 className="text-[14px] font-bold text-gs-text uppercase tracking-[0.1em]">Top Gaps Requiring Attention</h3>
         </div>
-        <table className="w-full text-left">
+        <div className="overflow-x-auto">
+        <table className="w-full text-left min-w-[700px]">
           <thead className="bg-gs-bg border-b border-gs-border">
             <tr className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.15em]">
               <th className="px-8 py-4">Domain</th>
@@ -71,6 +72,7 @@ export function GapTableSection({ data, loading }: { data: GapSummary[]; loading
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Side panel */}

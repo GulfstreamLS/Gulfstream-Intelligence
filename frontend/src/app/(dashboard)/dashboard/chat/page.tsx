@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader";
 import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
 import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
@@ -15,7 +15,8 @@ import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
 function RegulatoryChatPage() {
-  const searchParams = useSearchParams();
+  const router        = useRouter();
+  const searchParams  = useSearchParams();
   const urlConversationId = searchParams.get("conversation");
   const urlProjectId      = searchParams.get("projectId");
 
@@ -244,7 +245,8 @@ function RegulatoryChatPage() {
     setConversationId(null);
     setInput("");
     setSelectedModel(DEFAULT_CHAT_MODEL);
-  }, []);
+    router.replace("/dashboard/chat");
+  }, [router]);
 
   const handleDeleteChat = useCallback((chatId?: string) => {
     const idToDelete = chatId ?? conversationId;
@@ -293,7 +295,7 @@ function RegulatoryChatPage() {
       <div className="flex flex-1 gap-6 min-h-0 px-4 md:px-6 lg:px-8">
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-h-0">
-          <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto scrollbar-hide pr-1">
+          <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pr-1">
             <ChatMessages messages={displayMessages} isLoading={isLoading} onSendMessage={handleSendMessage} />
           </div>
 

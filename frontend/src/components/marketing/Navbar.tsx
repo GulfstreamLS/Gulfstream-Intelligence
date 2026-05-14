@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, X } from "lucide-react";
+import Cookies from "js-cookie";
 import { GsLogo } from "../ui/GsLogo";
 
 const NAV_LINKS = [
@@ -12,6 +13,11 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!Cookies.get("access_token"));
+  }, []);
 
   return (
     <header className="absolute inset-x-0 top-0 z-50">
@@ -38,18 +44,29 @@ export function Navbar() {
         </div>
 
         {/* Desktop CTAs */}
-          <Link
-            href="/login"
-            className="rounded-[4px] border border-[#071B4D] bg-white/70 px-5 py-2.5 text-[13px] font-bold text-[#071B4D] shadow-sm backdrop-blur transition-colors hover:bg-white"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="inline-flex items-center justify-center rounded-[4px] bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#0F2A6B]"
-          >
-            Sign Up Now
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-[4px] bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#0F2A6B]"
+            >
+              Go to Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-[4px] border border-[#071B4D] bg-white/70 px-5 py-2.5 text-[13px] font-bold text-[#071B4D] shadow-sm backdrop-blur transition-colors hover:bg-white"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center rounded-[4px] bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#0F2A6B]"
+              >
+                Sign Up Now
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile right */}
@@ -81,12 +98,20 @@ export function Navbar() {
             </Link>
           ))}
           <div className="pt-3 flex flex-col gap-2">
-            <Link href="/login" className="btn-secondary text-center" onClick={() => setMobileOpen(false)}>
-              Sign In
-            </Link>
-            <Link href="/register" className="btn-primary text-center" onClick={() => setMobileOpen(false)}>
-              Sign Up Now
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard" className="btn-primary text-center" onClick={() => setMobileOpen(false)}>
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="btn-secondary text-center" onClick={() => setMobileOpen(false)}>
+                  Sign In
+                </Link>
+                <Link href="/register" className="btn-primary text-center" onClick={() => setMobileOpen(false)}>
+                  Sign Up Now
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

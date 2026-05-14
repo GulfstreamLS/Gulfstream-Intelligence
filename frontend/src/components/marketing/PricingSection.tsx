@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import Cookies from "js-cookie";
 import { cn } from "../../lib/utils";
 
 interface Plan {
@@ -87,6 +88,11 @@ const PLANS: Plan[] = [
 
 export function PricingSection() {
   const [annual, setAnnual] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!Cookies.get("access_token"));
+  }, []);
 
   return (
     <section className="py-4 lg:py-6 bg-[#F8FAFC] dark:bg-[#071B4D]" id="pricing">
@@ -130,7 +136,7 @@ export function PricingSection() {
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
           {PLANS.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} annual={annual} />
+            <PlanCard key={plan.id} plan={plan} annual={annual} isLoggedIn={isLoggedIn} />
           ))}
         </div>
 
@@ -142,11 +148,14 @@ export function PricingSection() {
   );
 }
 
-function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
+function PlanCard({ plan, annual, isLoggedIn }: { plan: Plan; annual: boolean; isLoggedIn: boolean }) {
   const { name, badge, description, monthlyPrice, annualPrice, features, cta, variant } = plan;
   const price = annual ? annualPrice : monthlyPrice;
   const isEnterprise = variant === "enterprise";
   const isPopular = variant === "popular";
+
+  const ctaLabel = isEnterprise ? cta.label : isLoggedIn ? "Subscribe" : cta.label;
+  const ctaHref  = isEnterprise ? cta.href  : isLoggedIn ? "/dashboard/subscription" : cta.href;
 
   return (
     <div
@@ -221,7 +230,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
 
       {/* CTA */}
       <Link
-        href={cta.href}
+        href={ctaHref}
         className={cn(
           "w-full text-center text-sm font-semibold py-3 rounded-[10px] transition-colors min-h-[44px] flex items-center justify-center mt-2",
           isEnterprise
@@ -231,7 +240,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
             : "border border-gs-blue text-gs-blue bg-white hover:bg-blue-50 dark:bg-transparent dark:text-white dark:border-white/30",
         )}
       >
-        {cta.label}
+        {ctaLabel}
       </Link>
     </div>
   );

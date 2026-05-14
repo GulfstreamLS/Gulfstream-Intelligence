@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
@@ -25,7 +25,7 @@ from app.db.session import get_db
 from app.middleware.auth import get_user_or_none, check_active_subscription
 from app.services.plan_service import get_upload_limit, get_monthly_upload_count
 from app.services.auth_service import auth_service
-from app.models.chat import MessageRole
+from app.models.chat import Conversation as ConversationModel, MessageRole
 from app.models.notification import Notification, NotificationType
 from app.models.organization import MemberRole, MemberStatus, OrganizationMember
 from app.models.user import User
@@ -316,9 +316,6 @@ async def _stream_full(
                 attached_filename=msg_filename,
                 attached_url=None,
             )
-            if not convo.title:
-                convo.title = await chat_service.auto_title_conversation(convo, message)
-
         await db.commit()
 
         # ── STEP 5b: Background task — GCS upload + native extraction + DB ───
@@ -637,11 +634,16 @@ async def _stream_full(
         if is_new_convo and message:
             try:
                 ai_title = await ai_service.generate_title(message, full_response[:200])
-                if ai_title and ai_title != convo.title:
-                    convo.title = ai_title
+                if ai_title:
+                    convo_id_for_title = convo.id
+                    await db.execute(
+                        update(ConversationModel)
+                        .where(ConversationModel.id == convo_id_for_title)
+                        .values(title=ai_title)
+                    )
                     await db.commit()
-                    yield f"data: {json.dumps({'type': 'title_update', 'id': str(convo.id), 'content': ai_title})}\n\n"
-                    logger.info(f"[Chat] title_update  convo={convo.id}  title={ai_title!r}")
+                    yield f"data: {json.dumps({'type': 'title_update', 'id': str(convo_id_for_title), 'content': ai_title})}\n\n"
+                    logger.info(f"[Chat] title_update  convo={convo_id_for_title}  title={ai_title!r}")
             except Exception as exc:
                 logger.warning(f"[Chat] title generation failed  convo={convo.id}  error={exc}")
 

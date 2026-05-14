@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, memo } from "react";
+import { useState, useEffect, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -102,17 +102,48 @@ function SourcePill({ label }: { label: string }) {
   );
 }
 
+const THINKING_MESSAGES = [
+  "initiating…",
+  "compiling…",
+  "analysing…",
+  "cross-referencing…",
+  "scanning…",
+  "mapping…",
+  "consulting…",
+  "reviewing…",
+  "building…",
+  "preparing…",
+  "processing…",
+  "evaluating…",
+];
+
 function ThinkingBubble() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % THINKING_MESSAGES.length);
+        setVisible(true);
+      }, 300);
+    }, 2000);
+    return () => clearInterval(cycle);
+  }, []);
+
   return (
     <div className="flex items-start gap-3">
       <div className="w-8 h-8 bg-gs-card border border-gs-border rounded-full flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
         <Image src="/images/FullLogo_NoBuffer.png" alt="GI" width={22} height={22} className="object-contain" />
       </div>
-      <div className="bg-gs-card border border-gs-border px-5 py-4 rounded-2xl rounded-tl-none shadow-card">
-        <div className="flex gap-1.5 items-center h-5">
-          <span className="w-2 h-2 bg-gs-muted rounded-full animate-bounce [animation-delay:0ms]" />
-          <span className="w-2 h-2 bg-gs-muted rounded-full animate-bounce [animation-delay:150ms]" />
-          <span className="w-2 h-2 bg-gs-muted rounded-full animate-bounce [animation-delay:300ms]" />
+      <div className="bg-gs-card border border-gs-border px-5 py-4 rounded-2xl rounded-tl-none shadow-card min-w-[220px]">
+        <div
+          className="flex items-center gap-2 h-5 transition-opacity duration-300"
+          style={{ opacity: visible ? 1 : 0 }}
+        >
+          <span className="w-1.5 h-1.5 bg-gs-blue rounded-full animate-pulse shrink-0" />
+          <span className="text-xs text-gs-muted font-medium whitespace-nowrap">{THINKING_MESSAGES[idx]}</span>
         </div>
       </div>
     </div>
@@ -367,54 +398,50 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
         )}
 
         <div className="prose-gs text-sm text-gs-muted leading-relaxed">
-          {msg.isTyping ? (
-            <p className="whitespace-pre-wrap">{msg.content}</p>
-          ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({ href, children }) => {
-                  const isFile = href && /\.(pptx|pdf|docx|xlsx|zip|csv)(\?.*)?$/i.test(href);
-                  if (isFile && href) {
-                    const ext = href.split(".").pop()?.split("?")[0]?.toUpperCase() ?? "FILE";
-                    const extColors: Record<string, string> = {
-                      PPTX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-                      PDF:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                      DOCX: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                      XLSX: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                    };
-                    const badgeClass = extColors[ext] ?? "bg-gs-muted/20 text-gs-muted";
-                    const label = (Array.isArray(children) ? children.join("") : String(children ?? "")).trim() || `Download ${ext}`;
-                    return (
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 mt-3 px-4 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-blue hover:bg-gs-blue/5 transition-all no-underline group w-fit max-w-full"
-                      >
-                        <div className="p-2 bg-gs-card border border-gs-border rounded-lg shrink-0 group-hover:border-gs-blue/30 transition-colors">
-                          <Download size={16} className="text-gs-blue" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-semibold text-gs-text truncate max-w-[220px] group-hover:text-gs-blue transition-colors">{label}</span>
-                          <span className="text-[11px] text-gs-muted">Click to open</span>
-                        </div>
-                        <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}>{ext}</span>
-                        <ExternalLink size={13} className="shrink-0 text-gs-muted group-hover:text-gs-blue transition-colors" />
-                      </a>
-                    );
-                  }
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => {
+                const isFile = href && /\.(pptx|pdf|docx|xlsx|zip|csv)(\?.*)?$/i.test(href);
+                if (isFile && href) {
+                  const ext = href.split(".").pop()?.split("?")[0]?.toUpperCase() ?? "FILE";
+                  const extColors: Record<string, string> = {
+                    PPTX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                    PDF:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                    DOCX: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                    XLSX: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                  };
+                  const badgeClass = extColors[ext] ?? "bg-gs-muted/20 text-gs-muted";
+                  const label = (Array.isArray(children) ? children.join("") : String(children ?? "")).trim() || `Download ${ext}`;
                   return (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-gs-blue underline hover:opacity-80">
-                      {children}
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 mt-3 px-4 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-blue hover:bg-gs-blue/5 transition-all no-underline group w-fit max-w-full"
+                    >
+                      <div className="p-2 bg-gs-card border border-gs-border rounded-lg shrink-0 group-hover:border-gs-blue/30 transition-colors">
+                        <Download size={16} className="text-gs-blue" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-gs-text truncate max-w-[220px] group-hover:text-gs-blue transition-colors">{label}</span>
+                        <span className="text-[11px] text-gs-muted">Click to open</span>
+                      </div>
+                      <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}>{ext}</span>
+                      <ExternalLink size={13} className="shrink-0 text-gs-muted group-hover:text-gs-blue transition-colors" />
                     </a>
                   );
-                },
-              }}
-            >
-              {msg.content}
-            </ReactMarkdown>
-          )}
+                }
+                return (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-gs-blue underline hover:opacity-80">
+                    {children}
+                  </a>
+                );
+              },
+            }}
+          >
+            {msg.content}
+          </ReactMarkdown>
         </div>
 
         {/* Rich analysis data card — only on committed (non-typing) analysis messages */}
