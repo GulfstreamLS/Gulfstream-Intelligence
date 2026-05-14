@@ -55,13 +55,13 @@ class Gap(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("analysis_documents.id", ondelete="CASCADE"), nullable=False, index=True
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
-    domain: Mapped[str] = mapped_column(String(100))  # CMC, Nonclinical, etc.
-    severity: Mapped[SeverityLevel] = mapped_column(String(20), nullable=False)
+    domain: Mapped[str] = mapped_column(String(255))  # CMC, Nonclinical, etc.
+    severity: Mapped[SeverityLevel] = mapped_column(String(50), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     regulatory_impact: Mapped[str] = mapped_column(Text)
     recommended_action: Mapped[str] = mapped_column(Text)
     quoted_excerpt: Mapped[str | None] = mapped_column(Text)
-    page_reference: Mapped[str | None] = mapped_column(String(50))
+    page_reference: Mapped[str | None] = mapped_column(String(500))
 
     document: Mapped["AnalysisDocument"] = relationship(back_populates="gaps")
 
@@ -73,7 +73,7 @@ class Insight(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("analysis_documents.id", ondelete="CASCADE"), nullable=False, index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    category: Mapped[str | None] = mapped_column(String(100))
+    category: Mapped[str | None] = mapped_column(String(255))
 
     document: Mapped["AnalysisDocument"] = relationship(back_populates="insights")
 
@@ -86,6 +86,6 @@ class Action(Base, UUIDMixin, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    priority: Mapped[str | None] = mapped_column(String(20))
+    priority: Mapped[str | None] = mapped_column(String(50))
 
     document: Mapped["AnalysisDocument"] = relationship(back_populates="actions")

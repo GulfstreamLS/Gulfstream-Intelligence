@@ -9,6 +9,7 @@ import {
   ExternalLink, User, Check, Download,
   Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
   AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
+  FileDown, Monitor,
 } from "lucide-react";
 import type { DisplayMessage, AnalysisAuthority } from "../../types/chat";
 
@@ -361,13 +362,29 @@ function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
 const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
   // const [vote, setVote]       = useState<"up" | "down" | null>(null);
   const [copied, setCopied]   = useState(false);
-  // const [shared, setShared]   = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleExport = async (format: string) => {
+    if (!msg.id) return;
+    setExporting(format);
+    try {
+      const { chatApi } = await import("../../lib/api");
+      const { url } = await chatApi.exportMessage(msg.id, format);
+      if (url) {
+        window.open(url, "_blank");
+      }
+    } catch (error) {
+      console.error("Export failed", error);
+    } finally {
+      setExporting(null);
+    }
   };
 
   // const handleShare = () => {
@@ -490,6 +507,30 @@ const AIMessage = memo(function AIMessage({ msg }: { msg: DisplayMessage }) {
                 >
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
+
+                {msg.isAnalysis && msg.analysisData && (
+                  <>
+                    <button
+                      onClick={() => handleExport("pdf")}
+                      disabled={!!exporting}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "pdf" ? "text-gs-blue bg-gs-blue/10 animate-pulse" : "hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
+                      title="Download PDF Analysis"
+                    >
+                      <FileDown size={14} />
+                      <span className="text-[9px] font-bold tracking-tighter">PDF</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleExport("ppt")}
+                      disabled={!!exporting}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "ppt" ? "text-gs-orange bg-gs-orange/10 animate-pulse" : "hover:text-gs-orange hover:bg-gs-bg text-gs-muted"}`}
+                      title="Download PPT Analysis"
+                    >
+                      <Monitor size={14} />
+                      <span className="text-[9px] font-bold tracking-tighter">PPT</span>
+                    </button>
+                  </>
+                )}
 
                 {/* <button
                   onClick={handleShare}

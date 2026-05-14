@@ -396,11 +396,10 @@ async def _stream_full(
             return
 
         # ── STEP 7: Detect export request ─────────────────────────────────────
-        export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert"]
+        export_triggers = ["pdf", "docx", "word", "pptx", "ppt", "powerpoint", "export", "download", "convert", "report"]
         msg_lower = message.lower()
         is_export = any(t in msg_lower for t in export_triggers) and bool(convo.active_file_id)
 
-        pending_export = False
         if is_export:
             # Query directly to avoid accessing the (potentially expired) messages relationship
             from app.models.chat import Message as _Msg
@@ -435,16 +434,14 @@ async def _stream_full(
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
             else:
-                # No previous analysis found; flag for generation after this request's analysis.
-                pending_export = True
+                pass
 
         # ── STEP 7b: Analysis detection — capture file content only, run AFTER streaming ──
         # We detect whether this is an analysis request and capture the file bytes here,
         # but we do NOT run the analysis yet. The heavy LLM call runs after the AI response
         # has fully streamed so the user sees output immediately instead of waiting 2+ min.
         _analysis_kw = {"analyze", "analysis", "gap", "audit", "evaluate", "assess"}
-        # If they asked for a PDF/PPT on the first message, we force analysis so we have data to export.
-        is_analysis_req = bool(convo.active_file_id) and (any(t in msg_lower for t in _analysis_kw) or pending_export)
+        is_analysis_req = bool(convo.active_file_id) and any(t in msg_lower for t in _analysis_kw)
 
         _analysis_content: bytes | None  = None
         _analysis_filename: str | None   = None
@@ -627,30 +624,6 @@ async def _stream_full(
                     f"took={time.perf_counter()-t_analysis:.2f}s"
                 )
                 yield f"data: {json.dumps({'type': 'analysis', 'content': analysis_msg.content, 'data': analysis_msg.analysis_data, 'message_id': str(analysis_msg.id)})}\n\n"
-
-                # ── Handle pending export (from first message) ────────────────
-                if pending_export:
-                    from app.services.export_service import export_service
-                    fname = _analysis_filename or "Document"
-                    url = label = None
-                    if "pdf" in msg_lower:
-                        url, label = await export_service.generate_pdf(analysis_msg.analysis_data, fname), "PDF"
-                    elif any(w in msg_lower for w in ["word", "docx", "doc"]):
-                        url, label = await export_service.generate_docx(analysis_msg.analysis_data, fname), "Word"
-                    elif any(w in msg_lower for w in ["ppt", "pptx", "power", "presentation"]):
-                        url, label = await export_service.generate_pptx(analysis_msg.analysis_data, fname), "PowerPoint"
-
-                    if url and label:
-                        ext = "pdf" if label == "PDF" else ("docx" if label == "Word" else "pptx")
-                        abs_url = _resolve_export_url(url)
-                        export_text = f"\n\n✅ **{label} Generated Successfully.**\n\n[Regulatory Analysis Report.{ext}]({abs_url})"
-
-                        # Append to the AI response message
-                        full_response += export_text
-                        msg.content = full_response
-                        await db.commit()
-
-                        yield f"data: {json.dumps({'type': 'delta', 'content': export_text})}\n\n"
             except Exception as exc:
                 logger.error(
                     f"[Chat] ◆ analysis failed (post-stream)  convo={convo.id}  error={exc}"
@@ -808,6 +781,53 @@ async def delete_conversation(
                 resource_type="chat",
                 resource_id=str(convo_id),
             ))
+
+
+@router.get("/messages/{message_id}/export")
+async def export_message_analysis(
+    message_id: uuid.UUID,
+    format: str = "pdf",
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_user_or_none),
+):
+    """Directly export a specific analysis message to PDF/PPT/Word."""
+    from app.models.chat import Message, Conversation
+    msg = await db.get(Message, message_id)
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    if not msg.is_analysis or not msg.analysis_data:
+        # Fallback: check if it's a normal message but there's a file in the convo
+        convo = await db.get(Conversation, msg.conversation_id)
+        res = await db.execute(
+            select(Message)
+            .where(Message.conversation_id == msg.conversation_id, Message.is_analysis == True)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        msg = res.scalar_one_or_none()
+        if not msg or not msg.analysis_data:
+            raise HTTPException(status_code=404, detail="No analysis data found to export")
+    else:
+        convo = await db.get(Conversation, msg.conversation_id)
+
+    from app.services.export_service import export_service
+    filename = (convo.metadata_ or {}).get("last_uploaded_filename", "Document")
+
+    try:
+        if format == "pdf":
+            url = await export_service.generate_pdf(msg.analysis_data, filename)
+        elif format in ["word", "docx"]:
+            url = await export_service.generate_docx(msg.analysis_data, filename)
+        elif format in ["ppt", "pptx"]:
+            url = await export_service.generate_pptx(msg.analysis_data, filename)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid format")
+    except Exception as e:
+        logger.error(f"Export failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"url": _resolve_export_url(url)}
 
 
 @router.patch("/conversations/{conversation_id}/authorities", response_model=ConversationResponse)

@@ -231,6 +231,9 @@ export const chatApi = {
     return res.json();
   },
 
+  exportMessage: (messageId: string, format: string) =>
+    request<{ url: string }>(`/chat/messages/${messageId}/export?format=${format}`),
+
   async *send(params: {
     conversationId?: string | null;
     message?: string;
