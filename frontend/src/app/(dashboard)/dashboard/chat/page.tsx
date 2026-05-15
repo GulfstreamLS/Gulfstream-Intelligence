@@ -10,7 +10,7 @@ import type { RecentChatItem, InsightCounts } from "../../../../components/regul
 import type { DisplayMessage, AnalysisAuthority } from "../../../../types/chat";
 import { useChatStore } from "../../../../store/chatStore";
 import { useChat }      from "../../../../hooks/useChat";
-import { chatApi, organizationApi, notificationApi } from "../../../../lib/api";
+import { chatApi, organizationApi } from "../../../../lib/api";
 import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
@@ -275,12 +275,14 @@ function RegulatoryChatPage() {
   // Fetch insights from API (analysis_data doesn't arrive via SSE)
   const [insightCounts, setInsightCounts] = useState<InsightCounts | null>(null);
 
-  const fetchInsights = useCallback(async (id: string) => {
+  // Returns true when non-zero insight counts were found (used to stop polling early).
+  const fetchInsights = useCallback(async (id: string): Promise<boolean> => {
     try {
       const data = await chatApi.getInsights(id);
       const hasAny = data.guidelines > 0 || data.differences > 0 || data.riskAreas > 0 || data.recommendations > 0;
       setInsightCounts(hasAny ? data : null);
-    } catch { /* silently ignore */ }
+      return hasAny;
+    } catch { return false; }
   }, []);
 
   // Fetch when conversation changes
@@ -289,37 +291,43 @@ function RegulatoryChatPage() {
     fetchInsights(conversationId);
   }, [conversationId, fetchInsights]);
 
-  // Refetch insights after streaming ends (background analysis may have completed)
+  // After streaming ends, poll /insights every 5 s for up to 2 min.
+  // Stops early the moment non-zero counts come back (analysis written to DB).
   const wasStreamingRef = useRef(false);
+  const insightPollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (wasStreamingRef.current && !isStreaming) {
-      // Fetch insights immediately and again after 8 s to catch background analysis.
-      if (conversationId) {
-        fetchInsights(conversationId);
-        setTimeout(() => fetchInsights(conversationId), 8000);
-      }
+    if (wasStreamingRef.current && !isStreaming && conversationId) {
+      // Fetch immediately first
+      fetchInsights(conversationId);
+
+      // Clear any previous poll
+      if (insightPollRef.current) clearInterval(insightPollRef.current);
+
+      let polls = 0;
+      insightPollRef.current = setInterval(async () => {
+        polls++;
+        if (polls >= 24) { // 24 × 5 s = 2 min max
+          clearInterval(insightPollRef.current!);
+          insightPollRef.current = null;
+          return;
+        }
+        const found = await fetchInsights(conversationId);
+        if (found) {
+          clearInterval(insightPollRef.current!);
+          insightPollRef.current = null;
+        }
+      }, 5000);
     }
     wasStreamingRef.current = isStreaming;
   }, [isStreaming, conversationId, fetchInsights]);
 
-  // Poll for EXPORT_READY notifications after streaming ends so insights update
-  // when the background PDF/PPT/DOCS export completes (fires up to 12×, every 5 s).
+  // Clean up insight poll when conversation changes or component unmounts
   useEffect(() => {
-    if (!conversationId || isStreaming) return;
-    let count = 0;
-    const id = setInterval(async () => {
-      if (++count > 12) { clearInterval(id); return; }
-      try {
-        const notifs = await notificationApi.list(20);
-        const ready = notifs.some(
-          n => n.type === "export_ready" && n.resource_id === conversationId && !n.is_read
-        );
-        if (ready) { fetchInsights(conversationId); clearInterval(id); }
-      } catch { /* ignore */ }
-    }, 5000);
-    return () => clearInterval(id);
-  }, [conversationId, isStreaming, fetchInsights]);
+    return () => {
+      if (insightPollRef.current) { clearInterval(insightPollRef.current); insightPollRef.current = null; }
+    };
+  }, [conversationId]);
 
   const recentChats: RecentChatItem[] = conversations.slice(0, 10).map(c => ({
     id:    c.id,

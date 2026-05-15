@@ -90,7 +90,7 @@ export function useChat() {
 
     // Advances the visible streaming content one step at a time.
     // When the animation catches up AND a commit is pending, executes it.
-    const CHARS_PER_TICK = 12; // ~250 chars/sec at 60 fps — fast but visibly animated
+    const CHARS_PER_TICK = 8; // ~250 chars/sec at 60 fps — fast but visibly animated
     const tick = () => {
       if (displayed.length < accumulated.length) {
         displayed = accumulated.slice(0, Math.min(displayed.length + CHARS_PER_TICK, accumulated.length));
