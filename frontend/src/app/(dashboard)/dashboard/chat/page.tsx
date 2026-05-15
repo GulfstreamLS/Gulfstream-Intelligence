@@ -6,11 +6,11 @@ import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader"
 import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
 import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
 import { ChatSidebar }  from "../../../../components/regulatory-chat/ChatSidebar";
-import type { RecentChatItem } from "../../../../components/regulatory-chat/ChatSidebar";
+import type { RecentChatItem, InsightCounts } from "../../../../components/regulatory-chat/ChatSidebar";
 import type { DisplayMessage, AnalysisAuthority } from "../../../../types/chat";
 import { useChatStore } from "../../../../store/chatStore";
 import { useChat }      from "../../../../hooks/useChat";
-import { chatApi, organizationApi } from "../../../../lib/api";
+import { chatApi, organizationApi, notificationApi } from "../../../../lib/api";
 import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
@@ -26,7 +26,11 @@ function RegulatoryChatPage() {
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(urlProjectId);
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
+  const [selectedModel, setSelectedModel] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_CHAT_MODEL;
+    const saved = localStorage.getItem("chat_model");
+    return (saved && isChatModelId(saved)) ? saved : DEFAULT_CHAT_MODEL;
+  });
   const [isOrgOwner, setIsOrgOwner] = useState(false);
   // Pre-populate displayMessages from sessionStorage on the very first render so
   // messages.length is never 0 when there's a pending auto-send. This avoids any
@@ -230,6 +234,7 @@ function RegulatoryChatPage() {
   const handleModelChange = useCallback((model: string) => {
     if (!isChatModelId(model)) return;
     setSelectedModel(model);
+    localStorage.setItem("chat_model", model);
     if (conversationId) {
       updateConversation(conversationId, { model });
       chatApi.updateConversation(conversationId, { model }).catch(console.error);
@@ -266,6 +271,55 @@ function RegulatoryChatPage() {
   }, [deleteConfirmId, conversationId, removeConversation]);
 
   // ── Sidebar data ─────────────────────────────────────────────────────────────
+
+  // Fetch insights from API (analysis_data doesn't arrive via SSE)
+  const [insightCounts, setInsightCounts] = useState<InsightCounts | null>(null);
+
+  const fetchInsights = useCallback(async (id: string) => {
+    try {
+      const data = await chatApi.getInsights(id);
+      const hasAny = data.guidelines > 0 || data.differences > 0 || data.riskAreas > 0 || data.recommendations > 0;
+      setInsightCounts(hasAny ? data : null);
+    } catch { /* silently ignore */ }
+  }, []);
+
+  // Fetch when conversation changes
+  useEffect(() => {
+    if (!conversationId) { setInsightCounts(null); return; }
+    fetchInsights(conversationId);
+  }, [conversationId, fetchInsights]);
+
+  // Refetch insights after streaming ends (background analysis may have completed)
+  const wasStreamingRef = useRef(false);
+
+  useEffect(() => {
+    if (wasStreamingRef.current && !isStreaming) {
+      // Fetch insights immediately and again after 8 s to catch background analysis.
+      if (conversationId) {
+        fetchInsights(conversationId);
+        setTimeout(() => fetchInsights(conversationId), 8000);
+      }
+    }
+    wasStreamingRef.current = isStreaming;
+  }, [isStreaming, conversationId, fetchInsights]);
+
+  // Poll for EXPORT_READY notifications after streaming ends so insights update
+  // when the background PDF/PPT/DOCS export completes (fires up to 12×, every 5 s).
+  useEffect(() => {
+    if (!conversationId || isStreaming) return;
+    let count = 0;
+    const id = setInterval(async () => {
+      if (++count > 12) { clearInterval(id); return; }
+      try {
+        const notifs = await notificationApi.list(20);
+        const ready = notifs.some(
+          n => n.type === "export_ready" && n.resource_id === conversationId && !n.is_read
+        );
+        if (ready) { fetchInsights(conversationId); clearInterval(id); }
+      } catch { /* ignore */ }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [conversationId, isStreaming, fetchInsights]);
 
   const recentChats: RecentChatItem[] = conversations.slice(0, 10).map(c => ({
     id:    c.id,
@@ -320,6 +374,7 @@ function RegulatoryChatPage() {
             initialProjectId={selectedProjectId ?? undefined}
             onProjectChange={handleProjectChange}
             onDeleteChat={(id) => handleDeleteChat(id)}
+            insightCounts={insightCounts}
           />
         </div>
       </div>
@@ -338,6 +393,7 @@ function RegulatoryChatPage() {
               initialProjectId={selectedProjectId ?? undefined}
               onProjectChange={handleProjectChange}
               onDeleteChat={(id) => handleDeleteChat(id)}
+              insightCounts={insightCounts}
             />
           </div>
         </div>

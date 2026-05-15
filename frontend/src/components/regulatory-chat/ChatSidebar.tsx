@@ -22,36 +22,43 @@ const ALL_AUTHORITIES = [
   { flag: "🇬🇧", name: "MHRA" },
 ];
 
-const INSIGHTS = [
+const INSIGHT_DEFINITIONS = [
   {
     icon: FileText,
-    count: 23,
+    key: "guidelines" as const,
     label: "Relevant Guidelines",
     color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400",
     query: "List the most relevant regulatory guidelines for my current gene therapy program",
   },
   {
     icon: MessageSquare,
-    count: 7,
+    key: "differences" as const,
     label: "Key Differences",
     color: "bg-purple-50 text-gs-purple dark:bg-purple-900/20",
     query: "What are the key regulatory differences between EMA and FDA for my target program?",
   },
   {
     icon: AlertCircle,
-    count: 5,
+    key: "riskAreas" as const,
     label: "Risk Areas",
     color: "bg-orange-50 text-gs-orange dark:bg-orange-900/20",
     query: "What are the main regulatory risk areas I should be aware of for this program?",
   },
   {
     icon: Lightbulb,
-    count: 12,
+    key: "recommendations" as const,
     label: "Recommendations",
     color: "bg-blue-50 text-gs-blue dark:bg-gs-blue/10",
     query: "What are your top regulatory strategy recommendations for my current program?",
   },
 ];
+
+export interface InsightCounts {
+  guidelines: number;
+  differences: number;
+  riskAreas: number;
+  recommendations: number;
+}
 
 const SUGGESTED_PROMPTS = [
   "Compare EMA vs FDA requirements for gene therapy",
@@ -78,6 +85,7 @@ interface ChatSidebarProps {
   onProjectChange?: (projectId: string | null) => void;
   initialProjectId?: string;
   onDeleteChat?: (chatId: string) => void;
+  insightCounts?: InsightCounts | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -91,6 +99,7 @@ export function ChatSidebar({
   onProjectChange,
   initialProjectId,
   onDeleteChat,
+  insightCounts,
 }: ChatSidebarProps) {
   // Projects fetched from API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -346,28 +355,40 @@ export function ChatSidebar({
 
       {/* ── Key Insights ── */}
       <div className="bg-gs-card p-5 rounded-card border border-gs-border shadow-card">
-        <h2 className="text-xs font-semibold text-gs-muted uppercase tracking-wider mb-2">
-          Key Insights
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-semibold text-gs-muted uppercase tracking-wider">
+            Key Insights
+          </h2>
+          {insightCounts && (
+            <span className="text-[10px] font-semibold text-gs-green bg-gs-green/10 px-2 py-0.5 rounded-full">
+              From analysis
+            </span>
+          )}
+        </div>
         <p className="text-[11px] text-gs-muted mb-3">Click any insight to ask about it</p>
         <div>
-          {INSIGHTS.map(({ icon: Icon, count, label, color, query }) => (
-            <button
-              key={label}
-              onClick={() => onSendMessage(query)}
-              className="w-full flex items-center justify-between py-3 border-b border-gs-border last:border-0 hover:bg-gs-bg -mx-1 px-1 rounded-lg transition-colors group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-lg ${color}`}>
-                  <Icon size={15} />
+          {INSIGHT_DEFINITIONS.map(({ icon: Icon, key, label, color, query }) => {
+            const count = insightCounts?.[key];
+            return (
+              <button
+                key={label}
+                onClick={() => onSendMessage(query)}
+                className="w-full flex items-center justify-between py-3 border-b border-gs-border last:border-0 hover:bg-gs-bg -mx-1 px-1 rounded-lg transition-colors group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg ${color}`}>
+                    <Icon size={15} />
+                  </div>
+                  <span className="text-[13px] font-semibold text-gs-muted group-hover:text-gs-text transition-colors">
+                    {label}
+                  </span>
                 </div>
-                <span className="text-[13px] font-semibold text-gs-muted group-hover:text-gs-text transition-colors">
-                  {label}
+                <span className={`text-base font-bold ${count != null ? "text-gs-text" : "text-gs-muted/40"}`}>
+                  {count != null ? count : "—"}
                 </span>
-              </div>
-              <span className="text-base font-bold text-gs-text">{count}</span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -84,11 +84,24 @@ export function useChat() {
 
     let resolvedId = params.conversationId ?? null;
     let accumulated = "";
-    let rafId: number | null = null;
+    let displayed = "";
+    let animIntervalId: ReturnType<typeof setInterval> | null = null;
+    let pendingCommit: (() => void) | null = null;
 
-    const flushToUI = () => {
-      store.setStreamingContent(accumulated);
-      rafId = null;
+    // Advances the visible streaming content one step at a time.
+    // When the animation catches up AND a commit is pending, executes it.
+    const CHARS_PER_TICK = 12; // ~250 chars/sec at 60 fps — fast but visibly animated
+    const tick = () => {
+      if (displayed.length < accumulated.length) {
+        displayed = accumulated.slice(0, Math.min(displayed.length + CHARS_PER_TICK, accumulated.length));
+        store.setStreamingContent(displayed);
+      } else if (pendingCommit) {
+        clearInterval(animIntervalId!);
+        animIntervalId = null;
+        const commit = pendingCommit;
+        pendingCommit = null;
+        commit();
+      }
     };
 
     try {
@@ -97,21 +110,18 @@ export function useChat() {
         if (chunk.type === "conversation_ready") {
           resolvedId = chunk.id!;
           if (tempId) {
-            // Swap temp conversation → real server ID, preserving optimistic messages
             store.replaceConversationId(tempId, chunk.id!);
             params.onConversationReady?.(chunk.id!);
           }
 
         } else if (chunk.type === "delta" && chunk.content) {
           accumulated += chunk.content;
-          if (rafId === null) {
-            rafId = requestAnimationFrame(flushToUI);
+          if (animIntervalId === null) {
+            animIntervalId = setInterval(tick, 16);
           }
 
         } else if (chunk.type === "analysis") {
           if (resolvedId && chunk.message_id) {
-            // Update the existing assistant message with analysis data and is_analysis flag.
-            // This attaches the buttons/cards to the bubble that was just streamed.
             store.updateMessage(resolvedId, chunk.message_id, {
               is_analysis: true,
               analysis_data: chunk.data ?? null,
@@ -119,19 +129,29 @@ export function useChat() {
           }
 
         } else if (chunk.type === "done") {
-          if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-          if (accumulated && resolvedId) {
-            store.appendMessage(resolvedId, {
-              id: chunk.message_id ?? crypto.randomUUID(),
-              conversation_id: resolvedId, role: "assistant",
-              content: accumulated, token_count: null,
-              created_at: new Date().toISOString(),
-            });
+          // Don't commit immediately — let the animation finish first.
+          // tick() will call pendingCommit once displayed catches up to accumulated.
+          const msgId = chunk.message_id ?? crypto.randomUUID();
+          pendingCommit = () => {
+            if (accumulated && resolvedId) {
+              store.appendMessage(resolvedId, {
+                id: msgId,
+                conversation_id: resolvedId,
+                role: "assistant",
+                content: accumulated,
+                token_count: null,
+                created_at: new Date().toISOString(),
+              });
+            }
+            store.setIsStreaming(false);
+            store.setStreamingContent("");
+          };
+          if (animIntervalId === null) {
+            // No animation running (empty response) — commit immediately.
+            const commit = pendingCommit;
+            pendingCommit = null;
+            commit();
           }
-          // Clear streaming state immediately — title_update may still arrive on the
-          // same connection, and we don't want to hold the bubble open for it.
-          store.setIsStreaming(false);
-          store.setStreamingContent("");
 
         } else if (chunk.type === "title_update") {
           const target = resolvedId ?? tempId;
@@ -150,20 +170,28 @@ export function useChat() {
           }
         }
       }
+      // For loop exited normally.
+      // If pendingCommit is set, the interval is still running and will commit when caught up.
+      // If neither is set, the stream ended without a done chunk — force cleanup.
+      if (pendingCommit === null && animIntervalId === null) {
+        store.setIsStreaming(false);
+        store.setStreamingContent("");
+      }
     } catch (error) {
+      // On error, cancel any running animation and clean up immediately.
+      if (animIntervalId !== null) { clearInterval(animIntervalId); animIntervalId = null; }
+      pendingCommit = null;
       const errorTarget = resolvedId ?? tempId;
       if (!accumulated && errorTarget) {
         const content = isPaymentRequiredError(error)
           ? "Your free trial has ended. Please upgrade your plan from Subscription to continue using chat."
           : "The request could not be completed. Please try again.";
-
         store.appendMessage(errorTarget, {
           id: crypto.randomUUID(), conversation_id: errorTarget,
           role: "assistant", content,
           token_count: null, created_at: new Date().toISOString(),
         });
       }
-    } finally {
       store.setIsStreaming(false);
       store.setStreamingContent("");
     }

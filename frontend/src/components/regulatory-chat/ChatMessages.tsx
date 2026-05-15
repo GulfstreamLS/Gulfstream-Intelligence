@@ -1,7 +1,7 @@
 "use client";
 
+import React, { useState, useEffect, memo } from "react";
 import Image from "next/image";
-import { useState, useEffect, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -360,16 +360,88 @@ function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
   );
 }
 
+// Shared ReactMarkdown components — defined outside the component so the object
+// reference is stable and React doesn't remount on every render.
+const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>["components"] = {
+  a: ({ href, children }) => {
+    const isFile = href && /\.(pptx|pdf|docx|xlsx|zip|csv)(\?.*)?$/i.test(href);
+    if (isFile && href) {
+      const ext = href.split(".").pop()?.split("?")[0]?.toUpperCase() ?? "FILE";
+      const extColors: Record<string, string> = {
+        PPTX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+        PDF:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+        DOCX: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+        XLSX: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      };
+      const badgeClass = extColors[ext] ?? "bg-gs-muted/20 text-gs-muted";
+      const label = (Array.isArray(children) ? children.join("") : String(children ?? "")).trim() || `Download ${ext}`;
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 mt-3 px-4 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-blue hover:bg-gs-blue/5 transition-all no-underline group w-fit max-w-full"
+        >
+          <div className="p-2 bg-gs-card border border-gs-border rounded-lg shrink-0 group-hover:border-gs-blue/30 transition-colors">
+            <Download size={16} className="text-gs-blue" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold text-gs-text truncate max-w-[220px] group-hover:text-gs-blue transition-colors">{label}</span>
+            <span className="text-[11px] text-gs-muted">Click to open</span>
+          </div>
+          <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}>{ext}</span>
+          <ExternalLink size={13} className="shrink-0 text-gs-muted group-hover:text-gs-blue transition-colors" />
+        </a>
+      );
+    }
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-gs-blue underline hover:opacity-80">
+        {children}
+      </a>
+    );
+  },
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-4 rounded-xl border border-gs-border shadow-sm">
+      <table className="w-full text-sm border-collapse">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-gs-blue/10 dark:bg-gs-blue/15">
+      {children}
+    </thead>
+  ),
+  tbody: ({ children }) => (
+    <tbody className="divide-y divide-gs-border">
+      {children}
+    </tbody>
+  ),
+  tr: ({ children }) => (
+    <tr className="even:bg-gs-bg/60 transition-colors hover:bg-gs-blue/5">
+      {children}
+    </tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-4 py-3 text-left text-[11px] font-bold text-gs-blue uppercase tracking-wider border-b border-gs-border whitespace-nowrap">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-4 py-3 text-[13px] text-gs-text leading-relaxed align-top">
+      {children}
+    </td>
+  ),
+};
+
 const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
   const { conversations, activeConversationId } = useChatStore();
   const currentConvo = conversations.find(c => c.id === activeConversationId);
-  
-  // Aggressive check: show buttons if the message is already marked as analysis,
-  // OR if the conversation has any indicators of an uploaded file.
-  const hasFiles = !!currentConvo?.uploaded_filename || 
-                   !!currentConvo?.active_file_id || 
+
+  const hasFiles = !!currentConvo?.uploaded_filename ||
+                   !!currentConvo?.active_file_id ||
                    currentConvo?.messages.some(m => !!m.attached_filename);
-                   
+
   const canExport = msg.isAnalysis || msg.isAnalysisPotential || hasFiles;
 
   const [copied, setCopied]   = useState(false);
@@ -396,7 +468,6 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
     setExportToast(null);
     try {
       const { chatApi } = await import("../../lib/api");
-      // Cast to a wider type: API may return {url} on success or {detail} on 202 pending
       const res = await chatApi.exportMessage(msg.id, format) as unknown as { url?: string; detail?: string };
       if (res.url) {
         window.open(res.url, "_blank");
@@ -409,18 +480,6 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
       setExporting(null);
     }
   };
-
-  // const handleShare = () => {
-  //   const url = `${window.location.origin}${window.location.pathname}`;
-  //   if (navigator.share) {
-  //     navigator.share({ title: "Regulatory Chat", text: msg.content, url });
-  //   } else {
-  //     navigator.clipboard.writeText(url).then(() => {
-  //       setShared(true);
-  //       setTimeout(() => setShared(false), 2000);
-  //     });
-  //   }
-  // };
 
   return (
     <div className="flex items-start gap-3">
@@ -438,48 +497,7 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
         )}
 
         <div className="prose-gs text-sm text-gs-muted leading-relaxed">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => {
-                const isFile = href && /\.(pptx|pdf|docx|xlsx|zip|csv)(\?.*)?$/i.test(href);
-                if (isFile && href) {
-                  const ext = href.split(".").pop()?.split("?")[0]?.toUpperCase() ?? "FILE";
-                  const extColors: Record<string, string> = {
-                    PPTX: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-                    PDF:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                    DOCX: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                    XLSX: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                  };
-                  const badgeClass = extColors[ext] ?? "bg-gs-muted/20 text-gs-muted";
-                  const label = (Array.isArray(children) ? children.join("") : String(children ?? "")).trim() || `Download ${ext}`;
-                  return (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 mt-3 px-4 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-blue hover:bg-gs-blue/5 transition-all no-underline group w-fit max-w-full"
-                    >
-                      <div className="p-2 bg-gs-card border border-gs-border rounded-lg shrink-0 group-hover:border-gs-blue/30 transition-colors">
-                        <Download size={16} className="text-gs-blue" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-semibold text-gs-text truncate max-w-[220px] group-hover:text-gs-blue transition-colors">{label}</span>
-                        <span className="text-[11px] text-gs-muted">Click to open</span>
-                      </div>
-                      <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}>{ext}</span>
-                      <ExternalLink size={13} className="shrink-0 text-gs-muted group-hover:text-gs-blue transition-colors" />
-                    </a>
-                  );
-                }
-                return (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-gs-blue underline hover:opacity-80">
-                    {children}
-                  </a>
-                );
-              },
-            }}
-          >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
             {msg.content}
           </ReactMarkdown>
         </div>

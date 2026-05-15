@@ -194,6 +194,11 @@ export const chatApi = {
       body: JSON.stringify(authorities),
     }),
 
+  getInsights: (id: string) =>
+    request<{ guidelines: number; differences: number; riskAreas: number; recommendations: number }>(
+      `/chat/conversations/${id}/insights`
+    ),
+
   transcribeAudio: async (blob: Blob): Promise<string> => {
     const token = Cookies.get("access_token");
     const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";

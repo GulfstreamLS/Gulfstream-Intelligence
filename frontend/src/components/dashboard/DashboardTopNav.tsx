@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Globe, Bell, ChevronDown, Menu, ChevronRight, LogOut, Check, Settings } from "lucide-react";
+import { Bell, ChevronDown, Menu, ChevronRight, LogOut, Check, Settings } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "../../hooks/useAuth";
 import { notificationApi } from "../../lib/api";
@@ -160,15 +160,6 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
       <div className="flex items-center gap-2 md:gap-3">
         {/* Region selector */}
         <div className="relative">
-          <button
-            onClick={() => setRegionOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gs-border text-sm font-medium text-gs-text hover:bg-gs-bg transition-colors"
-          >
-            <Globe className="w-4 h-4 text-gs-muted" />
-            <span className="hidden sm:inline">Global</span>
-            <ChevronDown className="w-3.5 h-3.5 text-gs-muted" />
-          </button>
-
           {regionOpen && (
             <div className="absolute right-0 mt-1 w-40 bg-gs-card border border-gs-border rounded-xl shadow-card-hover z-20">
               {["Global", "FDA", "EMA", "MHRA", "PMDA"].map((r) => (

@@ -898,6 +898,46 @@ async def export_message_analysis(
     return {"url": abs_url}
 
 
+@router.get("/conversations/{conversation_id}/insights")
+async def get_conversation_insights(
+    conversation_id: uuid.UUID,
+    current_user: User | None = Depends(get_user_or_none),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return aggregated insight counts from all analysis messages in a conversation."""
+    from app.models.chat import Message as _Msg
+    user_id = await _get_user_id_fallback(db, current_user)
+
+    convo = await db.get(ConversationModel, conversation_id)
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    stmt = select(_Msg).where(
+        _Msg.conversation_id == conversation_id,
+        _Msg.is_analysis == True,
+    )
+    result = await db.execute(stmt)
+    messages = result.scalars().all()
+
+    guidelines = differences = risk_areas = recommendations = 0
+    for msg in messages:
+        data = msg.analysis_data or {}
+        for auth in data.values():
+            if not isinstance(auth, dict):
+                continue
+            guidelines     += len(auth.get("insights", []))
+            differences    += len(auth.get("gaps", []))
+            risk_areas     += len(auth.get("risks", []))
+            recommendations += len(auth.get("actions", []))
+
+    return {
+        "guidelines": guidelines,
+        "differences": differences,
+        "riskAreas": risk_areas,
+        "recommendations": recommendations,
+    }
+
+
 @router.patch("/conversations/{conversation_id}/authorities", response_model=ConversationResponse)
 async def update_authorities(
     conversation_id: uuid.UUID,
