@@ -291,43 +291,53 @@ function RegulatoryChatPage() {
     fetchInsights(conversationId);
   }, [conversationId, fetchInsights]);
 
-  // After streaming ends, poll /insights every 5 s for up to 2 min.
+  // After streaming ends, poll /insights every 5 s for up to 5 min.
   // Stops early the moment non-zero counts come back (analysis written to DB).
   const wasStreamingRef = useRef(false);
   const insightPollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const convIdRef       = useRef(conversationId); // always-fresh ref for event handler
+  convIdRef.current = conversationId;
+
+  const stopInsightPoll = useCallback(() => {
+    if (insightPollRef.current) { clearInterval(insightPollRef.current); insightPollRef.current = null; }
+  }, []);
+
+  const startInsightPoll = useCallback((id: string) => {
+    stopInsightPoll();
+    let polls = 0;
+    insightPollRef.current = setInterval(async () => {
+      polls++;
+      if (polls >= 60) { stopInsightPoll(); return; } // 60 × 5 s = 5 min max
+      const found = await fetchInsights(id);
+      if (found) stopInsightPoll();
+    }, 5000);
+  }, [fetchInsights, stopInsightPoll]);
 
   useEffect(() => {
     if (wasStreamingRef.current && !isStreaming && conversationId) {
-      // Fetch immediately first
       fetchInsights(conversationId);
-
-      // Clear any previous poll
-      if (insightPollRef.current) clearInterval(insightPollRef.current);
-
-      let polls = 0;
-      insightPollRef.current = setInterval(async () => {
-        polls++;
-        if (polls >= 24) { // 24 × 5 s = 2 min max
-          clearInterval(insightPollRef.current!);
-          insightPollRef.current = null;
-          return;
-        }
-        const found = await fetchInsights(conversationId);
-        if (found) {
-          clearInterval(insightPollRef.current!);
-          insightPollRef.current = null;
-        }
-      }, 5000);
+      startInsightPoll(conversationId);
     }
     wasStreamingRef.current = isStreaming;
-  }, [isStreaming, conversationId, fetchInsights]);
+  }, [isStreaming, conversationId, fetchInsights, startInsightPoll]);
 
-  // Clean up insight poll when conversation changes or component unmounts
+  // Listen for export_ready events dispatched by DashboardTopNav.
+  // This fires even if the direct poll has already timed out.
   useEffect(() => {
-    return () => {
-      if (insightPollRef.current) { clearInterval(insightPollRef.current); insightPollRef.current = null; }
+    const handler = (e: Event) => {
+      const id = convIdRef.current;
+      const detail = (e as CustomEvent).detail as { conversationId: string };
+      if (id && detail.conversationId === id) {
+        fetchInsights(id);
+        stopInsightPoll(); // no need to keep polling — we got the signal
+      }
     };
-  }, [conversationId]);
+    window.addEventListener("gi:export_ready", handler);
+    return () => window.removeEventListener("gi:export_ready", handler);
+  }, [fetchInsights, stopInsightPoll]);
+
+  // Clean up poll when conversation changes or unmounts
+  useEffect(() => { return stopInsightPoll; }, [conversationId, stopInsightPoll]);
 
   const recentChats: RecentChatItem[] = conversations.slice(0, 10).map(c => ({
     id:    c.id,

@@ -83,10 +83,25 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  const prevUnreadRef = useRef<number | null>(null);
+
   const fetchUnreadCount = useCallback(async () => {
     try {
       const { count } = await notificationApi.unreadCount();
+      const prev = prevUnreadRef.current;
+      prevUnreadRef.current = count;
       setUnreadCount(count);
+      // Only scan for new export_ready notifications when the count has increased.
+      if (prev !== null && count > prev) {
+        const notifs = await notificationApi.list(20);
+        notifs
+          .filter(n => n.type === "export_ready" && !n.is_read && n.resource_id)
+          .forEach(n => {
+            window.dispatchEvent(
+              new CustomEvent("gi:export_ready", { detail: { conversationId: n.resource_id } })
+            );
+          });
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -103,6 +118,14 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
     try {
       const data = await notificationApi.list(20);
       setNotifications(data);
+      setUnreadCount(data.filter(n => !n.is_read).length);
+      data
+        .filter(n => n.type === "export_ready" && !n.is_read && n.resource_id)
+        .forEach(n => {
+          window.dispatchEvent(
+            new CustomEvent("gi:export_ready", { detail: { conversationId: n.resource_id } })
+          );
+        });
     } catch { /* ignore */ }
     finally { setNotifLoading(false); }
   }
