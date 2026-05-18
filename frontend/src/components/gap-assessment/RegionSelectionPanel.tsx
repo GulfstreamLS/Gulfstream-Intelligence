@@ -79,7 +79,17 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 
 function SelectionPreview({ mode }: { mode: SelectionMode }) {
   if (mode.type === "single") {
-    const r = REGIONS.find(x => x.name === mode.authority)!;
+    const r = REGIONS.find(x => x.name === mode.authority);
+    if (!r) {
+      return (
+        <div className="flex items-center gap-4 mb-10">
+          <div className="w-[52px] h-[52px] rounded-full bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-blue-800 flex items-center justify-center shrink-0">
+            <Globe size={28} className="text-blue-600" />
+          </div>
+          <p className="text-[18px] font-bold text-gs-text leading-tight">{mode.authority}</p>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-4 mb-10">
         <div className="text-[44px] leading-none drop-shadow-sm">{r.flag}</div>
