@@ -5,10 +5,12 @@ from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.models.regulatory import RegulatorySource
 from app.core.logging import get_logger
 from app.services.document_processor import document_processor
 from app.services.vector_service import vector_service
@@ -76,6 +78,13 @@ async def ingest_record(db: AsyncSession, client: httpx.AsyncClient, item: dict[
     title_text = link_tag.get_text().strip()
     page_path = link_tag["href"]
     page_url = FDA_BASE_URL + page_path if not page_path.startswith("http") else page_path
+
+    # Check if already exists to prevent duplication and save time
+    stmt = select(RegulatorySource).where(RegulatorySource.title == title_text)
+    result = await db.execute(stmt)
+    if result.scalars().first():
+        logger.info(f"⏭️ Skipping already ingested: {title_text}")
+        return
 
     logger.info(f"Processing Guidance: {title_text}")
 
