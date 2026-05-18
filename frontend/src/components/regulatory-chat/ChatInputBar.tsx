@@ -11,6 +11,8 @@ interface ChatInputBarProps {
   onSend: () => void;
   onFileUpload?: (files: File[], text?: string) => Promise<void>;
   disabled?: boolean;
+  chatMode?: "general" | "program";
+  hasProgram?: boolean;
 }
 
 const ACCEPTED = ".pdf,.docx,.doc,.txt,.pptx,.png,.jpg,.jpeg,.zip";
@@ -104,7 +106,19 @@ function Waveform({ analyserRef }: { analyserRef: React.RefObject<AnalyserNode |
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }: ChatInputBarProps) {
+const PLACEHOLDERS = {
+  general: "Ask anything: regulatory strategy, industry news, writing, research, or general questions...",
+  programNoProject: "Ask about regulatory strategy, industry guidance, health authority expectations, or program-specific work...",
+  programWithProject: "Ask about this program's documents, risks, gaps, or health authority strategy...",
+};
+
+export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled, chatMode = "program", hasProgram = false }: ChatInputBarProps) {
+  const defaultPlaceholder =
+    chatMode === "general"
+      ? PLACEHOLDERS.general
+      : hasProgram
+      ? PLACEHOLDERS.programWithProject
+      : PLACEHOLDERS.programNoProject;
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -315,7 +329,7 @@ export function ChatInputBar({ value, onChange, onSend, onFileUpload, disabled }
               onKeyDown={handleKey}
               rows={1}
               disabled={isBusy}
-              placeholder={pendingFiles.length > 0 ? "Add a message or just send the files…" : "Message Gulfstream Intelligence…"}
+              placeholder={pendingFiles.length > 0 ? "Add a message or just send the files…" : defaultPlaceholder}
               style={{ minHeight: LINE_H, maxHeight: MAX_CONTENT_H, overflowY: "hidden" }}
               className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gs-text placeholder:text-gs-muted leading-5 py-2 disabled:cursor-not-allowed"
             />

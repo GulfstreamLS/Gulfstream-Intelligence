@@ -169,9 +169,17 @@ export const authApi = {
 };
 
 export const chatApi = {
-  listConversations: () => request<Conversation[]>("/chat/conversations"),
+  listConversations: (params?: { page?: number; page_size?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.page_size) qs.set("page_size", String(params.page_size));
+    const query = qs.toString();
+    return request<{ items: Conversation[]; total: number; page: number; page_size: number; pages: number }>(
+      `/chat/conversations${query ? `?${query}` : ""}`
+    );
+  },
 
-  createConversation: (model = "gpt-5", title?: string) =>
+  createConversation: (model = "gpt-5.4-mini", title?: string) =>
     request<Conversation>("/chat/conversations", {
       method: "POST",
       body: JSON.stringify({ model, title }),
@@ -179,7 +187,7 @@ export const chatApi = {
 
   getConversation: (id: string) => request<Conversation>(`/chat/conversations/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null; model?: string }) =>
+  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null; model?: string; chat_mode?: string; is_temporary?: boolean }) =>
     request<Conversation>(`/chat/conversations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -246,6 +254,7 @@ export const chatApi = {
     authorities?: string[];
     model?: string;
     projectId?: string;
+    chatMode?: string;
   }): AsyncGenerator<StreamChunk> {
     const token = Cookies.get("access_token");
     const form  = new FormData();
@@ -254,6 +263,7 @@ export const chatApi = {
     if (params.authorities?.length) form.append("authorities", JSON.stringify(params.authorities));
     if (params.model)          form.append("model",           params.model);
     if (params.projectId)      form.append("project_id",      params.projectId);
+    if (params.chatMode)       form.append("chat_mode",       params.chatMode);
     // Support both single File (legacy) and File[] (multi-upload)
     const fileList = params.files
       ? Array.isArray(params.files) ? params.files : [params.files]

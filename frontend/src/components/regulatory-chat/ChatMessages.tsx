@@ -7,48 +7,111 @@ import remarkGfm from "remark-gfm";
 import {
   Copy,
   ExternalLink, User, Check, Download, X,
-  Sparkles, Scale, FlaskConical, Globe, BarChart2, FileText,
-  AlertTriangle, Lightbulb, ShieldAlert, Zap, TrendingUp, BookOpen,
-  FileDown, Monitor, Bell,
+  BarChart2, FileText,
+  AlertTriangle, TrendingUp,
+  FileDown, Monitor, Bell, Search, MessageSquare, PenLine,
 } from "lucide-react";
-import type { DisplayMessage, AnalysisAuthority } from "../../types/chat";
-import { useChatStore } from "../../store/chatStore";
+import type { DisplayMessage } from "../../types/chat";
+
+type ChatMode = "general" | "program";
 
 interface ChatMessagesProps {
   messages: DisplayMessage[];
   isLoading?: boolean;
   onSendMessage?: (text: string) => void;
   hideEmptyState?: boolean;
+  chatMode?: ChatMode;
+  hasProgram?: boolean;
 }
 
-const STARTER_CARDS = [
+
+const GENERAL_CARDS = [
   {
-    icon: Scale,
+    icon: TrendingUp,
     color: "bg-blue-50 dark:bg-gs-blue/10 text-gs-blue",
-    title: "Compare jurisdictions",
-    example: "Compare EMA vs FDA requirements for gene therapy",
+    title: "Industry updates",
+    example: "What are the latest life science and FDA updates?",
   },
   {
-    icon: FlaskConical,
+    icon: PenLine,
     color: "bg-purple-50 dark:bg-purple-900/20 text-gs-purple",
-    title: "Non-clinical expectations",
-    example: "What are the non-clinical expectations for ATMPs?",
+    title: "Draft content",
+    example: "Help me draft an email, post, or summary.",
   },
   {
-    icon: Globe,
+    icon: Search,
     color: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
-    title: "Health authority guidance",
-    example: "What are the Health Canada requirements for CGT products?",
+    title: "Research a topic",
+    example: "Explain a guidance, company, or trend.",
   },
   {
-    icon: Sparkles,
+    icon: FileText,
     color: "bg-orange-50 dark:bg-orange-900/20 text-gs-orange",
-    title: "CMC requirements",
-    example: "What are the key CMC requirements for viral vector products?",
+    title: "Summarize information",
+    example: "Summarize recent news or a topic quickly.",
   },
 ];
 
-function EmptyState({ onSendMessage }: { onSendMessage?: (text: string) => void }) {
+const PROGRAM_CARDS = [
+  {
+    icon: BarChart2,
+    color: "bg-blue-50 dark:bg-gs-blue/10 text-gs-blue",
+    title: "Analyze program risk",
+    example: "Identify key regulatory and development risks.",
+  },
+  {
+    icon: Search,
+    color: "bg-purple-50 dark:bg-purple-900/20 text-gs-purple",
+    title: "Find gaps",
+    example: "Surface missing information or readiness gaps.",
+  },
+  {
+    icon: MessageSquare,
+    color: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
+    title: "Simulate authority feedback",
+    example: "Anticipate likely health authority questions.",
+  },
+  {
+    icon: FileText,
+    color: "bg-orange-50 dark:bg-orange-900/20 text-gs-orange",
+    title: "Create executive summary",
+    example: "Summarize program strategy and next steps.",
+  },
+];
+
+const EMPTY_STATE_CONTENT = {
+  general: {
+    subtitle: "Ask anything, including regulatory questions, industry updates, writing, research, or general professional support.",
+    cards: GENERAL_CARDS,
+  },
+  programNoProject: {
+    subtitle: "Ask about regulatory strategy, industry guidance, health authority expectations, or program-specific work.",
+    cards: PROGRAM_CARDS,
+  },
+  programWithProject: {
+    subtitle: "Ask about this program's documents, risks, gaps, health authority strategy, or submission readiness.",
+    cards: PROGRAM_CARDS,
+  },
+};
+
+function EmptyState({
+  onSendMessage,
+  chatMode = "program",
+  hasProgram = false,
+}: {
+  onSendMessage?: (text: string) => void;
+  chatMode?: ChatMode;
+  hasProgram?: boolean;
+}) {
+  const key =
+    chatMode === "general"
+      ? "general"
+      : hasProgram
+      ? "programWithProject"
+      : "programNoProject";
+
+  const { subtitle, cards } = EMPTY_STATE_CONTENT[key];
+
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-8">
       {/* Logo mark */}
@@ -61,14 +124,14 @@ function EmptyState({ onSendMessage }: { onSendMessage?: (text: string) => void 
             How can I help you today?
           </h2>
           <p className="text-sm text-gs-muted mt-1.5 max-w-sm leading-relaxed">
-            Ask anything about global regulatory requirements, guidance documents, or strategic advice for your program.
+            {subtitle}
           </p>
         </div>
       </div>
 
       {/* Starter cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
-        {STARTER_CARDS.map(({ icon: Icon, color, title, example }) => (
+        {cards.map(({ icon: Icon, color, title, example }) => (
           <button
             key={title}
             onClick={() => onSendMessage?.(example)}
@@ -203,163 +266,7 @@ const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) 
   );
 });
 
-const SEVERITY_STYLES: Record<string, string> = {
-  Critical: "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400",
-  High:     "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400",
-  Medium:   "bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400",
-  Low:      "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400",
-};
-
-const PRIORITY_STYLES: Record<string, string> = {
-  Critical: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  High:     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  Medium:   "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  Low:      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-};
-
-function AnalysisCard({ data }: { data: Record<string, AnalysisAuthority> }) {
-  const authorities = Object.entries(data);
-
-  return (
-    <div className="space-y-6 mt-4">
-      {authorities.map(([authority, info]) => (
-        <div key={authority} className="space-y-4">
-          {/* Authority header + confidence */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-1 bg-gs-blue/10 border border-gs-blue/30 rounded-full">
-                <span className="text-xs font-bold text-gs-blue">{authority}</span>
-              </div>
-              <span className="text-xs text-gs-muted font-medium">Analysis Report</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gs-green">
-              <TrendingUp size={12} />
-              {Math.round(info.confidence_score * 100)}% confidence
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-gs-bg rounded-xl p-4 border border-gs-border">
-            <div className="flex items-center gap-1.5 mb-2">
-              <BookOpen size={13} className="text-gs-blue" />
-              <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Summary</span>
-            </div>
-            <p className="text-sm text-gs-text leading-relaxed">{info.summary}</p>
-          </div>
-
-          {/* Insights */}
-          {info.insights?.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <Lightbulb size={13} className="text-gs-purple" />
-                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Key Insights</span>
-              </div>
-              <div className="grid gap-2">
-                {info.insights.map((ins, i) => (
-                  <div key={i} className="flex gap-2.5 bg-gs-bg rounded-lg p-3 border border-gs-border">
-                    <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[10px] font-bold text-gs-purple">{i + 1}</span>
-                    </div>
-                    <p className="text-sm text-gs-text leading-relaxed">{ins.content}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Gaps */}
-          {info.gaps?.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <AlertTriangle size={13} className="text-gs-orange" />
-                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">
-                  Identified Gaps ({info.gaps.length})
-                </span>
-              </div>
-              <div className="space-y-2.5">
-                {info.gaps.map((gap, i) => (
-                  <div key={i} className={`rounded-xl border p-4 ${SEVERITY_STYLES[gap.severity] ?? SEVERITY_STYLES.Low}`}>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="text-sm font-semibold leading-snug">{gap.title}</p>
-                      <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border border-current opacity-80">
-                        {gap.severity}
-                      </span>
-                    </div>
-                    <p className="text-[13px] leading-relaxed opacity-90 mb-2">{gap.description}</p>
-                    {gap.regulatory_impact && (
-                      <p className="text-[12px] opacity-75 mb-1.5">
-                        <span className="font-semibold">Impact: </span>{gap.regulatory_impact}
-                      </p>
-                    )}
-                    {gap.recommended_action && (
-                      <p className="text-[12px] opacity-75">
-                        <span className="font-semibold">Action: </span>{gap.recommended_action}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Risks */}
-          {info.risks?.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <ShieldAlert size={13} className="text-gs-red" />
-                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Risks</span>
-              </div>
-              <div className="space-y-2">
-                {info.risks.map((risk, i) => (
-                  <div key={i} className="flex gap-2.5 bg-red-50 dark:bg-red-900/10 rounded-lg p-3 border border-red-100 dark:border-red-900/30">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gs-red shrink-0 mt-2" />
-                    <p className="text-sm text-gs-text leading-relaxed">{risk}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          {info.actions?.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <Zap size={13} className="text-gs-green" />
-                <span className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">Recommended Actions</span>
-              </div>
-              <div className="space-y-2.5">
-                {info.actions.map((action, i) => (
-                  <div key={i} className="bg-gs-bg rounded-xl border border-gs-border p-4 flex gap-3">
-                    <div className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-gs-green">{i + 1}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-semibold text-gs-text leading-snug">{action.title}</p>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_STYLES[action.priority] ?? PRIORITY_STYLES.Medium}`}>
-                          {action.priority}
-                        </span>
-                      </div>
-                      <p className="text-[13px] text-gs-muted leading-relaxed">{action.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Source basis */}
-          {info.source_basis && (
-            <p className="text-[11px] text-gs-muted italic border-t border-gs-border pt-3">
-              {info.source_basis}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
+// Renders markdown inline — strips the outer <p> so it flows inside existing containers.
 // Shared ReactMarkdown components — defined outside the component so the object
 // reference is stable and React doesn't remount on every render.
 const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -434,15 +341,12 @@ const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>["components"] = 
   ),
 };
 
-const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
-  const { conversations, activeConversationId } = useChatStore();
-  const currentConvo = conversations.find(c => c.id === activeConversationId);
-
-  const hasFiles = !!currentConvo?.uploaded_filename ||
-                   !!currentConvo?.active_file_id ||
-                   currentConvo?.messages.some(m => !!m.attached_filename);
-
-  const canExport = msg.isAnalysis || msg.isAnalysisPotential || hasFiles;
+const AIMessage = ({
+  msg,
+}: {
+  msg: DisplayMessage;
+}) => {
+  const canExport = msg.isAnalysis || msg.isAnalysisPotential;
 
   const [copied, setCopied]   = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
@@ -501,11 +405,6 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
             {msg.content}
           </ReactMarkdown>
         </div>
-
-        {/* Rich analysis data card — only on committed (non-typing) analysis messages */}
-        {msg.isAnalysis && !msg.isTyping && msg.analysisData && (
-          <AnalysisCard data={msg.analysisData} />
-        )}
 
         {!msg.isTyping && (
           <>
@@ -646,7 +545,10 @@ const AIMessage = ({ msg }: { msg: DisplayMessage }) => {
   );
 };
 
-export function ChatMessages({ messages, isLoading, onSendMessage, hideEmptyState }: ChatMessagesProps) {
+export function ChatMessages({
+  messages, isLoading, onSendMessage, hideEmptyState,
+  chatMode, hasProgram,
+}: ChatMessagesProps) {
 
   const showThinking =
     isLoading &&
@@ -654,12 +556,14 @@ export function ChatMessages({ messages, isLoading, onSendMessage, hideEmptyStat
 
   return (
     <div className="space-y-8 py-4 pb-4">
-      {messages.length === 0 && !isLoading && !hideEmptyState && <EmptyState onSendMessage={onSendMessage} />}
+      {messages.length === 0 && !isLoading && !hideEmptyState && (
+        <EmptyState onSendMessage={onSendMessage} chatMode={chatMode} hasProgram={hasProgram} />
+      )}
 
       {messages.map((msg) =>
         msg.role === "user"
           ? <UserMessage key={msg.id} msg={msg} />
-          : <AIMessage   key={msg.id} msg={msg} />
+          : <AIMessage key={msg.id} msg={msg} />
       )}
 
       {showThinking && <ThinkingBubble />}

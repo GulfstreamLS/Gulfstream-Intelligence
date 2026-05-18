@@ -128,11 +128,11 @@ export default function DocumentIntelligencePage() {
         <TopRegulatorySources sources={authorities.slice(0, 6)} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-8 flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 flex flex-col h-[640px]">
           <RecentDocumentsTable documents={docs} />
         </div>
-        <div className="lg:col-span-4 flex flex-col">
+        <div className="lg:col-span-4 flex flex-col h-[640px]">
           <RecentInsights gaps={gap?.top_gaps ?? []} />
         </div>
       </div>

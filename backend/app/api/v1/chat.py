@@ -32,6 +32,7 @@ from app.models.user import User
 from app.schemas.chat import (
     ChatRequest,
     ConversationCreate,
+    ConversationListResponse,
     ConversationResponse,
     ConversationUpdate,
     MessageResponse,
@@ -69,6 +70,7 @@ async def send(
     model: Optional[str]           = Form(None),
     files: list[UploadFile]        = File(default=[]),
     project_id: Optional[str]      = Form(None),
+    chat_mode: Optional[str]       = Form(None),   # "general" | "program"
     current_user: User              = Depends(check_active_subscription),
     db: AsyncSession               = Depends(get_db),
 ):
@@ -89,7 +91,10 @@ async def send(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     else:
         convo = await chat_service.create_conversation(
-            db, user_id, ConversationCreate(model=model or settings.DEFAULT_MODEL)
+            db, user_id, ConversationCreate(
+                model=model or settings.DEFAULT_MODEL,
+                chat_mode=chat_mode or "program",
+            )
         )
         convo.organization_id = org_id
         if project_id:
@@ -139,6 +144,7 @@ async def send(
             org_id=org_id,
             is_new_convo=is_new_convo,
             request=request,
+            chat_mode=chat_mode,
         ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
@@ -157,6 +163,7 @@ async def _stream_full(
     org_id,
     is_new_convo: bool,
     request,
+    chat_mode: str | None = None,
 ) -> AsyncGenerator[str, None]:
     from app.agents.prompts import get_persona
     from app.services.storage_service import storage_service
@@ -408,13 +415,24 @@ async def _stream_full(
         _analysis_content: bytes | None  = None
         _analysis_filename: str | None   = None
         _analysis_filetype: str | None   = None
+        # All uploaded files for multi-doc Document Intelligence listing
+        _all_uploaded_files: list[dict]  = []
 
         if is_analysis_req:
             if prepared:
-                _p                 = prepared[-1]
-                _analysis_content  = _p["content"]
-                _analysis_filename = _p["filename"]
-                _analysis_filetype = _p["ext"]
+                # Use the last prepared file as primary; collect all for multi-doc
+                for _p_item in prepared:
+                    if _p_item.get("content"):
+                        _all_uploaded_files.append({
+                            "content": _p_item["content"],
+                            "filename": _p_item["filename"],
+                            "filetype": _p_item["ext"],
+                        })
+                if _all_uploaded_files:
+                    _primary = _all_uploaded_files[-1]
+                    _analysis_content  = _primary["content"]
+                    _analysis_filename = _primary["filename"]
+                    _analysis_filetype = _primary["filetype"]
             elif convo.metadata_:
                 # Try legacy raw-content hex first (set by old /upload endpoint).
                 _hex = convo.metadata_.get("last_uploaded_content")
@@ -422,28 +440,50 @@ async def _stream_full(
                     _analysis_content  = bytes.fromhex(_hex)
                     _analysis_filename = convo.metadata_.get("last_uploaded_filename", "Document")
                     _analysis_filetype = convo.metadata_.get("last_uploaded_type", "txt")
+                    _all_uploaded_files = [{"content": _analysis_content, "filename": _analysis_filename, "filetype": _analysis_filetype}]
                 else:
-                    # New upload path stores extracted_text per file — use last file.
+                    # New upload path stores extracted_text per file — collect all files.
                     _uploaded_files: list[dict] = convo.metadata_.get("uploaded_files") or []
-                    if _uploaded_files:
-                        _uf = _uploaded_files[-1]
+                    for _uf in _uploaded_files:
                         _text = _uf.get("extracted_text") or ""
                         if _text:
-                            _analysis_content  = _text.encode("utf-8")
-                            _analysis_filename = _uf.get("filename", "Document")
-                            _analysis_filetype = "txt"  # already extracted
+                            _all_uploaded_files.append({
+                                "content": _text.encode("utf-8"),
+                                "filename": _uf.get("filename", "Document"),
+                                "filetype": "txt",
+                            })
+                    if _all_uploaded_files:
+                        _primary = _all_uploaded_files[-1]
+                        _analysis_content  = _primary["content"]
+                        _analysis_filename = _primary["filename"]
+                        _analysis_filetype = _primary["filetype"]
 
             if not _analysis_content:
                 is_analysis_req = False  # No file content available — treat as normal chat
 
         # ── STEP 8: Build system prompt — RAG + doc context in parallel ───────
+        from app.agents.prompts import GENERAL_MODE_SYSTEM_PROMPT, PROGRAM_MODE_NO_PROJECT_SYSTEM_PROMPT
+
         selected_authorities = convo.authorities or []
-        base_prompt = (
-            get_persona(convo.authority) or convo.system_prompt or "You are a Regulatory Intelligence Assistant."
-        )
+
+        # Resolve effective chat mode from param → convo field → default
+        effective_mode = chat_mode or convo.chat_mode or "program"
+        # Persist mode on conversation if it changed
+        if effective_mode != convo.chat_mode:
+            convo.chat_mode = effective_mode
+
+        if effective_mode == "general":
+            base_prompt = GENERAL_MODE_SYSTEM_PROMPT
+        elif convo.project_id is None and not selected_authorities:
+            base_prompt = PROGRAM_MODE_NO_PROJECT_SYSTEM_PROMPT
+        else:
+            base_prompt = (
+                get_persona(convo.authority) or convo.system_prompt or "You are a Regulatory Intelligence Assistant."
+            )
 
         async def _rag_context() -> str:
-            if not selected_authorities:
+            # Skip RAG in general mode — not relevant for open-ended questions
+            if effective_mode == "general" or not selected_authorities:
                 return ""
             sources = await vector_service.search_regulatory_context(
                 db, message, authority=selected_authorities, limit=3
@@ -562,7 +602,7 @@ async def _stream_full(
             f"total={t_done-t0:.2f}s"
         )
 
-        msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, full_response)
+        msg = await chat_service.add_message(db, convo.id, MessageRole.ASSISTANT, full_response, model=used_model)
         await db.commit()
 
         yield f"data: {json.dumps({'type': 'done', 'message_id': str(msg.id)})}\n\n"
@@ -575,6 +615,7 @@ async def _stream_full(
             _user_id = current_user.id
             _convo_id = convo.id
             _auths = convo.authorities or ["Global"]
+            _extra_files = [f for f in _all_uploaded_files if f["filename"] != _analysis_filename]
 
             async def _bg_analysis():
                 import traceback as _tb
@@ -600,6 +641,21 @@ async def _stream_full(
                     if not analysis_msg or not analysis_msg.analysis_data:
                         logger.warning(f"[Analysis] no data produced  convo={_convo_id}")
                         return
+
+                    # ── 1.5 Analyze additional uploaded files ─────────────────
+                    # Creates AnalysisDocument records so they appear in Document Intelligence
+                    if _extra_files:
+                        from app.services.analysis_service import analysis_service as _as_svc
+                        for _ef in _extra_files:
+                            try:
+                                await _as_svc.analyze_document_multi(
+                                    bg_db, _user_id,
+                                    _ef["content"], _ef["filename"], _ef["filetype"], _auths,
+                                )
+                                await bg_db.commit()
+                                logger.info(f"[Analysis] ✓ extra doc  file={_ef['filename']}")
+                            except Exception as _ef_err:
+                                logger.warning(f"[Analysis] ✗ extra doc  file={_ef['filename']}  err={_ef_err}")
 
                     # ── 2. Auto-generate all 3 export formats ─────────────────
                     try:
@@ -684,14 +740,17 @@ async def _stream_full(
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
 
-@router.get("/conversations", response_model=list[ConversationResponse])
+@router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
+    page: int = 1,
+    page_size: int = 50,
     current_user: User | None = Depends(get_user_or_none),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = await _get_user_id_fallback(db, current_user)
     org_id = current_user.organization_id if current_user else None
-    return await chat_service.get_conversations(db, user_id, org_id)
+    page_size = min(page_size, 100)
+    return await chat_service.get_conversations(db, user_id, org_id, page=page, page_size=page_size)
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)

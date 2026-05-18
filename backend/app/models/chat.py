@@ -2,7 +2,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,12 +27,14 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(500))
+    chat_mode: Mapped[str | None] = mapped_column(String(20), default="program")
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(100))
     authorities: Mapped[list[str] | None] = mapped_column(MutableList.as_mutable(JSONB))
     active_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     system_prompt: Mapped[str | None] = mapped_column(Text)
     metadata_: Mapped[dict | None] = mapped_column("metadata", MutableDict.as_mutable(JSONB))
+    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     project: Mapped["Project"] = relationship(back_populates="conversations")
@@ -62,6 +64,14 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     def uploaded_type(self) -> str | None:
         return (self.metadata_ or {}).get("last_uploaded_type")
 
+    @property
+    def models_used(self) -> list[str]:
+        seen: list[str] = []
+        for msg in self.messages:
+            if msg.model and msg.model not in seen:
+                seen.append(msg.model)
+        return seen or ([self.model] if self.model else [])
+
 
 class Message(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "messages"
@@ -71,6 +81,7 @@ class Message(Base, UUIDMixin, TimestampMixin):
     )
     role: Mapped[MessageRole] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     token_count: Mapped[int | None] = mapped_column(Integer)
     is_analysis: Mapped[bool] = mapped_column(default=False)
     analysis_data: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSONB))

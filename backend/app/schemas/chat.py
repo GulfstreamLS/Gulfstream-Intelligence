@@ -40,6 +40,7 @@ class MessageResponse(BaseModel):
     conversation_id: uuid.UUID
     role: MessageRole
     content: str
+    model: Optional[str] = None
     token_count: int | None
     is_analysis: bool = False
     analysis_data: dict | None = None
@@ -61,6 +62,7 @@ class ConversationCreate(BaseModel):
     authority: str | None = None
     authorities: list[str] | None = None
     system_prompt: str | None = None
+    chat_mode: str | None = "program"
 
 
 class ConversationUpdate(BaseModel):
@@ -68,12 +70,16 @@ class ConversationUpdate(BaseModel):
     system_prompt: str | None = None
     project_id: uuid.UUID | None = None
     model: str | None = None
+    chat_mode: str | None = None
+    is_temporary: bool | None = None
 
 
 class ConversationResponse(BaseModel):
     id: uuid.UUID
     title: str | None
     model: str
+    chat_mode: str | None = "program"
+    is_temporary: bool = False
     authority: str | None = None
     authorities: list[str] | None = None
     active_file_id: uuid.UUID | None = None
@@ -90,6 +96,7 @@ class ConversationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: list[MessageResponse] = []
+    models_used: list[str] = []
 
     model_config = {"from_attributes": True}
 
@@ -97,6 +104,14 @@ class ConversationResponse(BaseModel):
     @classmethod
     def resolve_uploaded_url(cls, v: str | None) -> str | None:
         return _resolve_media_url(v)
+
+
+class ConversationListResponse(BaseModel):
+    items: list[ConversationResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
 
 
 class ChatRequest(BaseModel):

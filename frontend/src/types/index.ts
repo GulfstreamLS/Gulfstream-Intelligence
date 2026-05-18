@@ -48,6 +48,7 @@ export interface Message {
   conversation_id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  model?: string | null;
   token_count: number | null;
   is_analysis?: boolean;
   analysis_data?: Record<string, unknown> | null;
@@ -60,6 +61,8 @@ export interface Conversation {
   id: string;
   title: string | null;
   model: string;
+  chat_mode: string | null;
+  is_temporary: boolean;
   system_prompt: string | null;
   project_id: string | null;
   project_name: string | null;
@@ -74,6 +77,7 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   messages: Message[];
+  models_used: string[];
 }
 
 export interface TokenResponse {

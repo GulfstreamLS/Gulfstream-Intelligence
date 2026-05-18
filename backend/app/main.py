@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.router import router as api_v1_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.tasks.cleanup import run_cleanup_loop
 
 # Configure logging immediately at import time so third-party loggers
 # (SQLAlchemy, httpx, asyncpg) are silenced before they emit anything.
@@ -16,7 +18,13 @@ configure_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()  # re-apply after any framework resets
+    cleanup_task = asyncio.create_task(run_cleanup_loop())
     yield
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
 
 def create_app() -> FastAPI:

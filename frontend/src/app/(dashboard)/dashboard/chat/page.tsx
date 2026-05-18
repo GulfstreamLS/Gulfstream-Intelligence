@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader";
+import type { ChatMode } from "../../../../components/regulatory-chat/ChatHeader";
 import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
 import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
 import { ChatSidebar }  from "../../../../components/regulatory-chat/ChatSidebar";
@@ -26,37 +27,46 @@ function RegulatoryChatPage() {
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(urlProjectId);
-  const [selectedModel, setSelectedModel] = useState(() => {
-    if (typeof window === "undefined") return DEFAULT_CHAT_MODEL;
-    const saved = localStorage.getItem("chat_model");
-    return (saved && isChatModelId(saved)) ? saved : DEFAULT_CHAT_MODEL;
-  });
+  // Start with SSR-safe defaults; useEffect will apply localStorage values after hydration
+  const [chatMode, setChatMode] = useState<ChatMode>("program");
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
-  // Pre-populate displayMessages from sessionStorage on the very first render so
-  // messages.length is never 0 when there's a pending auto-send. This avoids any
-  // race between React state updates and Zustand store updates causing EmptyState flash.
-  const [pendingDisplayMsg, setPendingDisplayMsg] = useState<DisplayMessage | null>(() => {
-    if (typeof window === "undefined") return null;
-    const text = sessionStorage.getItem("pendingChatMessage")?.trim();
-    if (!text) return null;
-    return {
-      id: "pending-init",
-      role: "user" as const,
-      content: text,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-  });
+  const [pendingDisplayMsg, setPendingDisplayMsg] = useState<DisplayMessage | null>(null);
   const scrollContainerRef  = useRef<HTMLDivElement>(null);
   const userScrolled        = useRef(false);
   const autoMessageSent     = useRef(false);
 
-  const { conversations, isStreaming, streamingContent, updateConversation, removeConversation } = useChatStore();
+  const { conversations, isStreaming, streamingContent, updateConversation, removeConversation, setActiveConversation } = useChatStore();
   const user = useChatStore((s) => s.user);
   const { loadConversations, sendAll } = useChat();
 
+  // Restore client-side persisted state after hydration (avoids SSR/client mismatch)
   useEffect(() => {
-    loadConversations().catch(console.error);
+    const savedMode = localStorage.getItem("chat_mode") as ChatMode;
+    if (savedMode === "general" || savedMode === "program") setChatMode(savedMode);
+
+    const savedModel = localStorage.getItem("chat_model");
+    if (savedModel && isChatModelId(savedModel)) setSelectedModel(savedModel);
+
+    const pendingText = sessionStorage.getItem("pendingChatMessage")?.trim();
+    if (pendingText) {
+      setPendingDisplayMsg({
+        id: "pending-init",
+        role: "user" as const,
+        content: pendingText,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    loadConversations().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the Zustand activeConversationId in sync so AIMessage can find the current conversation
+  useEffect(() => {
+    setActiveConversation(conversationId);
+  }, [conversationId, setActiveConversation]);
 
   // Sync conversationId when URL param changes (client-side navigation from history/projects)
   useEffect(() => {
@@ -88,20 +98,25 @@ function RegulatoryChatPage() {
       .catch(() => setIsOrgOwner(false));
   }, [user?.id, user?.organization_id]);
 
-  // When a specific conversation is requested via URL, always fetch it from the API
-  // so we get fresh data with full messages. Only skip if it's already in the store
-  // with messages loaded (avoids redundant fetches on sidebar clicks after initial load).
+  // Always fetch the full conversation when conversationId changes so messages include
+  // is_analysis and analysis_data (needed for AnalysisCard and export icons in old chats).
   useEffect(() => {
     if (!conversationId) return;
-    const already = useChatStore.getState().conversations.find(c => c.id === conversationId);
-    if (already && (already.messages?.length ?? 0) > 0) return;
     chatApi.getConversation(conversationId)
       .then(c => {
         const inStore = useChatStore.getState().conversations.find(x => x.id === c.id);
         if (inStore) updateConversation(c.id, c);
         else useChatStore.getState().addConversation(c);
       })
-      .catch(console.error);
+      .catch((err: unknown) => {
+        // 404 = stale/deleted conversation — clear it and start fresh
+        const status = (err as { status?: number })?.status;
+        if (status === 404) {
+          setConversationId(null);
+          router.replace("/dashboard/chat");
+        }
+        // silently ignore other transient errors (network, 401, etc.)
+      });
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -123,13 +138,18 @@ function RegulatoryChatPage() {
     setSelectedModel(isChatModelId(currentConversation.model) ? currentConversation.model : DEFAULT_CHAT_MODEL);
   }, [currentConversation?.model]);
 
-  // Sync sidebar project context from loaded conversation (e.g. opened via ?conversation=id)
+  // Restore chat mode from the loaded conversation
   useEffect(() => {
-    if (currentConversation?.project_id && !selectedProjectId) {
-      setSelectedProjectId(currentConversation.project_id);
-    }
+    const mode = currentConversation?.chat_mode;
+    if (mode === "general" || mode === "program") setChatMode(mode);
+  }, [currentConversation?.chat_mode]);
+
+  // Always sync project context from the loaded conversation when switching chats
+  useEffect(() => {
+    if (!conversationId) return; // new chat — preserve any pre-selected project
+    setSelectedProjectId(currentConversation?.project_id ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentConversation?.project_id]);
+  }, [conversationId, currentConversation?.project_id]);
 
   const stableMessages = useMemo<DisplayMessage[]>(() => {
     return (currentConversation?.messages ?? []).map(msg => ({
@@ -189,10 +209,11 @@ function RegulatoryChatPage() {
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
       model:       selectedModel,
       projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
+      chatMode,
       onConversationReady: !conversationId ? setConversationId : undefined,
     });
     if (resolvedId && !conversationId) setConversationId(resolvedId);
-  }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, sendAll]);
+  }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
 
   // Send the pending message once handleSendMessage is stable (store has user loaded)
   useEffect(() => {
@@ -212,15 +233,16 @@ function RegulatoryChatPage() {
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
       model:       selectedModel,
       projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
+      chatMode,
       onConversationReady: !conversationId ? setConversationId : undefined,
     });
     if (resolvedId && !conversationId) setConversationId(resolvedId);
-  }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, sendAll]);
+  }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
 
   const handleAuthoritiesChange = useCallback(async (authorities: string[]) => {
     setSelectedAuthorities(authorities);
     if (conversationId) {
-      await chatApi.updateAuthorities(conversationId, authorities).catch(console.error);
+      await chatApi.updateAuthorities(conversationId, authorities).catch(() => {});
     }
   }, [conversationId]);
 
@@ -237,7 +259,16 @@ function RegulatoryChatPage() {
     localStorage.setItem("chat_model", model);
     if (conversationId) {
       updateConversation(conversationId, { model });
-      chatApi.updateConversation(conversationId, { model }).catch(console.error);
+      chatApi.updateConversation(conversationId, { model }).catch(() => {});
+    }
+  }, [conversationId, updateConversation]);
+
+  const handleModeChange = useCallback((mode: ChatMode) => {
+    setChatMode(mode);
+    localStorage.setItem("chat_mode", mode);
+    if (conversationId) {
+      updateConversation(conversationId, { chat_mode: mode });
+      chatApi.updateConversation(conversationId, { chat_mode: mode }).catch(() => {});
     }
   }, [conversationId, updateConversation]);
 
@@ -250,7 +281,6 @@ function RegulatoryChatPage() {
   const handleNewChat = useCallback(() => {
     setConversationId(null);
     setInput("");
-    setSelectedModel(DEFAULT_CHAT_MODEL);
     router.replace("/dashboard/chat");
   }, [router]);
 
@@ -340,10 +370,13 @@ function RegulatoryChatPage() {
   useEffect(() => { return stopInsightPoll; }, [conversationId, stopInsightPoll]);
 
   const recentChats: RecentChatItem[] = conversations.slice(0, 10).map(c => ({
-    id:    c.id,
-    title: c.title ?? "New conversation",
-    date:  new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    canDelete: c.user_id === user?.id || isOrgOwner,
+    id:          c.id,
+    title:       c.title ?? "New conversation",
+    date:        new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    canDelete:   c.user_id === user?.id || isOrgOwner,
+    chatMode:    c.chat_mode,
+    projectName: c.project_name,
+    models:      c.models_used?.length ? c.models_used : (c.model ? [c.model] : []),
   }));
 
   const isLoading = isStreaming && !streamingContent;
@@ -362,6 +395,9 @@ function RegulatoryChatPage() {
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
           modelDisabled={isStreaming}
+          chatMode={chatMode}
+          onModeChange={handleModeChange}
+          modeDisabled={stableMessages.length > 0}
         />
       </div>
 
@@ -369,7 +405,13 @@ function RegulatoryChatPage() {
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-h-0">
           <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pr-1">
-            <ChatMessages messages={displayMessages} isLoading={isLoading} onSendMessage={handleSendMessage} />
+            <ChatMessages
+              messages={displayMessages}
+              isLoading={isLoading}
+              onSendMessage={handleSendMessage}
+              chatMode={chatMode}
+              hasProgram={!!selectedProjectId}
+            />
           </div>
 
           <ChatInputBar
@@ -378,6 +420,8 @@ function RegulatoryChatPage() {
             onSend={() => handleSendMessage()}
             onFileUpload={handleFileUpload}
             disabled={isStreaming}
+            chatMode={chatMode}
+            hasProgram={!!selectedProjectId}
           />
         </div>
 
@@ -393,6 +437,7 @@ function RegulatoryChatPage() {
             onProjectChange={handleProjectChange}
             onDeleteChat={(id) => handleDeleteChat(id)}
             insightCounts={insightCounts}
+            chatMode={chatMode}
           />
         </div>
       </div>
@@ -412,6 +457,7 @@ function RegulatoryChatPage() {
               onProjectChange={handleProjectChange}
               onDeleteChat={(id) => handleDeleteChat(id)}
               insightCounts={insightCounts}
+              chatMode={chatMode}
             />
           </div>
         </div>

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Download, Search, Calendar, ChevronDown, Filter, ShieldCheck,
+  Download, Search, Calendar, Filter, ShieldCheck,
 } from "lucide-react";
+import { FilterDropdown } from "../../../../components/ui/FilterDropdown";
 import { HistoryStatCards }                               from "../../../../components/history/HistoryStatCards";
 import { ActivityTable,
          mapConversationsToActivities }                   from "../../../../components/history/ActivityTable";
@@ -56,10 +57,18 @@ export default function HistoryPage() {
   const [dateRange,    setDateRange]    = useState<DateRange>("all");
   const [activityType, setActivityType] = useState("all");
   const [userFilter,   setUserFilter]   = useState("all");
+  const [chatModeFilter, setChatModeFilter] = useState("all");
+
+  // Pagination state
+  const PAGE_SIZE = 20;
+  const [historyPage, setHistoryPage] = useState(1);
 
   useEffect(() => {
-    loadConversations().catch(console.error);
-  }, [loadConversations]);
+    // Load up to 200 conversations for history view (more than chat sidebar's 50)
+    chatApi.listConversations({ page: 1, page_size: 200 })
+      .then(res => useChatStore.getState().setConversations(res.items))
+      .catch(() => loadConversations()); // fallback to standard load
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user?.organization_id) {
@@ -96,13 +105,19 @@ export default function HistoryPage() {
       if (q && ![item.type, item.action, item.details, item.project, item.user.name]
         .some(f => f.toLowerCase().includes(q))) return false;
       if (activityType !== "all" && item.type !== activityType) return false;
-      if (userFilter   !== "all" && item.user.name !== userFilter) return false;
+      if (userFilter !== "all" && item.user.name !== userFilter) return false;
+      if (chatModeFilter !== "all" && item.chatMode !== chatModeFilter) return false;
       if (!isWithinRange(item.rawDate, dateRange)) return false;
       return true;
     });
-  }, [allActivities, search, dateRange, activityType, userFilter]);
+  }, [allActivities, search, dateRange, activityType, userFilter, chatModeFilter]);
 
-  const dateLabelText = DATE_OPTIONS.find(o => o.value === dateRange)?.label ?? "All Time";
+  // Reset to page 1 when filters change
+  useEffect(() => { setHistoryPage(1); }, [search, dateRange, activityType, userFilter, chatModeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedActivities = filtered.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE);
+
 
   return (
     <div className="min-h-screen bg-gs-bg p-4 md:p-8">
@@ -141,67 +156,53 @@ export default function HistoryPage() {
             />
           </div>
 
-          {/* Date range */}
-          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
-            <Calendar size={18} className="text-gs-muted shrink-0 pointer-events-none" />
-            <span className="text-sm font-semibold text-gs-text pointer-events-none">{dateLabelText}</span>
-            <ChevronDown size={14} className="text-gs-muted ml-2 pointer-events-none" />
-            <select
-              value={dateRange}
-              onChange={e => setDateRange(e.target.value as DateRange)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            >
-              {DATE_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            value={dateRange}
+            onChange={v => setDateRange(v as DateRange)}
+            icon={<Calendar size={16} />}
+            options={DATE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+          />
 
-          {/* Activity type */}
-          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
-            <span className="text-sm font-semibold text-gs-text pointer-events-none">
-              {activityType === "all" ? "All Activity Types" : activityType}
-            </span>
-            <ChevronDown size={14} className="text-gs-muted pointer-events-none" />
-            <select
-              value={activityType}
-              onChange={e => setActivityType(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            >
-              {activityTypes.map(t => (
-                <option key={t} value={t}>{t === "all" ? "All Activity Types" : t}</option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            value={activityType}
+            onChange={setActivityType}
+            options={activityTypes.map(t => ({ value: t, label: t === "all" ? "All Activity Types" : t }))}
+          />
 
-          {/* User */}
-          <div className="relative flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 cursor-pointer hover:bg-gs-bg transition-colors">
-            <span className="text-sm font-semibold text-gs-text pointer-events-none">
-              {userFilter === "all" ? "All Users" : userFilter}
-            </span>
-            <ChevronDown size={14} className="text-gs-muted pointer-events-none" />
-            <select
-              value={userFilter}
-              onChange={e => setUserFilter(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
-            >
-              {userNames.map(n => (
-                <option key={n} value={n}>{n === "all" ? "All Users" : n}</option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            value={chatModeFilter}
+            onChange={setChatModeFilter}
+            options={[
+              { value: "all",     label: "All Chat Modes" },
+              { value: "general", label: "General Mode" },
+              { value: "program", label: "Program Mode" },
+            ]}
+          />
+
+          <FilterDropdown
+            value={userFilter}
+            onChange={setUserFilter}
+            options={userNames.map(n => ({ value: n, label: n === "all" ? "All Users" : n }))}
+          />
 
           {/* Reset filters */}
           <button
-            onClick={() => { setSearch(""); setDateRange("all"); setActivityType("all"); setUserFilter("all"); }}
-            className="flex items-center gap-2 px-3 py-2 bg-gs-card border border-gs-border rounded-lg text-sm font-bold text-gs-muted hover:bg-gs-bg hover:text-gs-text transition-colors"
+            onClick={() => { setSearch(""); setDateRange("all"); setActivityType("all"); setUserFilter("all"); setChatModeFilter("all"); }}
+            className="flex items-center gap-2 px-3 py-2 bg-gs-card border border-gs-border rounded-lg text-sm font-bold text-gs-muted hover:bg-gs-bg hover:text-gs-text transition-colors min-h-[40px]"
           >
-            <Filter size={18} /> Filters
+            <Filter size={16} /> Reset
           </button>
 
         </div>
 
-        <ActivityTable activities={filtered} onDeleteChat={id => setDeleteId(id)} />
+        <ActivityTable
+          activities={pagedActivities}
+          onDeleteChat={id => setDeleteId(id)}
+          page={historyPage}
+          totalPages={totalPages}
+          totalCount={filtered.length}
+          onPageChange={setHistoryPage}
+        />
 
         <div className="flex flex-col items-center text-center gap-2 pt-6">
           <div className="flex items-center gap-2 text-gs-muted font-medium text-[10px] uppercase tracking-wider">

@@ -13,16 +13,38 @@ logger = get_logger(__name__)
 
 
 class ChatService:
-    async def get_conversations(self, db: AsyncSession, user_id: uuid.UUID, organization_id: uuid.UUID | None = None) -> list[Conversation]:
+    async def get_conversations(
+        self,
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        organization_id: uuid.UUID | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> dict:
         if organization_id:
-            q = select(Conversation).where(Conversation.organization_id == organization_id)
+            q = select(Conversation).where(
+                Conversation.organization_id == organization_id,
+                Conversation.is_temporary == False,  # noqa: E712
+            )
         else:
-            q = select(Conversation).where(Conversation.user_id == user_id)
+            q = select(Conversation).where(
+                Conversation.user_id == user_id,
+                Conversation.is_temporary == False,  # noqa: E712
+            )
+
+        from sqlalchemy import func as _func
+        count_result = await db.execute(select(_func.count()).select_from(q.subquery()))
+        total = count_result.scalar_one()
+
+        offset = (page - 1) * page_size
         result = await db.execute(
             q.options(selectinload(Conversation.messages), selectinload(Conversation.project), selectinload(Conversation.user))
             .order_by(Conversation.updated_at.desc())
+            .offset(offset)
+            .limit(page_size)
         )
-        return list(result.scalars().all())
+        items = list(result.scalars().all())
+        return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": max(1, -(-total // page_size))}
 
     async def get_conversation(
         self, db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, organization_id: uuid.UUID | None = None
@@ -71,6 +93,7 @@ class ChatService:
         analysis_data: dict | None = None,
         attached_filename: str | None = None,
         attached_url: str | None = None,
+        model: str | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conversation_id,
@@ -81,6 +104,7 @@ class ChatService:
             analysis_data=analysis_data,
             attached_filename=attached_filename,
             attached_url=attached_url,
+            model=model,
         )
 
         db.add(msg)

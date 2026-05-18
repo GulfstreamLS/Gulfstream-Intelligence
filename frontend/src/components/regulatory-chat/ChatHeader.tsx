@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Bot, ChevronDown, Plus, PanelRight, Trash2, Check } from "lucide-react";
 import { CHAT_MODELS, getChatModelLabel } from "../../lib/chatModels";
 
+export type ChatMode = "general" | "program";
+
 interface ChatHeaderProps {
   onNewChat?: () => void;
   onToggleSidebar?: () => void;
@@ -12,6 +14,9 @@ interface ChatHeaderProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   modelDisabled?: boolean;
+  chatMode: ChatMode;
+  onModeChange: (mode: ChatMode) => void;
+  modeDisabled?: boolean;
 }
 
 function ModelDropdown({
@@ -93,9 +98,12 @@ export function ChatHeader({
   selectedModel,
   onModelChange,
   modelDisabled,
+  chatMode,
+  onModeChange,
+  modeDisabled,
 }: ChatHeaderProps) {
   return (
-    <div className="flex justify-between items-center gap-4">
+    <div className="flex justify-between items-start gap-4">
       <div>
         <h1 className="text-lg md:text-[28px] font-bold text-gs-text tracking-tight">
           Regulatory Chat
@@ -103,9 +111,45 @@ export function ChatHeader({
         <p className="hidden md:block text-gs-muted text-sm mt-1">
           Ask anything. Get strategic answers powered by global regulatory intelligence.
         </p>
+        <p className="hidden md:block text-gs-muted text-sm">
+          Ask freely in General Mode. Go deeper with Program Mode for regulatory strategy, industry guidance, and program-specific work.
+        </p>
+
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={() => !modeDisabled && onModeChange("general")}
+            disabled={modeDisabled}
+            title={modeDisabled ? "Mode cannot be changed once a chat has started" : undefined}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+              chatMode === "general"
+                ? "border-gs-blue text-gs-blue bg-gs-blue/5"
+                : "border-gs-border text-gs-text bg-gs-card hover:bg-gs-bg"
+            } ${modeDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            {chatMode === "general" && <Check size={14} className="text-gs-blue" />}
+            General Mode
+          </button>
+          <button
+            onClick={() => !modeDisabled && onModeChange("program")}
+            disabled={modeDisabled}
+            title={modeDisabled ? "Mode cannot be changed once a chat has started" : undefined}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+              chatMode === "program"
+                ? "border-gs-blue text-gs-blue bg-gs-blue/5"
+                : "border-gs-border text-gs-text bg-gs-card hover:bg-gs-bg"
+            } ${modeDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            {chatMode === "program" && <Check size={14} className="text-gs-blue" />}
+            Program Mode
+          </button>
+          {modeDisabled && (
+            <span className="text-[10px] text-gs-muted font-medium">Locked for this chat</span>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-2 shrink-0 items-center">
+      <div className="flex gap-2 shrink-0 items-center mt-1">
         <ModelDropdown
           selectedModel={selectedModel}
           onModelChange={onModelChange}

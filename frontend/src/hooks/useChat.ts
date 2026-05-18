@@ -10,8 +10,8 @@ export function useChat() {
   const store = useChatStore();
 
   const loadConversations = useCallback(async () => {
-    const convos = await chatApi.listConversations();
-    store.setConversations(convos);
+    const res = await chatApi.listConversations({ page: 1, page_size: 50 });
+    store.setConversations(res.items);
   }, [store]);
 
   /**
@@ -26,6 +26,7 @@ export function useChat() {
     authorities?: string[];
     model?: string;
     projectId?: string;
+    chatMode?: string;
     onConversationReady?: (id: string) => void;
   }): Promise<string | null> => {
     const isNew = !params.conversationId;
@@ -46,6 +47,8 @@ export function useChat() {
         id: tempId,
         title: null,
         model: params.model ?? DEFAULT_CHAT_MODEL,
+        chat_mode: params.chatMode ?? "program",
+        is_temporary: false,
         system_prompt: null,
         project_id: params.projectId ?? null,
         project_name: null,
@@ -60,9 +63,12 @@ export function useChat() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         messages: [],
+        models_used: [],
       };
       store.addConversation(tempConvo);
-      params.onConversationReady?.(tempId);
+      // Do NOT call onConversationReady with tempId — the server doesn't know it yet,
+      // so any API call using it would 404. We notify the caller only once the real
+      // server ID arrives via the conversation_ready SSE chunk below.
     }
 
     // Optimistic user message — one combined bubble for both file and text

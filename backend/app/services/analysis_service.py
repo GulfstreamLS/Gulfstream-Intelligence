@@ -22,12 +22,12 @@ class AnalysisService:
     @property
     def llm(self):
         if self._llm is None:
-            # Use gpt-5 for heavy analysis (structured output, regulatory schema).
-            model_name = getattr(settings, "ANALYSIS_MODEL", "gpt-5")
+            # Use gpt-5.4-mini for heavy analysis (structured output, regulatory schema).
+            model_name = getattr(settings, "ANALYSIS_MODEL", "gpt-5.4-mini")
             self._llm = ChatOpenAI(
                 api_key=settings.OPENAI_API_KEY,
                 model=model_name,
-                temperature=1 if model_name.startswith("gpt-5") else 0,
+                temperature=1 if model_name.startswith("gpt-5.4-mini") else 0,
             )
         return self._llm
 

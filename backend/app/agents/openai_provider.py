@@ -63,8 +63,8 @@ class OpenAIProvider(BaseLLMProvider):
         else:
             all_messages.extend(messages)
 
-        # gpt-5 and o-series models use max_completion_tokens; older models use max_tokens
-        _new_token_param_models = ("gpt-5", "o1", "o3", "o4")
+        # gpt-5.4-mini and o-series models use max_completion_tokens; older models use max_tokens
+        _new_token_param_models = ("gpt-5.4-mini", "o1", "o3", "o4")
         token_param = "max_completion_tokens" if self.model.startswith(_new_token_param_models) else "max_tokens"
 
         try:

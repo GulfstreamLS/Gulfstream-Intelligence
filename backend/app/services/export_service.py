@@ -29,6 +29,29 @@ from reportlab.platypus import (
 
 from app.services.storage_service import storage_service
 
+def _sanitize(text: str) -> str:
+    """Replace problematic Unicode characters that ReportLab renders as black boxes."""
+    replacements = {
+        "­": "-",   # soft hyphen
+        "‑": "-",   # non-breaking hyphen
+        "‐": "-",   # hyphen
+        "‒": "-",   # figure dash
+        "–": "-",   # en dash
+        "—": "-",   # em dash
+        "―": "-",   # horizontal bar
+        "‘": "'",   # left single quotation
+        "’": "'",   # right single quotation
+        "“": '"',   # left double quotation
+        "”": '"',   # right double quotation
+        "•": "*",   # bullet
+        "…": "...", # ellipsis
+        " ": " ",   # non-breaking space
+    }
+    for char, replacement in replacements.items():
+        text = text.replace(char, replacement)
+    return text
+
+
 # ── PDF colour palette (light theme) ──────────────────────────────────────────
 _P_INDIGO       = colors.HexColor("#6366F1")
 _P_INDIGO_DARK  = colors.HexColor("#4338CA")
@@ -246,7 +269,7 @@ def _auth_header(auth: str, page_w: float, st: dict) -> list:
 
 def _summary_card(summary: str, page_w: float, st: dict) -> list:
     label = Paragraph("EXECUTIVE SUMMARY", st["gap_label"])
-    body  = Paragraph(summary, st["summary_body"])
+    body  = Paragraph(_sanitize(summary), st["summary_body"])
     data  = [[label], [body]]
     t = Table(data, colWidths=[page_w - 10])
     t.setStyle(TableStyle([
@@ -271,12 +294,12 @@ def _gap_card(gap: dict, page_w: float, st: dict) -> Any:
         f'<font color="{sev_c.hexval() if hasattr(sev_c,"hexval") else "#059669"}"><b>{sev.upper()}</b></font>',
         st["gap_label"],
     )
-    title_p  = Paragraph(gap.get("title", ""), st["gap_title"])
+    title_p  = Paragraph(_sanitize(gap.get("title", "")), st["gap_title"])
     desc_p   = Paragraph(
-        f'<i>Observation:</i> {gap.get("description", "")}', st["gap_body"]
+        f'<i>Observation:</i> {_sanitize(gap.get("description", ""))}', st["gap_body"]
     )
     action_p = Paragraph(
-        f'<font color="#4338CA">→ Strategic Action:</font> {gap.get("recommended_action", "")}',
+        f'<font color="#4338CA">&#x2192; Strategic Action:</font> {_sanitize(gap.get("recommended_action", ""))}',
         st["gap_body"],
     )
     # Title row: title left, severity tag right
@@ -321,8 +344,8 @@ def _action_card(action: dict, idx: int, page_w: float, st: dict) -> Any:
         "Num", parent=st["action_title"],
         textColor=pri_c, alignment=TA_CENTER, fontSize=13,
     ))
-    title_p  = Paragraph(action.get("title", ""), st["action_title"])
-    desc_p   = Paragraph(action.get("description", ""), st["action_body"])
+    title_p  = Paragraph(_sanitize(action.get("title", "")), st["action_title"])
+    desc_p   = Paragraph(_sanitize(action.get("description", "")), st["action_body"])
     pri_para = Paragraph(
         f'<font color="{pri_c.hexval() if hasattr(pri_c,"hexval") else "#EF4444"}"><b>{pri} Priority</b></font>',
         st["gap_label"],
@@ -369,7 +392,7 @@ class ExportService:
         st     = _make_styles()
         elems: list = []
 
-        elems += _header_banner(filename, page_w, st)
+        elems += _header_banner(_sanitize(filename), page_w, st)
 
         for auth, data in analysis_data.items():
             elems += _auth_header(auth, page_w, st)

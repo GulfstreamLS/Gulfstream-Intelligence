@@ -22,6 +22,8 @@ export interface ActivityItem {
   iconColor: string;
   conversationId?: string;
   canDelete?: boolean;
+  chatMode?: string | null;
+  models?: string[];
 }
 
 function getInitials(name: string): string {
@@ -74,6 +76,8 @@ export function mapConversationsToActivities(
       iconBg:         "bg-purple-50",
       iconColor:      "text-purple-600",
       canDelete,
+      chatMode:       convo.chat_mode,
+      models:         convo.models_used?.length ? convo.models_used : (convo.model ? [convo.model] : []),
     };
   });
 }
@@ -81,11 +85,15 @@ export function mapConversationsToActivities(
 interface ActivityTableProps {
   activities?: ActivityItem[];
   onDeleteChat?: (id: string) => void;
+  page?: number;
+  totalPages?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
 }
 
 type MenuState = { key: string; item: ActivityItem; top: number; right: number } | null;
 
-export function ActivityTable({ activities, onDeleteChat }: ActivityTableProps) {
+export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages = 1, totalCount, onPageChange }: ActivityTableProps) {
   const router = useRouter();
   const [menu, setMenu] = useState<MenuState>(null);
 
@@ -108,6 +116,8 @@ export function ActivityTable({ activities, onDeleteChat }: ActivityTableProps) 
             <tr className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">
               <th className="px-6 py-4">Activity</th>
               <th className="px-6 py-4">Details</th>
+              <th className="px-6 py-4">Mode</th>
+              <th className="px-6 py-4">Model</th>
               <th className="px-6 py-4">Project / Context</th>
               <th className="px-6 py-4">User</th>
               <th className="px-6 py-4">Date &amp; Time</th>
@@ -117,12 +127,16 @@ export function ActivityTable({ activities, onDeleteChat }: ActivityTableProps) 
           <tbody className="divide-y divide-gs-border">
             {activities?.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
+                <td colSpan={8} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
                   No activities match your filters.
                 </td>
               </tr>
             ) : (
               activities?.map((item) => {
+                const modeCls = item.chatMode === "general"
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                  : "bg-gs-blue/10 text-gs-blue";
+                const modeLabel = item.chatMode === "general" ? "General" : item.chatMode === "program" ? "Program" : "—";
                 return (
                   <tr
                     key={item.id}
@@ -142,6 +156,26 @@ export function ActivityTable({ activities, onDeleteChat }: ActivityTableProps) 
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-medium text-gs-muted leading-relaxed max-w-[300px] line-clamp-2">{item.details}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      {item.chatMode ? (
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${modeCls}`}>{modeLabel}</span>
+                      ) : (
+                        <span className="text-sm text-gs-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {item.models && item.models.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.models.map(m => (
+                            <span key={m} className="text-[11px] font-medium text-gs-muted bg-gs-bg border border-gs-border px-2 py-0.5 rounded whitespace-nowrap">
+                              {m.replace(/^claude-/, "").replace(/^gpt-/, "GPT-").replace(/-\d{8}$/, "")}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gs-muted">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gs-muted">{item.project}</span>
@@ -176,19 +210,53 @@ export function ActivityTable({ activities, onDeleteChat }: ActivityTableProps) 
       {/* Pagination */}
       <div className="px-6 py-4 bg-gs-card border-t border-gs-border flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-sm font-medium text-gs-muted">
-          Showing {activities?.length} {activities?.length === 1 ? "activity" : "activities"}
+          {totalCount != null
+            ? `Showing ${activities?.length ?? 0} of ${totalCount} ${totalCount === 1 ? "activity" : "activities"}`
+            : `Showing ${activities?.length ?? 0} ${(activities?.length ?? 0) === 1 ? "activity" : "activities"}`}
         </p>
-        <div className="flex items-center gap-2">
-          <button className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted hover:bg-gs-bg">
-            <ChevronLeft size={16} />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded border border-blue-600 bg-blue-50 text-blue-600 text-sm font-bold">
-            1
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted hover:bg-gs-bg">
-            <ChevronRight size={16} />
-          </button>
-        </div>
+        {totalPages > 1 && onPageChange && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onPageChange(page - 1)}
+              disabled={page <= 1}
+              className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted hover:bg-gs-bg disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === "…" ? (
+                  <span key={`ellipsis-${i}`} className="w-8 text-center text-gs-muted text-sm">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => onPageChange(p as number)}
+                    className={`w-8 h-8 flex items-center justify-center rounded border text-sm font-bold transition-colors ${
+                      p === page
+                        ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600"
+                        : "border-gs-border text-gs-muted hover:bg-gs-bg"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )
+            }
+            <button
+              onClick={() => onPageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="w-8 h-8 flex items-center justify-center rounded border border-gs-border text-gs-muted hover:bg-gs-bg disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Fixed-position dropdown — escapes overflow-x-auto clipping */}

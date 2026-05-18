@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 # Mapping frontend/mock model IDs to real production model IDs if needed
 MODEL_MAPPING: Final[dict[str, str]] = {
-    "gpt-4o": "gpt-5",
-    "gpt-4o-mini": "gpt-5",
-    "gpt-5": "gpt-5",
+    "gpt-4o": "gpt-5.4-mini",
+    "gpt-4o-mini": "gpt-5.4-mini",
+    "gpt-5.4-mini": "gpt-5.4-mini",
 }
 
 

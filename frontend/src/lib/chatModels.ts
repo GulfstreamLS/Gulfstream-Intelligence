@@ -1,7 +1,7 @@
-export const DEFAULT_CHAT_MODEL = "gpt-5";
+export const DEFAULT_CHAT_MODEL = "gpt-5.4-mini";
 
 export const CHAT_MODELS = [
-  { id: "gpt-5", label: "GPT", provider: "OpenAI" },
+  { id: "gpt-5.4-mini", label: "GPT", provider: "OpenAI" },
   { id: "claude-sonnet-4-6", label: "Claude", provider: "Anthropic" },
 ] as const;
 
