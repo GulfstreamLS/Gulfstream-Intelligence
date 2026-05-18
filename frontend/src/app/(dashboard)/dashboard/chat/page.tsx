@@ -104,7 +104,7 @@ function RegulatoryChatPage() {
     if (!conversationId) return;
     chatApi.getConversation(conversationId)
       .then(c => {
-        const inStore = useChatStore.getState().conversations.find(x => x.id === c.id);
+        const inStore = (useChatStore.getState().conversations ?? []).find(x => x.id === c.id);
         if (inStore) updateConversation(c.id, c);
         else useChatStore.getState().addConversation(c);
       })
@@ -131,7 +131,7 @@ function RegulatoryChatPage() {
 
   // ── Messages ────────────────────────────────────────────────────────────────
 
-  const currentConversation = conversations.find(c => c.id === conversationId);
+  const currentConversation = (conversations ?? []).find(c => c.id === conversationId);
 
   useEffect(() => {
     if (!currentConversation?.model) return;
@@ -369,7 +369,7 @@ function RegulatoryChatPage() {
   // Clean up poll when conversation changes or unmounts
   useEffect(() => { return stopInsightPoll; }, [conversationId, stopInsightPoll]);
 
-  const recentChats: RecentChatItem[] = conversations.slice(0, 10).map(c => ({
+  const recentChats: RecentChatItem[] = (conversations ?? []).slice(0, 10).map(c => ({
     id:          c.id,
     title:       c.title ?? "New conversation",
     date:        new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),

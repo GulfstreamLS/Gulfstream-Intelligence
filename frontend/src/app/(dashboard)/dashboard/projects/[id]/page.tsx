@@ -226,7 +226,11 @@ export default function ProjectDetailPage() {
       projectApi.getConversations(id),
       simulationApi.listSessions(id),
     ])
-      .then(([p, convos, sims]) => { setProject(p); setConversations(convos); setSimulations(sims); })
+      .then(([p, convos, sims]) => {
+        setProject(p);
+        setConversations(Array.isArray(convos) ? convos : ((convos as { items?: Conversation[] })?.items ?? []));
+        setSimulations(Array.isArray(sims) ? sims : ((sims as { items?: SimulationListItem[] })?.items ?? []));
+      })
       .catch(() => router.push("/dashboard/projects"))
       .finally(() => setLoading(false));
   }, [id, router]);
