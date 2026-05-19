@@ -83,6 +83,20 @@ class ChatService:
             else:
                 setattr(conversation, field, value)
         await db.flush()
+
+        # Propagate project_id & organization_id to associated analysis documents if updated
+        if "project_id" in data.model_dump(exclude_unset=True):
+            from app.models.regulatory import AnalysisDocument
+            from sqlalchemy import update as sa_update
+            
+            project_id = getattr(conversation, "project_id")
+            await db.execute(
+                sa_update(AnalysisDocument)
+                .where(AnalysisDocument.conversation_id == conversation.id)
+                .values(project_id=project_id, organization_id=conversation.organization_id)
+            )
+            await db.flush()
+
         return conversation
 
     async def delete_conversation(self, db: AsyncSession, conversation: Conversation) -> None:

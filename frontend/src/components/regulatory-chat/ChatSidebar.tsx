@@ -96,6 +96,7 @@ type SaveStep =
   | "selectProgram"
   | "createProgram"
   | "generalNote"
+  | "saveCore"
   | "saved";
 
 function SavePanel({
@@ -365,62 +366,127 @@ function SavePanel({
     );
   }
 
+  if (step === "saveCore") {
+    return (
+      <div className="bg-gs-card p-5 rounded-card border border-gs-border shadow-card space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <button onClick={() => setStep("options")} className="text-gs-muted hover:text-gs-text transition-colors">
+            <ChevronLeft size={15} />
+          </button>
+          <h2 className="text-xs font-semibold text-gs-text">Save to Regulatory Core</h2>
+        </div>
+        <p className="text-[12px] text-gs-muted leading-relaxed">
+          This chat will be saved directly into **{currentProgramName}**&apos;s core regulatory knowledge base.
+        </p>
+        <div>
+          <label className="text-[11px] font-semibold text-gs-muted uppercase tracking-wider block mb-1.5">
+            <Tag size={10} className="inline mr-1" />Category
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {SAVE_CATEGORIES.map(c => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                  category === c
+                    ? "bg-gs-blue/10 border-gs-blue text-gs-blue"
+                    : "bg-gs-bg border-gs-border text-gs-muted hover:border-gs-blue hover:text-gs-blue"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button
+            disabled={saving}
+            onClick={() => saveToProgram(currentProgramId!)}
+            className="flex-1 px-3 py-2 bg-gs-blue text-white rounded-lg text-xs font-semibold hover:bg-gs-blue/90 transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save to Core"}
+          </button>
+          <button onClick={() => setStep("options")} className="px-3 py-2 bg-gs-bg border border-gs-border text-gs-muted rounded-lg text-xs font-semibold hover:bg-gs-card transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Step: options ──
   const hasProgram = !!currentProgramId;
 
   type SaveOption = { icon: React.ReactNode; label: string; description: string; onClick: () => void; variant?: "default" | "muted" };
 
-  const generalOptions: SaveOption[] = [
-    {
-      icon: <BookMarked size={14} className="text-gs-blue" />,
-      label: "Save to Regulatory Core",
-      description: "Keep this chat as a saved regulatory note.",
-      onClick: () => setStep("generalNote"),
-    },
-    {
-      icon: <X size={14} className="text-gs-muted" />,
-      label: "Do Not Save",
-      description: "Mark as temporary. Auto-deleted after 1 hour of inactivity.",
-      onClick: markTemporary,
-      variant: "muted",
-    },
-  ];
+  const options = (() => {
+    if (chatMode === "general") {
+      return [
+        {
+          icon: <NotebookPen size={14} className="text-gs-green" />,
+          label: "Save as General Regulatory Note",
+          description: "Keep this chat as a standalone note.",
+          onClick: () => setStep("generalNote"),
+        },
+        {
+          icon: <X size={14} className="text-gs-muted" />,
+          label: "Do Not Save",
+          description: "Mark as temporary. Auto-deleted after 1 hour of inactivity.",
+          onClick: markTemporary,
+          variant: "muted",
+        },
+      ];
+    }
 
-  const programOptions: SaveOption[] = [
-    ...(hasProgram ? [{
-      icon: <BookMarked size={14} className="text-gs-blue" />,
-      label: "Save to Regulatory Core",
-      description: `Add to ${currentProgramName}'s core knowledge.`,
-      onClick: () => saveToProgram(currentProgramId!),
-    }] : []),
-    {
-      icon: <FolderPlus size={14} className="text-gs-blue" />,
-      label: hasProgram ? "Save to Different Program" : "Save to Existing Program",
-      description: "Link this chat to one of your programs.",
-      onClick: () => { setSelectedProjectId(currentProgramId ?? ""); setStep("selectProgram"); },
-    },
-    {
-      icon: <FolderPlus size={14} className="text-gs-purple" />,
-      label: "Create New Program from This Chat",
-      description: "Start a new program using this conversation.",
-      onClick: () => setStep("createProgram"),
-    },
-    {
-      icon: <NotebookPen size={14} className="text-gs-green" />,
-      label: "Save as General Regulatory Note",
-      description: "Keep this chat without linking to a program.",
-      onClick: () => setStep("generalNote"),
-    },
-    {
-      icon: <X size={14} className="text-gs-muted" />,
-      label: "Do Not Save",
-      description: "Mark as temporary. Auto-deleted after 1 hour of inactivity.",
-      onClick: markTemporary,
-      variant: "muted",
-    },
-  ];
-
-  const options = chatMode === "general" ? generalOptions : programOptions;
+    // Program Mode
+    if (hasProgram) {
+      // Program Selected: only show Save to Regulatory Core and Do Not Save
+      return [
+        {
+          icon: <BookMarked size={14} className="text-gs-blue" />,
+          label: "Save to Regulatory Core",
+          description: `Add directly to ${currentProgramName}'s core knowledge base.`,
+          onClick: () => setStep("saveCore"),
+        },
+        {
+          icon: <X size={14} className="text-gs-muted" />,
+          label: "Do Not Save",
+          description: "Mark as temporary. Auto-deleted after 1 hour of inactivity.",
+          onClick: markTemporary,
+          variant: "muted",
+        },
+      ];
+    } else {
+      // Program Not Selected: show Save to Existing, Create New, Save as General Regulatory Note, and Do Not Save
+      return [
+        {
+          icon: <FolderPlus size={14} className="text-gs-blue" />,
+          label: "Save to Existing Program",
+          description: "Link this chat to one of your programs.",
+          onClick: () => { setSelectedProjectId(""); setStep("selectProgram"); },
+        },
+        {
+          icon: <FolderPlus size={14} className="text-gs-purple" />,
+          label: "Create New Program from This Chat",
+          description: "Start a new program using this conversation.",
+          onClick: () => setStep("createProgram"),
+        },
+        {
+          icon: <NotebookPen size={14} className="text-gs-green" />,
+          label: "Save as General Regulatory Note",
+          description: "Keep this chat without linking to a program.",
+          onClick: () => setStep("generalNote"),
+        },
+        {
+          icon: <X size={14} className="text-gs-muted" />,
+          label: "Do Not Save",
+          description: "Mark as temporary. Auto-deleted after 1 hour of inactivity.",
+          onClick: markTemporary,
+          variant: "muted",
+        },
+      ];
+    }
+  })();
 
   return (
     <div className="bg-gs-card p-5 rounded-card border border-gs-blue/20 shadow-card">
