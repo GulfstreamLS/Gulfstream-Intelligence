@@ -134,6 +134,7 @@ export function useChat() {
             if (firstFilename) {
               store.updateConversation(chunk.id!, { uploaded_filename: firstFilename });
             }
+            store.updateConversation(chunk.id!, { is_temporary: chunk.is_temporary ?? false });
             params.onConversationReady?.(chunk.id!);
           }
 

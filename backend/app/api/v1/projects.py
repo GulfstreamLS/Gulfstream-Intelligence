@@ -221,7 +221,10 @@ async def get_project_conversations(
 
     result = await db.execute(
         select(Conversation)
-        .where(Conversation.project_id == project_id)
+        .where(
+            Conversation.project_id == project_id,
+            Conversation.is_temporary == False,  # noqa: E712
+        )
         .options(selectinload(Conversation.messages), selectinload(Conversation.project), selectinload(Conversation.user))
         .order_by(Conversation.updated_at.desc())
     )

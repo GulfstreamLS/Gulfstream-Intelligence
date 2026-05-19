@@ -182,7 +182,7 @@ export const chatApi = {
   createConversation: (model = "gpt-5.4-mini", title?: string) =>
     request<Conversation>("/chat/conversations", {
       method: "POST",
-      body: JSON.stringify({ model, title }),
+      body: JSON.stringify({ model, title, is_temporary: false }),
     }),
 
   getConversation: (id: string) => request<Conversation>(`/chat/conversations/${id}`),

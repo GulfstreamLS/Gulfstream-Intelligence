@@ -20,21 +20,19 @@ export default function DashboardLayout({
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const router = useRouter();
   const user = useChatStore((s) => s.user);
-  const setTheme = useThemeStore((s) => s.theme);
-  const themeToggle = useThemeStore((s) => s.toggle);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   useEffect(() => {
     subscriptionApi.get().then(setSubscription).catch(() => null);
   }, []);
 
-  // Sync dark_mode preference from user profile to local themeStore so it
-  // persists across sessions and devices, not just localStorage on this device.
+  // Use server preference only until the browser has an explicit local theme.
+  // After that, localStorage wins so refreshes do not undo a user-selected theme.
   useEffect(() => {
     if (user?.preferences?.dark_mode === undefined) return;
-    const wantDark = user.preferences.dark_mode;
-    if (wantDark && setTheme !== "dark") themeToggle();
-    if (!wantDark && setTheme === "dark") themeToggle();
-  }, [user?.id, user?.preferences?.dark_mode]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (localStorage.getItem("gs-theme")) return;
+    setTheme(user.preferences.dark_mode ? "dark" : "light");
+  }, [setTheme, user?.id, user?.preferences?.dark_mode]);
 
   const isExpired = subscription?.status === "expired" || subscription?.status === "cancelled";
   const showBanner = isExpired && !bannerDismissed;

@@ -63,7 +63,7 @@ class ConversationCreate(BaseModel):
     authorities: list[str] | None = None
     system_prompt: str | None = None
     chat_mode: str | None = "program"
-    is_temporary: bool = True
+    is_temporary: bool = False
 
 
 class ConversationUpdate(BaseModel):

@@ -16,13 +16,24 @@ import { chatApi, organizationApi } from "../../../../lib/api";
 import { DEFAULT_CHAT_MODEL, isChatModelId } from "../../../../lib/chatModels";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 
+const ACTIVE_CONVERSATION_STORAGE_KEY = "chat_conversation_id";
+const CHAT_PROJECT_STORAGE_KEY = "chat_project_id";
+const CHAT_MODE_STORAGE_KEY = "chat_mode";
+const CHAT_MODEL_STORAGE_KEY = "chat_model";
+
+function saveActiveConversationId(id: string | null) {
+  if (id) localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, id);
+  else localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+}
+
 function RegulatoryChatPage() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
   const urlConversationId = searchParams.get("conversation");
   const urlProjectId      = searchParams.get("projectId");
+  const restoredConversationId = urlConversationId ?? (urlProjectId ? null : useChatStore.getState().activeConversationId);
 
-  const [conversationId, setConversationId]     = useState<string | null>(urlConversationId);
+  const [conversationId, setConversationId]     = useState<string | null>(restoredConversationId);
   const [input, setInput]                       = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
@@ -43,11 +54,14 @@ function RegulatoryChatPage() {
 
   // Restore client-side persisted state after hydration (avoids SSR/client mismatch)
   useEffect(() => {
-    const savedMode = localStorage.getItem("chat_mode") as ChatMode;
+    const savedMode = localStorage.getItem(CHAT_MODE_STORAGE_KEY) as ChatMode;
     if (savedMode === "general" || savedMode === "program") setChatMode(savedMode);
 
-    const savedModel = localStorage.getItem("chat_model");
+    const savedModel = localStorage.getItem(CHAT_MODEL_STORAGE_KEY);
     if (savedModel && isChatModelId(savedModel)) setSelectedModel(savedModel);
+
+    const savedProjectId = localStorage.getItem(CHAT_PROJECT_STORAGE_KEY);
+    if (!urlProjectId && savedProjectId) setSelectedProjectId(savedProjectId);
 
     const pendingText = sessionStorage.getItem("pendingChatMessage")?.trim();
     if (pendingText) {
@@ -65,19 +79,41 @@ function RegulatoryChatPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!conversationId) return;
     setActiveConversation(conversationId);
+    saveActiveConversationId(conversationId);
   }, [conversationId, setActiveConversation]);
 
   useEffect(() => {
     if (urlConversationId !== null) {
       isNewConversationRef.current = false;
       setConversationId(urlConversationId);
+      setActiveConversation(urlConversationId);
+      saveActiveConversationId(urlConversationId);
     }
-  }, [urlConversationId]);
+  }, [urlConversationId, setActiveConversation]);
 
   useEffect(() => {
     if (urlProjectId !== null) setSelectedProjectId(urlProjectId);
-  }, [urlProjectId]);
+    if (urlProjectId !== null && urlConversationId === null) {
+      setConversationId(null);
+    }
+  }, [urlConversationId, urlProjectId]);
+
+  useEffect(() => {
+    if (urlConversationId !== null || conversationId) return;
+    const savedConversationId = localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+    if (!savedConversationId) return;
+    isNewConversationRef.current = false;
+    setConversationId(savedConversationId);
+    setActiveConversation(savedConversationId);
+    router.replace(`/dashboard/chat?conversation=${encodeURIComponent(savedConversationId)}`);
+  }, [conversationId, router, setActiveConversation, urlConversationId]);
+
+  useEffect(() => {
+    if (selectedProjectId) localStorage.setItem(CHAT_PROJECT_STORAGE_KEY, selectedProjectId);
+    else localStorage.removeItem(CHAT_PROJECT_STORAGE_KEY);
+  }, [selectedProjectId]);
 
   const pendingAutoMessage = useRef<string | null>(null);
 
@@ -110,8 +146,16 @@ function RegulatoryChatPage() {
       .catch((err: unknown) => {
         const status = (err as { status?: number })?.status;
         if (status === 404) {
+          const savedProjectId = localStorage.getItem(CHAT_PROJECT_STORAGE_KEY);
           setConversationId(null);
-          router.replace("/dashboard/chat");
+          setActiveConversation(null);
+          saveActiveConversationId(null);
+          if (savedProjectId) {
+            setSelectedProjectId(savedProjectId);
+            router.replace(`/dashboard/chat?projectId=${encodeURIComponent(savedProjectId)}`);
+          } else {
+            router.replace("/dashboard/chat");
+          }
         }
       });
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,9 +198,9 @@ function RegulatoryChatPage() {
 
   useEffect(() => {
     if (!conversationId) return; // new chat — preserve any pre-selected project
+    if (!currentConversation) return;
     setSelectedProjectId(currentConversation?.project_id ?? null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, currentConversation?.project_id]);
+  }, [conversationId, currentConversation]);
 
   const stableMessages = useMemo<DisplayMessage[]>(() => {
     let hasDocumentContext = !!currentConversation?.uploaded_filename || !!currentConversation?.active_file_id;
@@ -227,10 +271,17 @@ function RegulatoryChatPage() {
       onConversationReady: isNew ? (id) => {
         isNewConversationRef.current = true;
         setConversationId(id);
+        setActiveConversation(id);
+        saveActiveConversationId(id);
+        router.replace(`/dashboard/chat?conversation=${encodeURIComponent(id)}`);
       } : undefined,
     });
-    if (resolvedId && isNew) setConversationId(resolvedId);
-  }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
+    if (resolvedId && isNew) {
+      setConversationId(resolvedId);
+      setActiveConversation(resolvedId);
+      saveActiveConversationId(resolvedId);
+    }
+  }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll, router, setActiveConversation]);
 
   // Send the pending message once handleSendMessage is stable (store has user loaded)
   useEffect(() => {
@@ -255,10 +306,17 @@ function RegulatoryChatPage() {
       onConversationReady: isNew ? (id) => {
         isNewConversationRef.current = true;
         setConversationId(id);
+        setActiveConversation(id);
+        saveActiveConversationId(id);
+        router.replace(`/dashboard/chat?conversation=${encodeURIComponent(id)}`);
       } : undefined,
     });
-    if (resolvedId && isNew) setConversationId(resolvedId);
-  }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
+    if (resolvedId && isNew) {
+      setConversationId(resolvedId);
+      setActiveConversation(resolvedId);
+      saveActiveConversationId(resolvedId);
+    }
+  }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll, router, setActiveConversation]);
 
   const handleAuthoritiesChange = useCallback(async (authorities: string[]) => {
     setSelectedAuthorities(authorities);
@@ -269,15 +327,20 @@ function RegulatoryChatPage() {
 
   const handleProjectChange = useCallback((projectId: string | null) => {
     setSelectedProjectId(projectId);
+    const params = new URLSearchParams(searchParams.toString());
+    if (projectId) params.set("projectId", projectId);
+    else params.delete("projectId");
+    const query = params.toString();
+    router.replace(query ? `/dashboard/chat?${query}` : "/dashboard/chat");
     if (conversationId) {
       updateConversation(conversationId, { project_id: projectId });
     }
-  }, [conversationId, updateConversation]);
+  }, [conversationId, router, searchParams, updateConversation]);
 
   const handleModelChange = useCallback((model: string) => {
     if (!isChatModelId(model)) return;
     setSelectedModel(model);
-    localStorage.setItem("chat_model", model);
+    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, model);
     if (conversationId) {
       updateConversation(conversationId, { model });
       chatApi.updateConversation(conversationId, { model }).catch(() => {});
@@ -286,7 +349,7 @@ function RegulatoryChatPage() {
 
   const handleModeChange = useCallback((mode: ChatMode) => {
     setChatMode(mode);
-    localStorage.setItem("chat_mode", mode);
+    localStorage.setItem(CHAT_MODE_STORAGE_KEY, mode);
     if (conversationId) {
       updateConversation(conversationId, { chat_mode: mode });
       chatApi.updateConversation(conversationId, { chat_mode: mode }).catch(() => {});
@@ -296,17 +359,22 @@ function RegulatoryChatPage() {
   const handleChatSelect = useCallback((chatId: string) => {
     isNewConversationRef.current = false; // existing chat: fetch immediately
     setConversationId(chatId);
+    setActiveConversation(chatId);
+    saveActiveConversationId(chatId);
     setInput("");
     userScrolled.current = false;
-  }, []);
+    router.replace(`/dashboard/chat?conversation=${encodeURIComponent(chatId)}`);
+  }, [router, setActiveConversation]);
 
   const handleNewChat = useCallback(() => {
     if (isStreaming) return;
     isNewConversationRef.current = false;
     setConversationId(null);
+    setActiveConversation(null);
+    saveActiveConversationId(null);
     setInput("");
     router.replace(selectedProjectId ? `/dashboard/chat?projectId=${encodeURIComponent(selectedProjectId)}` : "/dashboard/chat");
-  }, [isStreaming, router, selectedProjectId]);
+  }, [isStreaming, router, selectedProjectId, setActiveConversation]);
 
   const handleDeleteChat = useCallback((chatId?: string) => {
     if (isStreaming) return;
@@ -321,10 +389,15 @@ function RegulatoryChatPage() {
     try {
       await chatApi.deleteConversation(deleteConfirmId);
       removeConversation(deleteConfirmId);
-      if (deleteConfirmId === conversationId) { setConversationId(null); setInput(""); }
+      if (deleteConfirmId === conversationId) {
+        setConversationId(null);
+        setActiveConversation(null);
+        saveActiveConversationId(null);
+        setInput("");
+      }
     } catch { /* silently fail */ }
     setDeleteConfirmId(null);
-  }, [deleteConfirmId, conversationId, isStreaming, removeConversation]);
+  }, [deleteConfirmId, conversationId, isStreaming, removeConversation, setActiveConversation]);
 
   // ── Sidebar data ─────────────────────────────────────────────────────────────
 
@@ -395,7 +468,10 @@ function RegulatoryChatPage() {
 
   const handleTemporaryMarked = useCallback((id: string) => {
     updateConversation(id, { is_temporary: true });
-    if (id === conversationId) setInsightCounts(null);
+    if (id === conversationId) {
+      setInsightCounts(null);
+      saveActiveConversationId(null);
+    }
   }, [conversationId, updateConversation]);
 
   const recentChats: RecentChatItem[] = (conversations ?? []).filter(c => !c.is_temporary).slice(0, 10).map(c => ({

@@ -246,6 +246,7 @@ export interface StreamChunk {
   data?: Record<string, unknown>;
   id?: string;
   model?: string;
+  is_temporary?: boolean;
   created_at?: string;
   updated_at?: string;
 }

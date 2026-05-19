@@ -19,7 +19,7 @@ interface Toast { type: "success" | "error"; message: string; }
 
 export function PreferencesView() {
   const theme   = useThemeStore((s) => s.theme);
-  const toggle  = useThemeStore((s) => s.toggle);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const user    = useChatStore((s) => s.user);
   const setUser = useChatStore((s) => s.setUser);
 
@@ -47,9 +47,19 @@ export function PreferencesView() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function handleDarkModeToggle() {
-    toggle();
-    // Persist immediately so the next save picks up the new value
+  function persistDarkModePreference(enabled: boolean) {
+    setTheme(enabled ? "dark" : "light");
+    if (!user) return;
+
+    const preferences = { ...(user.preferences ?? {}), dark_mode: enabled };
+    setUser({ ...user, preferences });
+    authApi.updateProfile({ preferences: { dark_mode: enabled } })
+      .then((updated) => { if (updated) setUser(updated); })
+      .catch(() => {});
+  }
+
+  function handleDarkModeToggle(enabled: boolean) {
+    persistDarkModePreference(enabled);
   }
 
   async function handleSave() {
@@ -76,7 +86,7 @@ export function PreferencesView() {
     setAiAutoSummarize(true);
     setHighPriorityAlerts(true);
     setWorkspaceView(WORKSPACE_OPTIONS[0]);
-    if (theme === "dark") toggle();
+    if (theme === "dark") persistDarkModePreference(false);
   }
 
   return (

@@ -95,6 +95,7 @@ async def send(
             db, user_id, ConversationCreate(
                 model=model or settings.DEFAULT_MODEL,
                 chat_mode=chat_mode or "program",
+                is_temporary=False,
             )
         )
         convo.organization_id = org_id
@@ -128,6 +129,7 @@ async def send(
     new_convo_payload = {
         "id": str(convo.id),
         "model": convo.model,
+        "is_temporary": convo.is_temporary,
         "created_at": convo.created_at.isoformat(),
         "updated_at": convo.updated_at.isoformat(),
     } if is_new_convo else None

@@ -1,12 +1,13 @@
 import uuid
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
 from app.models.chat import Conversation, Message, MessageRole
+from app.models.project import Project
 from app.schemas.chat import ConversationCreate, ConversationUpdate
 
 logger = get_logger(__name__)
@@ -22,9 +23,17 @@ class ChatService:
         page_size: int = 50,
     ) -> dict:
         if organization_id:
-            q = select(Conversation).where(
-                Conversation.organization_id == organization_id,
-                Conversation.is_temporary == False,  # noqa: E712
+            q = (
+                select(Conversation)
+                .outerjoin(Project, Conversation.project_id == Project.id)
+                .where(
+                    or_(
+                        Conversation.organization_id == organization_id,
+                        Conversation.user_id == user_id,
+                        Project.organization_id == organization_id,
+                    ),
+                    Conversation.is_temporary == False,  # noqa: E712
+                )
             )
         else:
             q = select(Conversation).where(
@@ -53,8 +62,16 @@ class ChatService:
         if organization_id:
             result = await db.execute(
                 select(Conversation)
+                .outerjoin(Project, Conversation.project_id == Project.id)
                 .options(*_opts)
-                .where(Conversation.id == conversation_id, Conversation.organization_id == organization_id)
+                .where(
+                    Conversation.id == conversation_id,
+                    or_(
+                        Conversation.organization_id == organization_id,
+                        Conversation.user_id == user_id,
+                        Project.organization_id == organization_id,
+                    ),
+                )
             )
         else:
             result = await db.execute(
