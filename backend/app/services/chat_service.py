@@ -75,7 +75,13 @@ class ChatService:
         self, db: AsyncSession, conversation: Conversation, data: ConversationUpdate
     ) -> Conversation:
         for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(conversation, field, value)
+            if field == "metadata":
+                if value is not None:
+                    current_meta = dict(conversation.metadata_ or {})
+                    current_meta.update(value)
+                    conversation.metadata_ = current_meta
+            else:
+                setattr(conversation, field, value)
         await db.flush()
         return conversation
 

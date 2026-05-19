@@ -25,6 +25,7 @@ export interface ActivityItem {
   canDelete?: boolean;
   chatMode?: string | null;
   models?: string[];
+  category?: string | null;
 }
 
 function getInitials(name: string): string {
@@ -79,6 +80,7 @@ export function mapConversationsToActivities(
       canDelete,
       chatMode:       convo.chat_mode,
       models:         convo.models_used?.length ? convo.models_used : (convo.model ? [convo.model] : []),
+      category:       convo.category,
     };
   });
 }
@@ -99,6 +101,25 @@ export function ActivityTable({ activities, onDeleteChat, onBulkDelete, page = 1
   const router = useRouter();
   const [menu, setMenu] = useState<MenuState>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const getCategoryBadgeClass = (cat: string) => {
+    switch (cat) {
+      case "Risk":
+        return "bg-red-50 text-red-600 border border-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-950/40";
+      case "Gap":
+        return "bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-950/40";
+      case "Decision":
+        return "bg-purple-50 text-purple-600 border border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-950/40";
+      case "Assumption":
+        return "bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-950/40";
+      case "Action Item":
+        return "bg-green-50 text-green-600 border border-green-100 dark:bg-green-950/20 dark:text-green-400 dark:border-green-950/40";
+      case "Executive Summary":
+        return "bg-cyan-50 text-cyan-600 border border-cyan-100 dark:bg-cyan-950/20 dark:text-cyan-400 dark:border-cyan-950/40";
+      default:
+        return "bg-gs-bg border border-gs-border text-gs-muted";
+    }
+  };
 
   const deletableIds = (activities ?? [])
     .filter(a => a.canDelete && a.conversationId)
@@ -191,6 +212,7 @@ export function ActivityTable({ activities, onDeleteChat, onBulkDelete, page = 1
               <th className="px-4 py-4">Activity</th>
               <th className="px-6 py-4">Details</th>
               <th className="px-6 py-4">Mode</th>
+              <th className="px-6 py-4">Category</th>
               <th className="px-6 py-4">Model</th>
               <th className="px-6 py-4">Project / Context</th>
               <th className="px-6 py-4">User</th>
@@ -201,7 +223,7 @@ export function ActivityTable({ activities, onDeleteChat, onBulkDelete, page = 1
           <tbody className="divide-y divide-gs-border">
             {activities?.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
+                <td colSpan={10} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
                   No activities match your filters.
                 </td>
               </tr>
@@ -247,6 +269,15 @@ export function ActivityTable({ activities, onDeleteChat, onBulkDelete, page = 1
                     <td className="px-6 py-4">
                       {item.chatMode ? (
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${modeCls}`}>{modeLabel}</span>
+                      ) : (
+                        <span className="text-sm text-gs-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {item.category ? (
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${getCategoryBadgeClass(item.category)}`}>
+                          {item.category}
+                        </span>
                       ) : (
                         <span className="text-sm text-gs-muted">—</span>
                       )}

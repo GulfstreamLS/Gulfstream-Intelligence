@@ -78,6 +78,7 @@ export interface Conversation {
   updated_at: string;
   messages: Message[];
   models_used: string[];
+  category?: string | null;
 }
 
 export interface TokenResponse {

@@ -65,6 +65,10 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
         return (self.metadata_ or {}).get("last_uploaded_type")
 
     @property
+    def category(self) -> str | None:
+        return (self.metadata_ or {}).get("category")
+
+    @property
     def models_used(self) -> list[str]:
         seen: list[str] = []
         for msg in self.messages:

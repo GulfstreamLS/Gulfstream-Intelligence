@@ -59,7 +59,7 @@ export function useChat() {
         title: null,
         model: params.model ?? DEFAULT_CHAT_MODEL,
         chat_mode: params.chatMode ?? "program",
-        is_temporary: false,
+        is_temporary: true,
         system_prompt: null,
         project_id: params.projectId ?? null,
         project_name: null,

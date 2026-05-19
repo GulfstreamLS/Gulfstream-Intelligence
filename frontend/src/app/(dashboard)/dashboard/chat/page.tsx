@@ -387,6 +387,7 @@ function RegulatoryChatPage() {
     chatMode:    c.chat_mode,
     projectName: c.project_name,
     models:      c.models_used?.length ? c.models_used : (c.model ? [c.model] : []),
+    category:    c.category,
   }));
 
   const isLoading = isStreaming && !streamingContent;

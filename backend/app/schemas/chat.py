@@ -63,6 +63,7 @@ class ConversationCreate(BaseModel):
     authorities: list[str] | None = None
     system_prompt: str | None = None
     chat_mode: str | None = "program"
+    is_temporary: bool = True
 
 
 class ConversationUpdate(BaseModel):
@@ -72,6 +73,7 @@ class ConversationUpdate(BaseModel):
     model: str | None = None
     chat_mode: str | None = None
     is_temporary: bool | None = None
+    metadata: dict | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -97,6 +99,7 @@ class ConversationResponse(BaseModel):
     updated_at: datetime
     messages: list[MessageResponse] = []
     models_used: list[str] = []
+    category: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

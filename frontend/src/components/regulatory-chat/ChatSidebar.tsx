@@ -14,6 +14,7 @@ import type { ChatMode } from "./ChatHeader";
 import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
 import { FilterDropdown } from "../ui/FilterDropdown";
 import { getChatModelLabel } from "../../lib/chatModels";
+import { useChatStore } from "../../store/chatStore";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -120,10 +121,28 @@ function SavePanel({
   const [newProgramName, setNewProgramName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (step === "saved") {
+      const timer = setTimeout(() => {
+        setStep("options");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [step]);
+
   async function saveToProgram(projectId: string) {
     setSaving(true);
     try {
-      await chatApi.updateConversation(activeChatId, { project_id: projectId });
+      await chatApi.updateConversation(activeChatId, { 
+        project_id: projectId, 
+        is_temporary: false, 
+        metadata: { category } 
+      });
+      useChatStore.getState().updateConversation(activeChatId, {
+        project_id: projectId,
+        is_temporary: false,
+        category: category,
+      });
       const proj = projects.find(p => p.id === projectId) ?? null;
       onSaved(proj);
       setStep("saved");
@@ -136,7 +155,17 @@ function SavePanel({
     setSaving(true);
     try {
       const proj = await projectApi.create({ name: newProgramName.trim() });
-      await chatApi.updateConversation(activeChatId, { project_id: proj.id });
+      await chatApi.updateConversation(activeChatId, { 
+        project_id: proj.id, 
+        is_temporary: false, 
+        metadata: { category } 
+      });
+      useChatStore.getState().updateConversation(activeChatId, {
+        project_id: proj.id,
+        is_temporary: false,
+        category: category,
+        project_name: proj.name,
+      });
       onSaved(proj);
       setStep("saved");
     } catch { /* silently fail */ }
@@ -306,7 +335,16 @@ function SavePanel({
             onClick={async () => {
               setSaving(true);
               try {
-                await chatApi.updateConversation(activeChatId, { project_id: null });
+                await chatApi.updateConversation(activeChatId, { 
+                  project_id: null, 
+                  is_temporary: false, 
+                  metadata: { category } 
+                });
+                useChatStore.getState().updateConversation(activeChatId, {
+                  project_id: null,
+                  is_temporary: false,
+                  category: category,
+                });
               } catch { /* silently fail */ }
               setSaving(false);
               onSaved(null);
@@ -437,6 +475,25 @@ function ChatHistoryRow({
     ? { label: "General", cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" }
     : { label: "Program", cls: "bg-gs-blue/10 text-gs-blue" };
 
+  const getCategoryBadgeClass = (cat: string) => {
+    switch (cat) {
+      case "Risk":
+        return "bg-red-50 text-red-600 border border-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-950/40";
+      case "Gap":
+        return "bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-950/40";
+      case "Decision":
+        return "bg-purple-50 text-purple-600 border border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-950/40";
+      case "Assumption":
+        return "bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-950/40";
+      case "Action Item":
+        return "bg-green-50 text-green-600 border border-green-100 dark:bg-green-950/20 dark:text-green-400 dark:border-green-950/40";
+      case "Executive Summary":
+        return "bg-cyan-50 text-cyan-600 border border-cyan-100 dark:bg-cyan-950/20 dark:text-cyan-400 dark:border-cyan-950/40";
+      default:
+        return "bg-gs-bg border border-gs-border text-gs-muted";
+    }
+  };
+
   return (
     <div
       className={`group/chat w-full flex items-start justify-between p-3 rounded-lg transition-colors text-left cursor-pointer ${
@@ -450,6 +507,11 @@ function ChatHistoryRow({
           {chat.chatMode && (
             <span className={`text-[9px] font-bold pr-1.5 py-0.5 rounded ${modeBadge.cls}`}>
               {modeBadge.label}
+            </span>
+          )}
+          {chat.category && (
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${getCategoryBadgeClass(chat.category)}`}>
+              {chat.category}
             </span>
           )}
           {chat.models && chat.models.map(m => (
@@ -491,6 +553,7 @@ export interface RecentChatItem {
   chatMode?: string | null;
   projectName?: string | null;
   models?: string[];
+  category?: string | null;
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
