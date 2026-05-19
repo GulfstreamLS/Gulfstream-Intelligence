@@ -417,8 +417,6 @@ function SavePanel({
   // ── Step: options ──
   const hasProgram = !!currentProgramId;
 
-  type SaveOption = { icon: React.ReactNode; label: string; description: string; onClick: () => void; variant?: "default" | "muted" };
-
   const options = (() => {
     if (chatMode === "general") {
       return [
