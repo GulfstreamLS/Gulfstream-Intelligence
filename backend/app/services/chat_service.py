@@ -120,9 +120,17 @@ class ChatService:
         )
         messages = list(result.scalars().all())
         messages.reverse()
-        return [
-            {"role": str(m.role), "content": m.content} for m in messages if str(m.role) != MessageRole.SYSTEM.value
-        ]
+        history: list[dict] = []
+        for m in messages:
+            if str(m.role) == MessageRole.SYSTEM.value:
+                continue
+            item = {"role": str(m.role), "content": m.content}
+            if m.attached_filename:
+                item["attached_filename"] = m.attached_filename
+            if m.attached_url:
+                item["attached_url"] = m.attached_url
+            history.append(item)
+        return history
 
     async def auto_title_conversation(self, conversation: "Conversation", first_message: str) -> str:
         return first_message[:80].rstrip() + ("..." if len(first_message) > 80 else "")

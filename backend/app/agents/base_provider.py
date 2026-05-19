@@ -7,7 +7,7 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     async def stream_response(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         system_prompt: str | None = None,
         max_tokens: int = 4096,
         **kwargs: Any,

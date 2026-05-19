@@ -5,6 +5,7 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from app.agents.base_provider import BaseLLMProvider
+from app.agents.message_normalizer import DOCUMENT_UPLOAD_FALLBACK, normalize_ai_messages
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -37,16 +38,29 @@ class OpenAIProvider(BaseLLMProvider):
 
     async def stream_response(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         system_prompt: str | None = None,
         max_tokens: int = 16384,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
         native_files: list[dict] = kwargs.pop("native_files", None) or []
+        messages_for_ai = list(messages or [])
+        if native_files:
+            if messages_for_ai:
+                messages_for_ai[-1] = {**messages_for_ai[-1], "_has_native_files": True}
+            else:
+                messages_for_ai.append({"role": "user", "content": "", "_has_native_files": True})
+        messages, _ = normalize_ai_messages(messages_for_ai)
 
         key = settings.OPENAI_API_KEY or ""
         key_hint = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else ("(not set)" if not key else "(short key)")
-        logger.info(f"[OpenAIProvider] model={self.model}  key={key_hint}  messages={len(messages)}  native_files={len(native_files)}")
+        logger.info(
+            "[OpenAIProvider] model=%s  key=%s  messages=%s  native_files=%s",
+            self.model,
+            key_hint,
+            len(messages),
+            len(native_files),
+        )
 
         all_messages: list[dict] = []
         if system_prompt:
@@ -57,6 +71,9 @@ class OpenAIProvider(BaseLLMProvider):
             *prior, last = messages
             all_messages.extend(prior)
             last_content = last.get("content", "")
+            if not isinstance(last_content, str):
+                last_content = DOCUMENT_UPLOAD_FALLBACK
+            last_content = last_content.strip() or DOCUMENT_UPLOAD_FALLBACK
             content_array: list[dict] = [{"type": "text", "text": last_content}]
             content_array.extend(self._build_content_block(f) for f in native_files)
             all_messages.append({"role": last.get("role", "user"), "content": content_array})

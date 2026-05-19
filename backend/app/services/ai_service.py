@@ -4,6 +4,7 @@ from typing import Any
 import anthropic
 from openai import AsyncOpenAI
 
+from app.agents.message_normalizer import count_empty_ai_message_contents, normalize_ai_messages
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -29,7 +30,7 @@ class AIService:
 
     async def stream_chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str,
         system_prompt: str | None = None,
         max_tokens: int = 16384,
@@ -46,11 +47,34 @@ class AIService:
         if native_files:
             kwargs["native_files"] = native_files
 
+        messages_for_ai = list(messages or [])
+        if native_files:
+            if messages_for_ai:
+                messages_for_ai[-1] = {**messages_for_ai[-1], "_has_native_files": True}
+            else:
+                messages_for_ai.append({"role": "user", "content": "", "_has_native_files": True})
+
+        normalized_messages, stats = normalize_ai_messages(messages_for_ai)
+        if stats.fallback_count or stats.dropped_empty_count or stats.trimmed_count:
+            logger.info(
+                "[AIService] normalized AI messages  "
+                "input=%s  output=%s  trimmed=%s  fallback=%s  dropped_empty=%s",
+                stats.input_count,
+                stats.output_count,
+                stats.trimmed_count,
+                stats.fallback_count,
+                stats.dropped_empty_count,
+            )
+
+        empty_count = count_empty_ai_message_contents(normalized_messages)
+        if empty_count:
+            logger.error("[AIService] detected %s empty AI message(s); retrying payload cleanup", empty_count)
+            normalized_messages, _ = normalize_ai_messages(normalized_messages)
+
         async for chunk in provider.stream_response(
-            messages=messages, system_prompt=system_prompt, max_tokens=max_tokens, **kwargs
+            messages=normalized_messages, system_prompt=system_prompt, max_tokens=max_tokens, **kwargs
         ):
             yield chunk
-
 
     async def generate_title(self, message: str, response_snippet: str = "") -> str:
         """Generate a short 4-6 word conversation title using a fast model."""
