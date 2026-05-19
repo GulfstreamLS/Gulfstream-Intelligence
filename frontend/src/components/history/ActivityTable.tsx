@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare,
-  MoreHorizontal, ChevronLeft, ChevronRight, ExternalLink, Trash2,
+  MoreHorizontal, ChevronLeft, ChevronRight, ExternalLink, Trash2, X,
 } from "lucide-react";
 import type { Conversation, User } from "../../types";
+import { getChatModelLabel } from "../../lib/chatModels";
 
 export interface ActivityItem {
   id: string | number;
@@ -85,6 +86,7 @@ export function mapConversationsToActivities(
 interface ActivityTableProps {
   activities?: ActivityItem[];
   onDeleteChat?: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => void;
   page?: number;
   totalPages?: number;
   totalCount?: number;
@@ -93,9 +95,47 @@ interface ActivityTableProps {
 
 type MenuState = { key: string; item: ActivityItem; top: number; right: number } | null;
 
-export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages = 1, totalCount, onPageChange }: ActivityTableProps) {
+export function ActivityTable({ activities, onDeleteChat, onBulkDelete, page = 1, totalPages = 1, totalCount, onPageChange }: ActivityTableProps) {
   const router = useRouter();
   const [menu, setMenu] = useState<MenuState>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const deletableIds = (activities ?? [])
+    .filter(a => a.canDelete && a.conversationId)
+    .map(a => a.conversationId!);
+
+  // Remove stale selections when deleted conversations leave the list
+  useEffect(() => {
+    setSelected(prev => {
+      const valid = new Set(deletableIds);
+      const next = new Set([...prev].filter(id => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [deletableIds]);
+
+  const allSelected = deletableIds.length > 0 && deletableIds.every(id => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(deletableIds));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (!onBulkDelete || selected.size === 0) return;
+    onBulkDelete(Array.from(selected));
+  };
 
   const handleRowClick = (item: ActivityItem) => {
     if (item.conversationId) router.push(`/dashboard/chat?conversation=${item.conversationId}`);
@@ -110,11 +150,45 @@ export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages =
 
   return (
     <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden">
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="flex items-center justify-between px-6 py-3 bg-gs-blue/5 border-b border-gs-blue/20">
+          <span className="text-sm font-semibold text-gs-text">
+            {selected.size} {selected.size === 1 ? "chat" : "chats"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors"
+            >
+              <Trash2 size={13} /> Delete {selected.size} selected
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="flex items-center gap-1 px-2 py-1.5 text-gs-muted hover:text-gs-text rounded-lg text-xs font-semibold transition-colors"
+            >
+              <X size={13} /> Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[1000px]">
           <thead className="bg-gs-bg border-b border-gs-border">
             <tr className="text-[11px] font-bold text-gs-muted uppercase tracking-wider">
-              <th className="px-6 py-4">Activity</th>
+              <th className="pl-6 pr-3 py-4 w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={el => { if (el) el.indeterminate = selected.size > 0 && !allSelected; }}
+                  onChange={toggleAll}
+                  className="w-4 h-4 rounded border-gs-border accent-gs-blue cursor-pointer"
+                  aria-label="Select all"
+                />
+              </th>
+              <th className="px-4 py-4">Activity</th>
               <th className="px-6 py-4">Details</th>
               <th className="px-6 py-4">Mode</th>
               <th className="px-6 py-4">Model</th>
@@ -127,12 +201,14 @@ export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages =
           <tbody className="divide-y divide-gs-border">
             {activities?.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
+                <td colSpan={9} className="px-6 py-16 text-center text-sm font-medium text-gs-muted">
                   No activities match your filters.
                 </td>
               </tr>
             ) : (
               activities?.map((item) => {
+                const isSelected = !!item.conversationId && selected.has(item.conversationId);
+                const canSelect  = !!(item.canDelete && item.conversationId);
                 const modeCls = item.chatMode === "general"
                   ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
                   : "bg-gs-blue/10 text-gs-blue";
@@ -141,9 +217,20 @@ export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages =
                   <tr
                     key={item.id}
                     onClick={() => handleRowClick(item)}
-                    className={`hover:bg-gs-bg transition-colors group ${item.conversationId ? "cursor-pointer" : ""}`}
+                    className={`transition-colors group ${item.conversationId ? "cursor-pointer" : ""} ${isSelected ? "bg-gs-blue/5" : "hover:bg-gs-bg"}`}
                   >
-                    <td className="px-6 py-4">
+                    <td className="pl-6 pr-3 py-4 w-10" onClick={e => e.stopPropagation()}>
+                      {canSelect && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(item.conversationId!)}
+                          className="w-4 h-4 rounded border-gs-border accent-gs-blue cursor-pointer"
+                          aria-label={`Select ${item.details}`}
+                        />
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg ${item.iconBg} ${item.iconColor} flex items-center justify-center shrink-0`}>
                           {item.icon}
@@ -169,7 +256,7 @@ export function ActivityTable({ activities, onDeleteChat, page = 1, totalPages =
                         <div className="flex flex-wrap gap-1">
                           {item.models.map(m => (
                             <span key={m} className="text-[11px] font-medium text-gs-muted bg-gs-bg border border-gs-border px-2 py-0.5 rounded whitespace-nowrap">
-                              {m.replace(/^claude-/, "").replace(/^gpt-/, "GPT-").replace(/-\d{8}$/, "")}
+                              {getChatModelLabel(m)}
                             </span>
                           ))}
                         </div>

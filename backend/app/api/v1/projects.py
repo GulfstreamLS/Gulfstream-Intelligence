@@ -3,6 +3,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -225,6 +226,61 @@ async def get_project_conversations(
         .order_by(Conversation.updated_at.desc())
     )
     return result.scalars().all()
+
+
+class _BulkDeleteBody(BaseModel):
+    ids: list[uuid.UUID]
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_projects(
+    request: Request,
+    data: _BulkDeleteBody,
+    current_user: User = Depends(check_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete multiple projects in a single request."""
+    if not data.ids:
+        return {"deleted": 0, "skipped": 0}
+
+    org_id = _org_id(current_user)
+
+    is_org_owner = False
+    if org_id:
+        result = await db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.organization_id == org_id,
+            )
+        )
+        member = result.scalar_one_or_none()
+        is_org_owner = member is not None and member.role == MemberRole.OWNER
+
+    q = _build_list_query(current_user).where(Project.id.in_(data.ids))
+    result = await db.execute(q)
+    projects = result.scalars().all()
+
+    deleted = skipped = 0
+    for project in projects:
+        can_del = project.user_id == current_user.id or is_org_owner
+        if can_del:
+            await db.execute(update(Conversation).where(Conversation.project_id == project.id).values(project_id=None))
+            await db.delete(project)
+            deleted += 1
+        else:
+            skipped += 1
+
+    if deleted:
+        await log_audit(
+            db, current_user.id, "PROJECT_BULK_DELETED",
+            resource_type="project",
+            resource_name=f"{deleted} projects",
+            ip_address=get_ip(request),
+            organization_id=org_id,
+        )
+
+    await db.commit()
+    return {"deleted": deleted, "skipped": skipped}
 
 
 @router.post("/import", response_model=dict)

@@ -28,7 +28,6 @@ function RegulatoryChatPage() {
   const [deleteConfirmId, setDeleteConfirmId]     = useState<string | null>(null);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(urlProjectId);
-  // Start with SSR-safe defaults; useEffect will apply localStorage values after hydration
   const [chatMode, setChatMode] = useState<ChatMode>("program");
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
@@ -36,6 +35,7 @@ function RegulatoryChatPage() {
   const scrollContainerRef  = useRef<HTMLDivElement>(null);
   const userScrolled        = useRef(false);
   const autoMessageSent     = useRef(false);
+  const isNewConversationRef = useRef(false);
 
   const { conversations, isStreaming, streamingContent, updateConversation, removeConversation, setActiveConversation } = useChatStore();
   const user = useChatStore((s) => s.user);
@@ -64,14 +64,15 @@ function RegulatoryChatPage() {
     loadConversations().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep the Zustand activeConversationId in sync so AIMessage can find the current conversation
   useEffect(() => {
     setActiveConversation(conversationId);
   }, [conversationId, setActiveConversation]);
 
-  // Sync conversationId when URL param changes (client-side navigation from history/projects)
   useEffect(() => {
-    if (urlConversationId !== null) setConversationId(urlConversationId);
+    if (urlConversationId !== null) {
+      isNewConversationRef.current = false;
+      setConversationId(urlConversationId);
+    }
   }, [urlConversationId]);
 
   useEffect(() => {
@@ -80,8 +81,6 @@ function RegulatoryChatPage() {
 
   const pendingAutoMessage = useRef<string | null>(null);
 
-  // Remove the pending message from sessionStorage and store it in the ref for sending.
-  // pendingDisplayMsg (above) already read the text for display — this just primes the send.
   useLayoutEffect(() => {
     const text = sessionStorage.getItem("pendingChatMessage")?.trim();
     if (!text) return;
@@ -99,10 +98,9 @@ function RegulatoryChatPage() {
       .catch(() => setIsOrgOwner(false));
   }, [user?.id, user?.organization_id]);
 
-  // Always fetch the full conversation when conversationId changes so messages include
-  // is_analysis and analysis_data (needed for AnalysisCard and export icons in old chats).
   useEffect(() => {
     if (!conversationId) return;
+    if (isNewConversationRef.current) return; // new chat: wait for streaming to finish
     chatApi.getConversation(conversationId)
       .then(c => {
         const inStore = (useChatStore.getState().conversations ?? []).find(x => x.id === c.id);
@@ -110,13 +108,11 @@ function RegulatoryChatPage() {
         else useChatStore.getState().addConversation(c);
       })
       .catch((err: unknown) => {
-        // 404 = stale/deleted conversation — clear it and start fresh
         const status = (err as { status?: number })?.status;
         if (status === 404) {
           setConversationId(null);
           router.replace("/dashboard/chat");
         }
-        // silently ignore other transient errors (network, 401, etc.)
       });
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -145,7 +141,6 @@ function RegulatoryChatPage() {
     if (mode === "general" || mode === "program") setChatMode(mode);
   }, [currentConversation?.chat_mode]);
 
-  // Always sync project context from the loaded conversation when switching chats
   useEffect(() => {
     if (!conversationId) return; // new chat — preserve any pre-selected project
     setSelectedProjectId(currentConversation?.project_id ?? null);
@@ -204,16 +199,20 @@ function RegulatoryChatPage() {
     if (!textOverride) setInput("");
     userScrolled.current = false;
 
+    const isNew = !conversationId;
     const resolvedId = await sendAll({
       conversationId,
       message:     text,
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
       model:       selectedModel,
-      projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
+      projectId:   isNew ? selectedProjectId ?? undefined : undefined,
       chatMode,
-      onConversationReady: !conversationId ? setConversationId : undefined,
+      onConversationReady: isNew ? (id) => {
+        isNewConversationRef.current = true;
+        setConversationId(id);
+      } : undefined,
     });
-    if (resolvedId && !conversationId) setConversationId(resolvedId);
+    if (resolvedId && isNew) setConversationId(resolvedId);
   }, [input, isStreaming, conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
 
   // Send the pending message once handleSendMessage is stable (store has user loaded)
@@ -227,17 +226,21 @@ function RegulatoryChatPage() {
 
   const handleFileUpload = useCallback(async (files: File[], text?: string) => {
     userScrolled.current = false;
+    const isNew = !conversationId;
     const resolvedId = await sendAll({
       conversationId,
       message:     text,
       files,
       authorities: selectedAuthorities.length > 0 ? selectedAuthorities : undefined,
       model:       selectedModel,
-      projectId:   !conversationId ? selectedProjectId ?? undefined : undefined,
+      projectId:   isNew ? selectedProjectId ?? undefined : undefined,
       chatMode,
-      onConversationReady: !conversationId ? setConversationId : undefined,
+      onConversationReady: isNew ? (id) => {
+        isNewConversationRef.current = true;
+        setConversationId(id);
+      } : undefined,
     });
-    if (resolvedId && !conversationId) setConversationId(resolvedId);
+    if (resolvedId && isNew) setConversationId(resolvedId);
   }, [conversationId, selectedAuthorities, selectedModel, selectedProjectId, chatMode, sendAll]);
 
   const handleAuthoritiesChange = useCallback(async (authorities: string[]) => {
@@ -274,12 +277,14 @@ function RegulatoryChatPage() {
   }, [conversationId, updateConversation]);
 
   const handleChatSelect = useCallback((chatId: string) => {
+    isNewConversationRef.current = false; // existing chat: fetch immediately
     setConversationId(chatId);
     setInput("");
     userScrolled.current = false;
   }, []);
 
   const handleNewChat = useCallback(() => {
+    isNewConversationRef.current = false;
     setConversationId(null);
     setSelectedProjectId(null);
     setInput("");
@@ -304,10 +309,8 @@ function RegulatoryChatPage() {
 
   // ── Sidebar data ─────────────────────────────────────────────────────────────
 
-  // Fetch insights from API (analysis_data doesn't arrive via SSE)
   const [insightCounts, setInsightCounts] = useState<InsightCounts | null>(null);
 
-  // Returns true when non-zero insight counts were found (used to stop polling early).
   const fetchInsights = useCallback(async (id: string): Promise<boolean> => {
     try {
       const data = await chatApi.getInsights(id);
@@ -317,14 +320,11 @@ function RegulatoryChatPage() {
     } catch { return false; }
   }, []);
 
-  // Fetch when conversation changes
   useEffect(() => {
     if (!conversationId) { setInsightCounts(null); return; }
     fetchInsights(conversationId);
   }, [conversationId, fetchInsights]);
 
-  // After streaming ends, poll /insights every 5 s for up to 5 min.
-  // Stops early the moment non-zero counts come back (analysis written to DB).
   const wasStreamingRef = useRef(false);
   const insightPollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const convIdRef       = useRef(conversationId); // always-fresh ref for event handler
@@ -349,12 +349,21 @@ function RegulatoryChatPage() {
     if (wasStreamingRef.current && !isStreaming && conversationId) {
       fetchInsights(conversationId);
       startInsightPoll(conversationId);
+
+      if (isNewConversationRef.current) {
+        isNewConversationRef.current = false;
+        chatApi.getConversation(conversationId)
+          .then(c => {
+            const inStore = (useChatStore.getState().conversations ?? []).find(x => x.id === c.id);
+            if (inStore) updateConversation(c.id, c);
+            else useChatStore.getState().addConversation(c);
+          })
+          .catch(() => {});
+      }
     }
     wasStreamingRef.current = isStreaming;
-  }, [isStreaming, conversationId, fetchInsights, startInsightPoll]);
+  }, [isStreaming, conversationId, fetchInsights, startInsightPoll, updateConversation]);
 
-  // Listen for export_ready events dispatched by DashboardTopNav.
-  // This fires even if the direct poll has already timed out.
   useEffect(() => {
     const handler = (e: Event) => {
       const id = convIdRef.current;
@@ -368,7 +377,6 @@ function RegulatoryChatPage() {
     return () => window.removeEventListener("gi:export_ready", handler);
   }, [fetchInsights, stopInsightPoll]);
 
-  // Clean up poll when conversation changes or unmounts
   useEffect(() => { return stopInsightPoll; }, [conversationId, stopInsightPoll]);
 
   const recentChats: RecentChatItem[] = (conversations ?? []).slice(0, 10).map(c => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Download, Plus, ShieldCheck, ChevronDown, Folder, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { SimulationScenario }  from "../../../../components/ha-simulation/SimulationScenario";
@@ -27,8 +27,18 @@ function ProjectPicker({
   projects: Project[]; selected: Project | null; onSelect: (p: Project | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 px-3 py-2 border border-gs-border bg-gs-card text-gs-text rounded-lg text-xs font-semibold hover:bg-gs-bg transition-colors max-w-[160px]"
@@ -71,6 +81,15 @@ function SessionHistoryDropdown({
   onSelect: (id: string) => void; onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const active = sessions.find(s => s.id === activeId);
 
@@ -88,7 +107,7 @@ function SessionHistoryDropdown({
   if (sessions.length === 0) return null;
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 px-3 py-2 border border-gs-border bg-gs-card text-gs-text rounded-lg text-xs font-semibold hover:bg-gs-bg transition-colors max-w-[170px]"

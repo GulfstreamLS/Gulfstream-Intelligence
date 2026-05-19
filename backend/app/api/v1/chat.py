@@ -11,6 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -311,6 +312,15 @@ async def _stream_full(
             native_files: list[dict] = []
             prepared: list[dict] = []
 
+        # ── STEP 4b: Auto-inject message for file-only uploads ───────────────
+        # When files are uploaded with no message, inject a hidden prompt so the AI
+        # streams a real response. We save an empty string to the DB so the injected
+        # text never appears in the conversation history.
+        _auto_injected = False
+        if not message and prepared:
+            message = "Please analyze the attached document(s) and provide a detailed review."
+            _auto_injected = True
+
         # ── STEP 5: Save user message + auto-title ────────────────────────────
         if message:
             msg_filename = msg_file_url = None
@@ -319,7 +329,8 @@ async def _stream_full(
                 msg_filename = ", ".join(filenames[-len(file_data):]) if filenames else None
                 # URL empty for now; background task will update the metadata entry.
             await chat_service.add_message(
-                db, convo.id, MessageRole.USER, message,
+                db, convo.id, MessageRole.USER,
+                "" if _auto_injected else message,   # hide injected prompt from history
                 attached_filename=msg_filename,
                 attached_url=None,
             )
@@ -397,7 +408,7 @@ async def _stream_full(
 
             asyncio.create_task(_background_save())
 
-        # ── STEP 6: File-only upload — nothing more to do ────────────────────
+        # ── STEP 6: Truly empty submission (no message, no files) ────────────────
         if not message:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
@@ -749,7 +760,7 @@ async def list_conversations(
 ):
     user_id = await _get_user_id_fallback(db, current_user)
     org_id = current_user.organization_id if current_user else None
-    page_size = min(page_size, 100)
+    page_size = min(page_size, 500)
     return await chat_service.get_conversations(db, user_id, org_id, page=page, page_size=page_size)
 
 
@@ -862,6 +873,70 @@ async def delete_conversation(
                 resource_type="chat",
                 resource_id=str(convo_id),
             ))
+
+
+class _BulkDeleteBody(BaseModel):
+    ids: list[uuid.UUID]
+
+
+@router.post("/conversations/bulk-delete")
+async def bulk_delete_conversations(
+    request: Request,
+    data: _BulkDeleteBody,
+    current_user: User | None = Depends(get_user_or_none),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete multiple conversations in a single request."""
+    if not data.ids:
+        return {"deleted": 0, "skipped": 0}
+
+    user_id = await _get_user_id_fallback(db, current_user)
+    org_id = current_user.organization_id if current_user else None
+
+    is_org_owner = False
+    if org_id and current_user:
+        owner_res = await db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.organization_id == org_id,
+            )
+        )
+        member = owner_res.scalar_one_or_none()
+        is_org_owner = member is not None and member.role == MemberRole.OWNER
+
+    if org_id:
+        stmt = select(ConversationModel).where(
+            ConversationModel.id.in_(data.ids),
+            ConversationModel.organization_id == org_id,
+        )
+    else:
+        stmt = select(ConversationModel).where(
+            ConversationModel.id.in_(data.ids),
+            ConversationModel.user_id == user_id,
+        )
+
+    result = await db.execute(stmt)
+    convos = result.scalars().all()
+
+    deleted = skipped = 0
+    for convo in convos:
+        if convo.user_id == user_id or is_org_owner:
+            await chat_service.delete_conversation(db, convo)
+            deleted += 1
+        else:
+            skipped += 1
+
+    if deleted:
+        await log_audit(
+            db, user_id, "CHAT_BULK_DELETED",
+            resource_type="chat",
+            resource_name=f"{deleted} conversations",
+            ip_address=get_ip(request),
+            organization_id=org_id,
+        )
+
+    await db.commit()
+    return {"deleted": deleted, "skipped": skipped}
 
 
 @router.get("/messages/{message_id}/export")

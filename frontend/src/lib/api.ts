@@ -196,6 +196,12 @@ export const chatApi = {
   deleteConversation: (id: string) =>
     request<void>(`/chat/conversations/${id}`, { method: "DELETE" }),
 
+  bulkDeleteConversations: (ids: string[]) =>
+    request<{ deleted: number; skipped: number }>("/chat/conversations/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+
   updateAuthorities: (id: string, authorities: string[]) =>
     request<Conversation>(`/chat/conversations/${id}/authorities`, {
       method: "PATCH",
@@ -385,6 +391,12 @@ export const projectApi = {
     request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   remove: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+
+  bulkDelete: (ids: string[]) =>
+    request<{ deleted: number; skipped: number }>("/projects/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 
   getConversations: (id: string) => request<Conversation[]>(`/projects/${id}/conversations`),
 

@@ -13,6 +13,7 @@ import type { Project } from "../../types";
 import type { ChatMode } from "./ChatHeader";
 import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
 import { FilterDropdown } from "../ui/FilterDropdown";
+import { getChatModelLabel } from "../../lib/chatModels";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -447,13 +448,13 @@ function ChatHistoryRow({
         <span className="text-xs font-semibold truncate">{chat.title}</span>
         <div className="flex items-center gap-1.5 flex-wrap">
           {chat.chatMode && (
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${modeBadge.cls}`}>
+            <span className={`text-[9px] font-bold pr-1.5 py-0.5 rounded ${modeBadge.cls}`}>
               {modeBadge.label}
             </span>
           )}
           {chat.models && chat.models.map(m => (
             <span key={m} className="text-[9px] font-medium bg-gs-bg border border-gs-border text-gs-muted px-1.5 py-0.5 rounded truncate max-w-[80px]">
-              {m.replace(/^claude-/, "").replace(/^gpt-/, "GPT-").replace(/-\d{8}$/, "")}
+              {getChatModelLabel(m)}
             </span>
           ))}
           {chat.projectName && (

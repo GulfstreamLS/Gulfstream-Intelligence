@@ -45,9 +45,10 @@ function isWithinRange(rawDate: string | undefined, range: DateRange): boolean {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const { conversations, user, removeConversation } = useChatStore();
+  const { conversations, conversationTotal, user, removeConversation } = useChatStore();
   const { loadConversations }   = useChat();
-  const [deleteId, setDeleteId]       = useState<string | null>(null);
+  const [deleteId, setDeleteId]           = useState<string | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
   const [isOrgOwner, setIsOrgOwner]   = useState(false);
   const [docsCount, setDocsCount]     = useState(0);
   const [simsCount, setSimsCount]     = useState(0);
@@ -132,7 +133,7 @@ export default function HistoryPage() {
         </div>
 
         <HistoryStatCards
-          totalActivities={allActivities.length}
+          totalActivities={conversationTotal}
           docsProcessed={docsCount}
           simulationsRun={simsCount}
           filesUploaded={docsCount}
@@ -195,9 +196,14 @@ export default function HistoryPage() {
         <ActivityTable
           activities={pagedActivities}
           onDeleteChat={id => setDeleteId(id)}
+          onBulkDelete={ids => setBulkDeleteIds(ids)}
           page={historyPage}
           totalPages={totalPages}
-          totalCount={filtered.length}
+          totalCount={
+            !search && dateRange === "all" && activityType === "all" && userFilter === "all" && chatModeFilter === "all"
+              ? conversationTotal
+              : filtered.length
+          }
           onPageChange={setHistoryPage}
         />
 
@@ -221,6 +227,22 @@ export default function HistoryPage() {
           onConfirm={async () => {
             try { await chatApi.deleteConversation(deleteId); removeConversation(deleteId); } catch { /* silently fail */ }
             setDeleteId(null);
+          }}
+        />
+      )}
+
+      {bulkDeleteIds && (
+        <ConfirmModal
+          title={`Delete ${bulkDeleteIds.length} Chats`}
+          message={`This will permanently delete ${bulkDeleteIds.length} conversations and all their messages. This action cannot be undone.`}
+          confirmLabel={`Delete ${bulkDeleteIds.length} Chats`}
+          onCancel={() => setBulkDeleteIds(null)}
+          onConfirm={async () => {
+            try {
+              await chatApi.bulkDeleteConversations(bulkDeleteIds);
+              bulkDeleteIds.forEach(id => removeConversation(id));
+            } catch { /* silently fail */ }
+            setBulkDeleteIds(null);
           }}
         />
       )}

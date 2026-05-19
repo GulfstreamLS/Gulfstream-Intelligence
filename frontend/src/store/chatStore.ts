@@ -5,13 +5,14 @@ import type { Conversation, Message, User } from "../types";
 interface ChatState {
   user: User | null;
   conversations: Conversation[];
+  conversationTotal: number;
   activeConversationId: string | null;
   streamingContent: string;
   isStreaming: boolean;
 
   setUser: (user: User | null) => void;
   logout: () => void;
-  setConversations: (convos: Conversation[]) => void;
+  setConversations: (convos: Conversation[], total?: number) => void;
   addConversation: (convo: Conversation) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
   removeConversation: (id: string) => void;
@@ -29,13 +30,14 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       user: null,
       conversations: [],
+      conversationTotal: 0,
       activeConversationId: null,
       streamingContent: "",
       isStreaming: false,
 
       setUser: (user) => set({ user }),
-      logout: () => set({ user: null, conversations: [], activeConversationId: null }),
-      setConversations: (conversations) => set({ conversations: conversations ?? [] }),
+      logout: () => set({ user: null, conversations: [], conversationTotal: 0, activeConversationId: null }),
+      setConversations: (conversations, total) => set({ conversations: conversations ?? [], conversationTotal: total ?? (conversations ?? []).length }),
       addConversation: (convo) =>
         set((s) => ({
           conversations: [convo, ...(s.conversations ?? []).filter((c) => c.id !== convo.id)],

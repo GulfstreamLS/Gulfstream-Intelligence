@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dna, Beaker, FlaskConical, Pill, Activity,
-  MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, ExternalLink, Trash2, Pencil,
+  MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, ExternalLink, Trash2, Pencil, X,
 } from "lucide-react";
 import type { Project, ProjectStatus } from "../../types";
 
@@ -66,6 +66,7 @@ export function ProjectsTable({
   onStartChat,
   onViewDetail,
   onDelete,
+  onBulkDelete,
   onEdit,
   canDeleteProject,
   actionsDisabled = false,
@@ -79,12 +80,47 @@ export function ProjectsTable({
   onStartChat: (id: string) => void;
   onViewDetail: (id: string) => void;
   onDelete: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => void;
   onEdit?: (id: string) => void;
   canDeleteProject?: (project: Project) => boolean;
   actionsDisabled?: boolean;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const activeProject = menu ? projects.find(project => project.id === menu.id) : undefined;
+
+  const deletableIds = projects
+    .filter(p => canDeleteProject?.(p) ?? true)
+    .map(p => p.id);
+
+  // Remove stale selections when deleted projects leave the list
+  useEffect(() => {
+    setSelected(prev => {
+      const valid = new Set(deletableIds);
+      const next = new Set([...prev].filter(id => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [deletableIds]);
+
+  const allSelected = deletableIds.length > 0 && deletableIds.every(id => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(deletableIds));
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (!onBulkDelete || selected.size === 0) return;
+    onBulkDelete(Array.from(selected));
+  };
 
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, id: string) {
     if (menu?.id === id) { setMenu(null); return; }
@@ -97,11 +133,46 @@ export function ProjectsTable({
 
   return (
     <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mb-8">
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="flex items-center justify-between px-6 py-3 bg-gs-blue/5 border-b border-gs-blue/20">
+          <span className="text-sm font-semibold text-gs-text">
+            {selected.size} {selected.size === 1 ? "project" : "projects"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkDelete}
+              disabled={actionsDisabled}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={13} /> Delete {selected.size} selected
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="flex items-center gap-1 px-2 py-1.5 text-gs-muted hover:text-gs-text rounded-lg text-xs font-semibold transition-colors"
+            >
+              <X size={13} /> Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[1000px]">
           <thead className="bg-gs-bg border-b border-gs-border">
             <tr className="text-[11px] font-bold text-gs-muted uppercase tracking-widest">
-              <th className="px-6 py-4">Project Name</th>
+              <th className="pl-6 pr-3 py-4 w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={el => { if (el) el.indeterminate = selected.size > 0 && !allSelected; }}
+                  onChange={toggleAll}
+                  className="w-4 h-4 rounded border-gs-border accent-gs-blue cursor-pointer"
+                  aria-label="Select all"
+                />
+              </th>
+              <th className="px-4 py-4">Project Name</th>
               <th className="px-6 py-4">Indication</th>
               <th className="px-6 py-4">Therapeutic Area</th>
               <th className="px-6 py-4">Health Authorities</th>
@@ -117,13 +188,15 @@ export function ProjectsTable({
               : projects.length === 0
               ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center text-gs-muted text-sm font-medium">
+                  <td colSpan={9} className="px-6 py-16 text-center text-gs-muted text-sm font-medium">
                     No projects found. Create your first project to get started.
                   </td>
                 </tr>
               )
               : projects.map((project, idx) => {
                 const { Icon, bg, color } = iconForProject(idx);
+                const canDelete = canDeleteProject?.(project) ?? true;
+                const isSelected = selected.has(project.id);
                 const authorities = project.authorities ?? [];
                 const shownFlags = authorities.slice(0, 3);
                 const extra = authorities.length - 3;
@@ -133,10 +206,21 @@ export function ProjectsTable({
                 return (
                   <tr
                     key={project.id}
-                    className="hover:bg-gs-bg transition-colors group cursor-pointer"
+                    className={`transition-colors group cursor-pointer ${isSelected ? "bg-gs-blue/5" : "hover:bg-gs-bg"}`}
                     onClick={() => onViewDetail(project.id)}
                   >
-                    <td className="px-6 py-5">
+                    <td className="pl-6 pr-3 py-5 w-10" onClick={e => e.stopPropagation()}>
+                      {canDelete && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(project.id)}
+                          className="w-4 h-4 rounded border-gs-border accent-gs-blue cursor-pointer"
+                          aria-label={`Select ${project.name}`}
+                        />
+                      )}
+                    </td>
+                    <td className="px-4 py-5">
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-lg ${bg} ${color} flex items-center justify-center shrink-0`}>
                           <Icon size={18} />

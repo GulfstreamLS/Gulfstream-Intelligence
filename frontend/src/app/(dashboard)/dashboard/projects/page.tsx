@@ -370,6 +370,7 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState<"new" | "import" | null>(null);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
   const user = useChatStore((s) => s.user);
@@ -497,6 +498,7 @@ export default function ProjectsPage() {
           onStartChat={id => requireActiveSubscription(() => router.push(`/dashboard/chat?projectId=${id}`))}
           onViewDetail={id => router.push(`/dashboard/projects/${id}`)}
           onDelete={id => requireActiveSubscription(() => setDeleteId(id))}
+          onBulkDelete={ids => requireActiveSubscription(() => setBulkDeleteIds(ids))}
           canDeleteProject={project => project.user_id === user?.id || isOrgOwner}
           actionsDisabled={subscriptionExpired}
           onEdit={id => {
@@ -536,6 +538,19 @@ export default function ProjectsPage() {
               if (isPaymentRequiredError(err)) setDeleteId(null);
             }
             setDeleteId(null);
+          }}
+        />
+      )}
+      {bulkDeleteIds && (
+        <ConfirmModal
+          title={`Delete ${bulkDeleteIds.length} ${bulkDeleteIds.length === 1 ? "Project" : "Projects"}`}
+          message={`This will permanently delete ${bulkDeleteIds.length} ${bulkDeleteIds.length === 1 ? "project" : "projects"} and all associated chats. This action cannot be undone.`}
+          confirmLabel={`Delete ${bulkDeleteIds.length} ${bulkDeleteIds.length === 1 ? "Project" : "Projects"}`}
+          onCancel={() => setBulkDeleteIds(null)}
+          onConfirm={async () => {
+            try { await projectApi.bulkDelete(bulkDeleteIds); } catch { /* silently fail */ }
+            setBulkDeleteIds(null);
+            loadProjects();
           }}
         />
       )}

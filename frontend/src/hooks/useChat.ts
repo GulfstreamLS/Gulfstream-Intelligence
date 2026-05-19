@@ -10,8 +10,19 @@ export function useChat() {
   const store = useChatStore();
 
   const loadConversations = useCallback(async () => {
-    const res = await chatApi.listConversations({ page: 1, page_size: 200 });
-    store.setConversations(res?.items ?? []);
+    const PAGE_SIZE = 500;
+    const all: Conversation[] = [];
+    let page = 1;
+    let apiTotal = 0;
+    while (true) {
+      const res = await chatApi.listConversations({ page, page_size: PAGE_SIZE });
+      const items = res?.items ?? [];
+      apiTotal = res?.total ?? all.length;
+      all.push(...items);
+      if (all.length >= apiTotal || items.length < PAGE_SIZE) break;
+      page++;
+    }
+    store.setConversations(all, apiTotal);
   }, [store]);
 
   /**
