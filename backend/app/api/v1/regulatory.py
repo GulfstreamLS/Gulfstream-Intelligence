@@ -1,13 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none, check_active_subscription
+from app.models.chat import Conversation
 from app.models.regulatory import AnalysisDocument, RegulatorySource
 from app.models.user import User
 from app.schemas.regulatory import DocumentAnalysisResponse
@@ -15,6 +16,13 @@ from app.services.analysis_service import analysis_service
 from app.services.vector_service import vector_service
 
 router = APIRouter(prefix="/regulatory", tags=["regulatory"])
+
+
+def _visible_analysis_document_filter():
+    return or_(
+        AnalysisDocument.conversation_id.is_(None),
+        Conversation.is_temporary == False,  # noqa: E712
+    )
 
 
 @router.get("/authorities", response_model=list[str])
@@ -55,7 +63,13 @@ async def upload_for_analysis(
 
     try:
         doc = await analysis_service.analyze_document(
-            db, user_id, content, file.filename, file_extension, authority=authority
+            db,
+            user_id,
+            content,
+            file.filename,
+            file_extension,
+            authority=authority,
+            organization_id=current_user.organization_id if current_user else None,
         )
         # Fetch with relationships for the response
         result = await db.execute(
@@ -96,7 +110,9 @@ async def get_analysis_result(
             selectinload(AnalysisDocument.insights),
             selectinload(AnalysisDocument.actions),
         )
+        .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
         .where(AnalysisDocument.id == document_id, AnalysisDocument.user_id == current_user.id)
+        .where(_visible_analysis_document_filter())
     )
     doc = result.scalar_one_or_none()
     if not doc:

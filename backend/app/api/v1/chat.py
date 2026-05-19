@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import logging
@@ -625,6 +625,8 @@ async def _stream_full(
             _msg_id = msg.id
             _user_id = current_user.id
             _convo_id = convo.id
+            _project_id = convo.project_id
+            _analysis_org_id = convo.organization_id
             _auths = convo.authorities or ["Global"]
             _extra_files = [f for f in _all_uploaded_files if f["filename"] != _analysis_filename]
 
@@ -637,8 +639,20 @@ async def _stream_full(
                 from sqlalchemy import select as _sel
 
                 async with AsyncSessionLocal() as bg_db:
+                    async def _conversation_is_hidden() -> bool:
+                        res = await bg_db.execute(
+                            _sel(_Convo)
+                            .where(_Convo.id == _convo_id)
+                            .execution_options(populate_existing=True)
+                        )
+                        bg_convo = res.scalar_one_or_none()
+                        return bg_convo is None or bg_convo.is_temporary
+
                     # ── 1. Run the analysis LLM call ──────────────────────────
                     try:
+                        if await _conversation_is_hidden():
+                            logger.info(f"[Analysis] skipped hidden/temporary convo={_convo_id}")
+                            return
                         logger.info(f"[Analysis] ▶ starting  convo={_convo_id}  file={_analysis_filename}  auths={_auths}")
                         analysis_msg = await chat_service.perform_analysis_for_chat(
                             bg_db, _convo_id, _user_id,
@@ -655,13 +669,16 @@ async def _stream_full(
 
                     # ── 1.5 Analyze additional uploaded files ─────────────────
                     # Creates AnalysisDocument records so they appear in Document Intelligence
-                    if _extra_files:
+                    if _extra_files and not await _conversation_is_hidden():
                         from app.services.analysis_service import analysis_service as _as_svc
                         for _ef in _extra_files:
                             try:
                                 await _as_svc.analyze_document_multi(
                                     bg_db, _user_id,
                                     _ef["content"], _ef["filename"], _ef["filetype"], _auths,
+                                    conversation_id=_convo_id,
+                                    project_id=_project_id,
+                                    organization_id=_analysis_org_id,
                                 )
                                 await bg_db.commit()
                                 logger.info(f"[Analysis] ✓ extra doc  file={_ef['filename']}")
@@ -670,6 +687,9 @@ async def _stream_full(
 
                     # ── 2. Auto-generate all 3 export formats ─────────────────
                     try:
+                        if await _conversation_is_hidden():
+                            logger.info(f"[Analysis] skipped exports for hidden/temporary convo={_convo_id}")
+                            return
                         results = await asyncio.gather(
                             _exp_svc.generate_pdf(analysis_msg.analysis_data, _analysis_filename),
                             _exp_svc.generate_docx(analysis_msg.analysis_data, _analysis_filename),
@@ -693,6 +713,9 @@ async def _stream_full(
                             logger.warning(f"[Analysis] PPTX export failed  convo={_convo_id}  error={pptx_res}")
 
                         if cached:
+                            if await _conversation_is_hidden():
+                                logger.info(f"[Analysis] skipped export cache/notification for hidden/temporary convo={_convo_id}")
+                                return
                             res = await bg_db.execute(_sel(_Convo).where(_Convo.id == _convo_id))
                             bg_convo = res.scalar_one_or_none()
                             if bg_convo:
@@ -797,7 +820,7 @@ async def get_conversation(
     user_id = await _get_user_id_fallback(db, current_user)
     org_id = current_user.organization_id if current_user else None
     convo = await chat_service.get_conversation(db, conversation_id, user_id, org_id)
-    if not convo:
+    if not convo or convo.is_temporary:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     return convo
 
@@ -815,6 +838,13 @@ async def update_conversation(
     if not convo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     updated = await chat_service.update_conversation(db, convo, data)
+    if data.is_temporary is True:
+        await db.execute(
+            delete(Notification).where(
+                Notification.resource_type == "conversation",
+                Notification.resource_id == str(conversation_id),
+            )
+        )
     await db.commit()
     await db.refresh(updated)
     return updated
@@ -958,6 +988,8 @@ async def export_message_analysis(
         raise HTTPException(status_code=404, detail="Message not found")
 
     convo = await db.get(Conversation, msg.conversation_id)
+    if convo and convo.is_temporary:
+        raise HTTPException(status_code=404, detail="Analysis not found")
 
     # ── Fast path: return cached export URL if available ─────────────────────
     if convo:
@@ -1045,6 +1077,13 @@ async def get_conversation_insights(
     convo = await db.get(ConversationModel, conversation_id)
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if convo.is_temporary:
+        return {
+            "guidelines": 0,
+            "differences": 0,
+            "riskAreas": 0,
+            "recommendations": 0,
+        }
 
     stmt = select(_Msg).where(
         _Msg.conversation_id == conversation_id,

@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import type { GapDomainReadiness } from "../../types";
 
 function DomainBar({ domain, readiness }: GapDomainReadiness) {
@@ -40,9 +39,6 @@ export function ReadinessByDomain({ data, loading }: { data: GapDomainReadiness[
     <div className="lg:col-span-6 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm">
       <div className="flex justify-between items-center mb-8">
         <h3 className="text-[16px] font-bold text-gs-text">Readiness by Domain</h3>
-        <button className="text-blue-600 text-[12px] font-bold flex items-center gap-1 hover:underline">
-          Details <ChevronRight size={14} />
-        </button>
       </div>
 
       {loading ? (

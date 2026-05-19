@@ -17,6 +17,7 @@ interface ChatHeaderProps {
   chatMode: ChatMode;
   onModeChange: (mode: ChatMode) => void;
   modeDisabled?: boolean;
+  actionsDisabled?: boolean;
 }
 
 function ModelDropdown({
@@ -101,16 +102,14 @@ export function ChatHeader({
   chatMode,
   onModeChange,
   modeDisabled,
+  actionsDisabled,
 }: ChatHeaderProps) {
   return (
     <div className="flex justify-between items-start gap-4">
       <div>
-        <h1 className="text-lg md:text-[28px] font-bold text-gs-text tracking-tight">
+        <h1 className="text-lg md:text-[28px] mb-3 font-bold text-gs-text tracking-tight">
           Regulatory Chat
         </h1>
-        <p className="hidden md:block text-gs-muted text-sm mt-1">
-          Ask anything. Get strategic answers powered by global regulatory intelligence.
-        </p>
         <p className="hidden md:block text-gs-muted text-sm">
           Ask freely in General Mode. Go deeper with Program Mode for regulatory strategy, industry guidance, and program-specific work.
         </p>
@@ -157,8 +156,10 @@ export function ChatHeader({
         />
 
         <button
-          onClick={onNewChat}
-          className="flex items-center gap-2 px-2.5 md:px-4 py-2 bg-gs-card border border-gs-border text-gs-text rounded-lg text-sm font-semibold shadow-sm hover:bg-gs-bg transition-colors min-h-[40px] md:min-h-[44px]"
+          onClick={() => !actionsDisabled && onNewChat?.()}
+          disabled={actionsDisabled}
+          title={actionsDisabled ? "Wait for the current response to finish" : undefined}
+          className="flex items-center gap-2 px-2.5 md:px-4 py-2 bg-gs-card border border-gs-border text-gs-text rounded-lg text-sm font-semibold shadow-sm hover:bg-gs-bg transition-colors min-h-[40px] md:min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gs-card"
           aria-label="New Chat"
         >
           <Plus size={16} className="text-blue-600" />
@@ -167,10 +168,11 @@ export function ChatHeader({
 
         {hasActiveChat && onDeleteChat && (
           <button
-            onClick={onDeleteChat}
-            className="flex items-center gap-2 px-2.5 md:px-4 py-2 bg-gs-card border border-gs-border text-gs-muted rounded-lg text-sm font-semibold shadow-sm hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 hover:border-red-300 transition-colors min-h-[40px] md:min-h-[44px]"
+            onClick={() => !actionsDisabled && onDeleteChat()}
+            disabled={actionsDisabled}
+            className="flex items-center gap-2 px-2.5 md:px-4 py-2 bg-gs-card border border-gs-border text-gs-muted rounded-lg text-sm font-semibold shadow-sm hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 hover:border-red-300 transition-colors min-h-[40px] md:min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gs-card disabled:dark:hover:bg-gs-card disabled:hover:text-gs-muted disabled:hover:border-gs-border"
             aria-label="Delete Chat"
-            title="Delete this chat"
+            title={actionsDisabled ? "Wait for the current response to finish" : "Delete this chat"}
           >
             <Trash2 size={16} />
             <span className="hidden md:inline">Delete</span>

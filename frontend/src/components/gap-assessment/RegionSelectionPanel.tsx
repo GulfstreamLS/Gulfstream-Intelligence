@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Globe, Edit3, ArrowRight } from "lucide-react";
+import { CheckCircle2, Globe, Edit3 } from "lucide-react";
 import { FlagIcon } from "../ui/FlagIcon";
 
 type SelectionMode =
@@ -255,13 +255,6 @@ export function RegionSelectionPanel({
           <SummaryItem label="Filter" value={filterLabel(mode)} />
           <SummaryItem label="Status" value="Active" />
         </div>
-
-        <button
-          onClick={() => onAuthorityChange(mode.type === "single" ? mode.authority : undefined)}
-          className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-[14px] flex items-center justify-center gap-2 shadow-lg shadow-blue-100 mt-10 hover:bg-blue-700 transition-all"
-        >
-          Apply Filter <ArrowRight size={18} />
-        </button>
       </div>
     </div>
   );

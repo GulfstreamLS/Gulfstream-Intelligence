@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from uuid import UUID
 
 from app.db.session import get_db
+from app.models.chat import Conversation
 from app.models.regulatory import Gap, Action, AnalysisDocument, SeverityLevel
 from app.schemas.assessment import (
     AnalyzedDocumentSummary,
@@ -41,6 +42,13 @@ def _normalize_domain(raw: str | None) -> str:
     return mapping.get(upper, raw.strip().title())
 
 
+def _visible_analysis_document_filter():
+    return or_(
+        AnalysisDocument.conversation_id.is_(None),
+        Conversation.is_temporary == False,  # noqa: E712
+    )
+
+
 @router.get("/documents", response_model=list[AnalyzedDocumentSummary])
 async def list_analyzed_documents(
     db: AsyncSession = Depends(get_db),
@@ -57,7 +65,9 @@ async def list_analyzed_documents(
             func.count(Gap.id).label("gap_count"),
         )
         .outerjoin(Gap, Gap.document_id == AnalysisDocument.id)
+        .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
         .where(AnalysisDocument.user_id == current_user.id)
+        .where(_visible_analysis_document_filter())
         .group_by(AnalysisDocument.id)
         .order_by(AnalysisDocument.created_at.desc())
     )
@@ -83,7 +93,13 @@ async def get_global_gap_assessment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_plan("professional")),
 ):
-    stmt = select(Gap).join(AnalysisDocument).where(AnalysisDocument.user_id == current_user.id)
+    stmt = (
+        select(Gap)
+        .join(AnalysisDocument)
+        .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
+        .where(AnalysisDocument.user_id == current_user.id)
+        .where(_visible_analysis_document_filter())
+    )
     if authority:
         stmt = stmt.where(AnalysisDocument.authority.ilike(f"%{authority}%"))
     if document_id:
@@ -156,7 +172,9 @@ async def get_global_gap_assessment(
     action_stmt = (
         select(Action)
         .join(AnalysisDocument)
+        .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
         .where(AnalysisDocument.user_id == current_user.id)
+        .where(_visible_analysis_document_filter())
     )
     if authority:
         action_stmt = action_stmt.where(AnalysisDocument.authority.ilike(f"%{authority}%"))

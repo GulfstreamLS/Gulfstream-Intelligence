@@ -105,6 +105,7 @@ function SavePanel({
   currentProgramName,
   projects,
   onSaved,
+  onMarkedTemporary,
   onDismiss,
 }: {
   activeChatId: string;
@@ -113,6 +114,7 @@ function SavePanel({
   currentProgramName: string;
   projects: Project[];
   onSaved: (project: Project | null) => void;
+  onMarkedTemporary?: (chatId: string) => void;
   onDismiss: () => void;
 }) {
   const [step, setStep] = useState<SaveStep>("options");
@@ -175,6 +177,7 @@ function SavePanel({
   async function markTemporary() {
     try {
       await chatApi.updateConversation(activeChatId, { is_temporary: true });
+      onMarkedTemporary?.(activeChatId);
     } catch { /* silently fail */ }
     onDismiss();
   }
@@ -465,11 +468,13 @@ function ChatHistoryRow({
   isActive,
   onSelect,
   onDelete,
+  deleteDisabled,
 }: {
   chat: RecentChatItem;
   isActive: boolean;
   onSelect: () => void;
   onDelete?: () => void;
+  deleteDisabled?: boolean;
 }) {
   const modeBadge = chat.chatMode === "general"
     ? { label: "General", cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" }
@@ -532,10 +537,11 @@ function ChatHistoryRow({
         </span>
         {onDelete && chat.canDelete && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="hidden group-hover/chat:flex items-center justify-center w-6 h-6 rounded-md text-gs-muted hover:text-red-500 hover:bg-red-50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); if (!deleteDisabled) onDelete(); }}
+            disabled={deleteDisabled}
+            className="hidden group-hover/chat:flex items-center justify-center w-6 h-6 rounded-md text-gs-muted hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gs-muted disabled:hover:bg-transparent"
             aria-label={`Delete ${chat.title}`}
-            title="Delete chat"
+            title={deleteDisabled ? "Wait for the current response to finish" : "Delete chat"}
           >
             <Trash2 size={13} />
           </button>
@@ -569,6 +575,8 @@ interface ChatSidebarProps {
   onDeleteChat?: (chatId: string) => void;
   insightCounts?: InsightCounts | null;
   chatMode?: ChatMode;
+  actionsDisabled?: boolean;
+  onTemporaryMarked?: (chatId: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -584,6 +592,8 @@ export function ChatSidebar({
   onDeleteChat,
   insightCounts,
   chatMode = "program",
+  actionsDisabled,
+  onTemporaryMarked,
 }: ChatSidebarProps) {
   // Projects fetched from API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -784,7 +794,7 @@ export function ChatSidebar({
               </button>
             </div>
             <p className="text-[12px] text-gs-muted leading-relaxed">
-              You can ask regulatory or industry questions now and save this chat to a program later.
+              User can ask regulatory or industry questions now and save this chat to a program later.
             </p>
           </div>
         )}
@@ -960,6 +970,7 @@ export function ChatSidebar({
               applyProject(project, [...projects, project]);
             }
           }}
+          onMarkedTemporary={onTemporaryMarked}
           onDismiss={() => setSavePanelDismissed(true)}
         />
       )}
@@ -986,6 +997,7 @@ export function ChatSidebar({
                   isActive={activeChatId === chat.id}
                   onSelect={() => onChatSelect(chat.id)}
                   onDelete={onDeleteChat ? () => onDeleteChat(chat.id) : undefined}
+                  deleteDisabled={actionsDisabled}
                 />
               ))}
             </div>
@@ -1077,6 +1089,7 @@ export function ChatSidebar({
                   isActive={activeChatId === chat.id}
                   onSelect={() => onChatSelect(chat.id)}
                   onDelete={onDeleteChat ? () => onDeleteChat(chat.id) : undefined}
+                  deleteDisabled={actionsDisabled}
                 />
               ))}
             </div>

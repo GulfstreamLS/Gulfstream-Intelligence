@@ -417,12 +417,12 @@ const AIMessage = ({
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-5 pt-4 border-t border-gs-border">
-              <span className="text-[10px] text-gs-muted font-medium uppercase tracking-widest">
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-4 border-t border-gs-border">
+              <span className="text-[10px] text-gs-muted font-medium uppercase tracking-widest shrink-0">
                 {msg.timestamp}
               </span>
 
-              <div className="flex gap-1 text-gs-muted">
+              <div className="flex flex-wrap items-center justify-end gap-1.5 text-gs-muted min-w-0">
                 {/* <button
                   onClick={() => setVote(v => v === "up" ? null : "up")}
                   className={`p-1.5 rounded-lg transition-colors ${vote === "up" ? "text-gs-blue bg-gs-blue/10" : "hover:text-gs-blue hover:bg-gs-bg"}`}
@@ -441,7 +441,7 @@ const AIMessage = ({
 
                 <button
                   onClick={handleCopy}
-                  className={`p-1.5 rounded-lg transition-colors ${copied ? "text-gs-green bg-gs-green/10" : "hover:text-gs-text hover:bg-gs-bg"}`}
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition-colors shrink-0 ${copied ? "text-gs-green bg-gs-green/10" : "hover:text-gs-text hover:bg-gs-bg"}`}
                   aria-label={copied ? "Copied!" : "Copy response"}
                   title={copied ? "Copied!" : "Copy response"}
                 >
@@ -453,31 +453,31 @@ const AIMessage = ({
                     <button
                       onClick={() => handleExport("pdf")}
                       disabled={!!exporting}
-                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "pdf" ? "text-gs-blue bg-gs-blue/10 animate-pulse" : "hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
+                      className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold leading-none uppercase transition-colors shrink-0 disabled:cursor-wait ${exporting === "pdf" ? "border-gs-blue/30 text-gs-blue bg-gs-blue/10 animate-pulse" : "border-transparent hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
                       title="Download PDF Analysis"
                     >
                       <FileDown size={14} />
-                      <span className="text-[9px] font-bold tracking-tighter">PDF</span>
+                      <span>PDF</span>
                     </button>
 
                     <button
                       onClick={() => handleExport("word")}
                       disabled={!!exporting}
-                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "word" ? "text-gs-blue bg-gs-blue/10 animate-pulse" : "hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
+                      className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold leading-none uppercase transition-colors shrink-0 disabled:cursor-wait ${exporting === "word" ? "border-gs-blue/30 text-gs-blue bg-gs-blue/10 animate-pulse" : "border-transparent hover:text-gs-blue hover:bg-gs-bg text-gs-muted"}`}
                       title="Download DOCS Analysis"
                     >
                       <FileText size={14} />
-                      <span className="text-[9px] font-bold tracking-tighter">DOCS</span>
+                      <span>DOCS</span>
                     </button>
 
                     <button
                       onClick={() => handleExport("ppt")}
                       disabled={!!exporting}
-                      className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${exporting === "ppt" ? "text-gs-orange bg-gs-orange/10 animate-pulse" : "hover:text-gs-orange hover:bg-gs-bg text-gs-muted"}`}
+                      className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold leading-none uppercase transition-colors shrink-0 disabled:cursor-wait ${exporting === "ppt" ? "border-gs-orange/30 text-gs-orange bg-gs-orange/10 animate-pulse" : "border-transparent hover:text-gs-orange hover:bg-gs-bg text-gs-muted"}`}
                       title="Download PPT Analysis"
                     >
                       <Monitor size={14} />
-                      <span className="text-[9px] font-bold tracking-tighter">PPT</span>
+                      <span>PPT</span>
                     </button>
                   </>
                 )}
@@ -504,7 +504,7 @@ const AIMessage = ({
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                   }}
-                  className="p-1.5 rounded-lg transition-colors hover:text-gs-text hover:bg-gs-bg"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:text-gs-text hover:bg-gs-bg shrink-0"
                   aria-label="Download as markdown"
                   title="Download as .md"
                 >

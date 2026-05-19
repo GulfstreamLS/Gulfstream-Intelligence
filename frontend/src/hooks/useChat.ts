@@ -84,6 +84,9 @@ export function useChat() {
 
     // Optimistic user message — one combined bubble for both file and text
     const optimisticTarget = params.conversationId ?? tempId;
+    if (optimisticTarget && firstFilename) {
+      store.updateConversation(optimisticTarget, { uploaded_filename: firstFilename });
+    }
     if (optimisticTarget && (fileList.length > 0 || params.message)) {
       store.appendMessage(optimisticTarget, {
         id: crypto.randomUUID(),
@@ -128,6 +131,9 @@ export function useChat() {
           resolvedId = chunk.id!;
           if (tempId) {
             store.replaceConversationId(tempId, chunk.id!);
+            if (firstFilename) {
+              store.updateConversation(chunk.id!, { uploaded_filename: firstFilename });
+            }
             params.onConversationReady?.(chunk.id!);
           }
 

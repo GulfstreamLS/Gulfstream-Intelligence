@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -194,7 +194,7 @@ async def delete_project(
         raise HTTPException(status_code=403, detail="Only the project creator or organization owner can delete this project")
 
     project_name = project.name
-    await db.execute(update(Conversation).where(Conversation.project_id == project_id).values(project_id=None))
+    await db.execute(delete(Conversation).where(Conversation.project_id == project_id))
     await db.delete(project)
 
     await log_audit(db, current_user.id, "PROJECT_DELETED", resource_type="project", resource_id=project_id, resource_name=project_name, ip_address=get_ip(request), organization_id=_org_id(current_user))
@@ -264,7 +264,7 @@ async def bulk_delete_projects(
     for project in projects:
         can_del = project.user_id == current_user.id or is_org_owner
         if can_del:
-            await db.execute(update(Conversation).where(Conversation.project_id == project.id).values(project_id=None))
+            await db.execute(delete(Conversation).where(Conversation.project_id == project.id))
             await db.delete(project)
             deleted += 1
         else:

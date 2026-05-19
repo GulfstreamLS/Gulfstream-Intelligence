@@ -45,6 +45,9 @@ class AnalysisService:
         filename: str,
         file_type: str,
         authority: str = None,
+        conversation_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
     ) -> AnalysisDocument:
         """Perform full RAG-based gap analysis on a document."""
 
@@ -89,6 +92,9 @@ class AnalysisService:
         # TODO: In a real production app, save the file to GCS/S3 and store the path
         doc = AnalysisDocument(
             user_id=user_id,
+            conversation_id=conversation_id,
+            project_id=project_id,
+            organization_id=organization_id,
             filename=filename,
             file_type=file_type,
             file_path=f"uploads/{filename}",  # Placeholder
@@ -129,13 +135,16 @@ class AnalysisService:
         return doc
 
     async def analyze_document_multi(
-        self, 
-        db: AsyncSession, 
+        self,
+        db: AsyncSession,
         user_id: uuid.UUID,
-        file_content: bytes, 
+        file_content: bytes,
         filename: str,
-        file_type: str, 
-        authorities: list[str]
+        file_type: str,
+        authorities: list[str],
+        conversation_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
     ) -> dict[str, FullAnalysisResponse]:
         """Perform RAG analysis across multiple authorities and persist results."""
         text = document_processor.extract_text(file_content, file_type)
@@ -172,6 +181,9 @@ class AnalysisService:
             # --- PERSIST TO DATABASE (Per Authority) ---
             doc = AnalysisDocument(
                 user_id=user_id,
+                conversation_id=conversation_id,
+                project_id=project_id,
+                organization_id=organization_id,
                 filename=filename,
                 file_type=file_type,
                 file_path=f"uploads/{filename}",

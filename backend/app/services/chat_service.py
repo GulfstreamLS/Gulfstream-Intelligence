@@ -264,13 +264,13 @@ class ChatService:
             await db.commit()
 
     async def perform_analysis_for_chat(
-        self, 
-        db: AsyncSession, 
-        conversation_id: uuid.UUID, 
+        self,
+        db: AsyncSession,
+        conversation_id: uuid.UUID,
         user_id: uuid.UUID,
-        file_content: bytes, 
+        file_content: bytes,
         filename: str,
-        file_type: str, 
+        file_type: str,
         authorities: list[str],
         message_id: uuid.UUID | None = None
     ) -> Message:
@@ -281,8 +281,17 @@ class ChatService:
         """
         from app.services.analysis_service import analysis_service
 
+        convo = await db.get(Conversation, conversation_id)
         results = await analysis_service.analyze_document_multi(
-            db, user_id, file_content, filename, file_type, authorities
+            db,
+            user_id,
+            file_content,
+            filename,
+            file_type,
+            authorities,
+            conversation_id=conversation_id,
+            project_id=convo.project_id if convo else None,
+            organization_id=convo.organization_id if convo else None,
         )
 
         # Convert results to dict for JSON storage

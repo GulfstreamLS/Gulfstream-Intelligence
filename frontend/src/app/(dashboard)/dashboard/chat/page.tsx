@@ -116,6 +116,17 @@ function RegulatoryChatPage() {
       });
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const refreshConversation = useCallback(async (id: string) => {
+    try {
+      const c = await chatApi.getConversation(id);
+      const inStore = (useChatStore.getState().conversations ?? []).find(x => x.id === c.id);
+      if (inStore) updateConversation(c.id, c);
+      else useChatStore.getState().addConversation(c);
+    } catch {
+      // Ignore transient refresh errors; the next poll/navigation will reload it.
+    }
+  }, [updateConversation]);
+
   useEffect(() => {
     if (isStreaming) userScrolled.current = false;
   }, [isStreaming]);
@@ -148,19 +159,25 @@ function RegulatoryChatPage() {
   }, [conversationId, currentConversation?.project_id]);
 
   const stableMessages = useMemo<DisplayMessage[]>(() => {
-    return (currentConversation?.messages ?? []).map(msg => ({
-      id:               msg.id,
-      role:             msg.role as "user" | "assistant",
-      content:          msg.content,
-      timestamp:        new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      isAnalysis:       msg.is_analysis ?? false,
-      isAnalysisPotential: msg.role === "assistant" && (!!currentConversation?.uploaded_filename || !!currentConversation?.active_file_id),
-      analysisData:     msg.is_analysis && msg.analysis_data
-        ? (msg.analysis_data as Record<string, AnalysisAuthority>)
-        : undefined,
-      attachedFilename: msg.attached_filename ?? null,
-      attachedUrl:      msg.attached_url ?? null,
-    }));
+    let hasDocumentContext = !!currentConversation?.uploaded_filename || !!currentConversation?.active_file_id;
+    return (currentConversation?.messages ?? []).map(msg => {
+      if (msg.role === "user" && msg.attached_filename) {
+        hasDocumentContext = true;
+      }
+      return {
+        id:               msg.id,
+        role:             msg.role as "user" | "assistant",
+        content:          msg.content,
+        timestamp:        new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isAnalysis:       msg.is_analysis ?? false,
+        isAnalysisPotential: msg.role === "assistant" && hasDocumentContext,
+        analysisData:     msg.is_analysis && msg.analysis_data
+          ? (msg.analysis_data as Record<string, AnalysisAuthority>)
+          : undefined,
+        attachedFilename: msg.attached_filename ?? null,
+        attachedUrl:      msg.attached_url ?? null,
+      };
+    });
   }, [currentConversation?.messages, currentConversation?.uploaded_filename, currentConversation?.active_file_id]);
 
   // Clear the synthetic pending message once real store messages are present
@@ -284,28 +301,30 @@ function RegulatoryChatPage() {
   }, []);
 
   const handleNewChat = useCallback(() => {
+    if (isStreaming) return;
     isNewConversationRef.current = false;
     setConversationId(null);
-    setSelectedProjectId(null);
     setInput("");
-    router.replace("/dashboard/chat");
-  }, [router]);
+    router.replace(selectedProjectId ? `/dashboard/chat?projectId=${encodeURIComponent(selectedProjectId)}` : "/dashboard/chat");
+  }, [isStreaming, router, selectedProjectId]);
 
   const handleDeleteChat = useCallback((chatId?: string) => {
+    if (isStreaming) return;
     const idToDelete = chatId ?? conversationId;
     if (!idToDelete) return;
     setDeleteConfirmId(idToDelete);
-  }, [conversationId]);
+  }, [conversationId, isStreaming]);
 
   const confirmDeleteChat = useCallback(async () => {
     if (!deleteConfirmId) return;
+    if (isStreaming) return;
     try {
       await chatApi.deleteConversation(deleteConfirmId);
       removeConversation(deleteConfirmId);
       if (deleteConfirmId === conversationId) { setConversationId(null); setInput(""); }
     } catch { /* silently fail */ }
     setDeleteConfirmId(null);
-  }, [deleteConfirmId, conversationId, removeConversation]);
+  }, [deleteConfirmId, conversationId, isStreaming, removeConversation]);
 
   // ── Sidebar data ─────────────────────────────────────────────────────────────
 
@@ -352,17 +371,11 @@ function RegulatoryChatPage() {
 
       if (isNewConversationRef.current) {
         isNewConversationRef.current = false;
-        chatApi.getConversation(conversationId)
-          .then(c => {
-            const inStore = (useChatStore.getState().conversations ?? []).find(x => x.id === c.id);
-            if (inStore) updateConversation(c.id, c);
-            else useChatStore.getState().addConversation(c);
-          })
-          .catch(() => {});
+        refreshConversation(conversationId);
       }
     }
     wasStreamingRef.current = isStreaming;
-  }, [isStreaming, conversationId, fetchInsights, startInsightPoll, updateConversation]);
+  }, [isStreaming, conversationId, fetchInsights, startInsightPoll, refreshConversation]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -370,16 +383,22 @@ function RegulatoryChatPage() {
       const detail = (e as CustomEvent).detail as { conversationId: string };
       if (id && detail.conversationId === id) {
         fetchInsights(id);
+        refreshConversation(id);
         stopInsightPoll(); // no need to keep polling — we got the signal
       }
     };
     window.addEventListener("gi:export_ready", handler);
     return () => window.removeEventListener("gi:export_ready", handler);
-  }, [fetchInsights, stopInsightPoll]);
+  }, [fetchInsights, refreshConversation, stopInsightPoll]);
 
   useEffect(() => { return stopInsightPoll; }, [conversationId, stopInsightPoll]);
 
-  const recentChats: RecentChatItem[] = (conversations ?? []).slice(0, 10).map(c => ({
+  const handleTemporaryMarked = useCallback((id: string) => {
+    updateConversation(id, { is_temporary: true });
+    if (id === conversationId) setInsightCounts(null);
+  }, [conversationId, updateConversation]);
+
+  const recentChats: RecentChatItem[] = (conversations ?? []).filter(c => !c.is_temporary).slice(0, 10).map(c => ({
     id:          c.id,
     title:       c.title ?? "New conversation",
     date:        new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -406,6 +425,7 @@ function RegulatoryChatPage() {
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
           modelDisabled={isStreaming}
+          actionsDisabled={isStreaming}
           chatMode={chatMode}
           onModeChange={handleModeChange}
           modeDisabled={stableMessages.length > 0}
@@ -452,6 +472,8 @@ function RegulatoryChatPage() {
             onDeleteChat={(id) => handleDeleteChat(id)}
             insightCounts={insightCounts}
             chatMode={chatMode}
+            actionsDisabled={isStreaming}
+            onTemporaryMarked={handleTemporaryMarked}
           />
         </div>
       </div>
@@ -472,6 +494,8 @@ function RegulatoryChatPage() {
               onDeleteChat={(id) => handleDeleteChat(id)}
               insightCounts={insightCounts}
               chatMode={chatMode}
+              actionsDisabled={isStreaming}
+              onTemporaryMarked={handleTemporaryMarked}
             />
           </div>
         </div>
