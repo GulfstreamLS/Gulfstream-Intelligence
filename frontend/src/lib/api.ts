@@ -187,7 +187,7 @@ export const chatApi = {
 
   getConversation: (id: string) => request<Conversation>(`/chat/conversations/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null; model?: string; chat_mode?: string; is_temporary?: boolean; metadata?: Record<string, any> }) =>
+  updateConversation: (id: string, data: { title?: string; system_prompt?: string; project_id?: string | null; model?: string; chat_mode?: string; is_temporary?: boolean; metadata?: Record<string, unknown> }) =>
     request<Conversation>(`/chat/conversations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
