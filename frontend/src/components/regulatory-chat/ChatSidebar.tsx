@@ -11,17 +11,19 @@ import {
 import { chatApi, projectApi } from "../../lib/api";
 import type { Project } from "../../types";
 import type { ChatMode } from "./ChatHeader";
+import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
+import { FilterDropdown } from "../ui/FilterDropdown";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
 const PHASES = ["Discovery", "Preclinical", "Phase 1", "Phase 2", "Phase 3", "BLA/MAA"];
 
 const ALL_AUTHORITIES = [
-  { flag: "🇪🇺", name: "EMA" },
-  { flag: "🇺🇸", name: "FDA" },
-  { flag: "🇨🇦", name: "Health Canada" },
-  { flag: "🇯🇵", name: "PMDA" },
-  { flag: "🇬🇧", name: "MHRA" },
+  { name: "EMA" },
+  { name: "FDA" },
+  { name: "Health Canada" },
+  { name: "PMDA" },
+  { name: "MHRA" },
 ];
 
 const INSIGHT_DEFINITIONS = [
@@ -169,14 +171,15 @@ function SavePanel({
           </button>
           <h2 className="text-xs font-semibold text-gs-text">Save to a Program</h2>
         </div>
-        <select
-          value={selectedProjectId}
-          onChange={e => setSelectedProjectId(e.target.value)}
-          className="w-full text-sm text-gs-text bg-gs-bg border border-gs-border rounded-lg px-3 py-2 focus:outline-none focus:border-gs-blue"
-        >
-          <option value="">Select program…</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <FilterDropdown
+          fullWidth
+          value={selectedProjectId || ""}
+          onChange={v => setSelectedProjectId(v)}
+          options={[
+            { value: "", label: "Select program…" },
+            ...projects.map(p => ({ value: p.id, label: p.name })),
+          ]}
+        />
         <div>
           <label className="text-[11px] font-semibold text-gs-muted uppercase tracking-wider block mb-1.5">
             <Tag size={10} className="inline mr-1" />Category
@@ -299,10 +302,18 @@ function SavePanel({
         <div className="flex gap-2 pt-1">
           <button
             disabled={saving}
-            onClick={() => { onSaved(null); setStep("saved"); }}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await chatApi.updateConversation(activeChatId, { project_id: null });
+              } catch { /* silently fail */ }
+              setSaving(false);
+              onSaved(null);
+              setStep("saved");
+            }}
             className="flex-1 px-3 py-2 bg-gs-blue text-white rounded-lg text-xs font-semibold hover:bg-gs-blue/90 transition-colors disabled:opacity-50"
           >
-            Save Note
+            {saving ? "Saving…" : "Save Note"}
           </button>
           <button onClick={() => setStep("options")} className="px-3 py-2 bg-gs-bg border border-gs-border text-gs-muted rounded-lg text-xs font-semibold hover:bg-gs-card transition-colors">
             Cancel
@@ -608,6 +619,19 @@ export function ChatSidebar({
 
   const cancelEdit = () => setEditing(false);
 
+  const clearProgram = () => {
+    setProgram("");
+    setIndication("");
+    setPhase(PHASES[1]);
+    setActiveAuths([]);
+    setSelectedProjectId(null);
+    appliedProjectRef.current = null;
+    onProjectChange?.(null);
+    if (activeChatId) {
+      chatApi.updateConversation(activeChatId, { project_id: null }).catch(console.error);
+    }
+  };
+
   const toggleAuthority = (idx: number) => {
     setDraftAuths(prev =>
       prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
@@ -710,33 +734,53 @@ export function ChatSidebar({
                 Active Program
               </label>
               {editing ? (
-                <select
-                  value={selectedProjectId ?? ""}
-                  onChange={e => {
-                    const proj = projects.find(p => p.id === e.target.value);
-                    if (proj) {
-                      setDraftProgram(proj.name);
-                      setDraftIndication(proj.indication ?? "");
-                      setDraftPhase(proj.dev_phase ?? PHASES[1]);
-                      setDraftAuths((proj.authorities ?? [])
-                        .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
-                        .filter(i => i >= 0));
-                      setSelectedProjectId(proj.id);
-                    }
-                  }}
-                  className="mt-1 w-full text-sm font-semibold text-gs-text bg-gs-bg border border-gs-border rounded-lg px-3 py-2 focus:outline-none focus:border-gs-blue"
-                >
-                  <option value="">Select program…</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <div className="mt-1">
+                  <FilterDropdown
+                    fullWidth
+                    value={selectedProjectId ?? ""}
+                    onChange={v => {
+                      const proj = projects.find(p => p.id === v);
+                      if (proj) {
+                        setDraftProgram(proj.name);
+                        setDraftIndication(proj.indication ?? "");
+                        setDraftPhase(proj.dev_phase ?? PHASES[1]);
+                        setDraftAuths((proj.authorities ?? [])
+                          .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
+                          .filter(i => i >= 0));
+                        setSelectedProjectId(proj.id);
+                      } else {
+                        setDraftProgram("");
+                        setDraftIndication("");
+                        setDraftPhase(PHASES[1]);
+                        setDraftAuths([]);
+                        setSelectedProjectId(null);
+                      }
+                    }}
+                    options={[
+                      { value: "", label: "None — no program" },
+                      ...projects.map(p => ({ value: p.id, label: p.name })),
+                    ]}
+                  />
+                </div>
               ) : (
-                <button
-                  onClick={startEdit}
-                  className="flex items-center justify-between mt-1 w-full text-gs-blue font-semibold text-sm text-left"
-                >
-                  <span>{program || "Select program…"}</span>
-                  <ChevronDown size={15} />
-                </button>
+                <div className="flex items-center justify-between mt-1">
+                  <button
+                    onClick={startEdit}
+                    className="flex items-center gap-1.5 text-gs-blue font-semibold text-sm text-left"
+                  >
+                    <span>{program || "Select program…"}</span>
+                    <ChevronDown size={15} />
+                  </button>
+                  {program && (
+                    <button
+                      onClick={clearProgram}
+                      className="p-1 rounded hover:bg-gs-bg text-gs-muted hover:text-red-500 transition-colors"
+                      title="Remove program"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -762,13 +806,14 @@ export function ChatSidebar({
                   Dev Phase
                 </label>
                 {editing ? (
-                  <select
-                    value={draftPhase}
-                    onChange={e => setDraftPhase(e.target.value)}
-                    className="mt-1 w-full text-[13px] font-semibold text-gs-text bg-gs-bg border border-gs-border rounded-lg px-2 py-1.5 focus:outline-none focus:border-gs-blue"
-                  >
-                    {PHASES.map(p => <option key={p}>{p}</option>)}
-                  </select>
+                  <div className="mt-1">
+                    <FilterDropdown
+                      fullWidth
+                      value={draftPhase}
+                      onChange={setDraftPhase}
+                      options={PHASES.map(p => ({ value: p, label: p }))}
+                    />
+                  </div>
                 ) : (
                   <p className="text-[13px] font-semibold text-gs-text mt-0.5">{phase}</p>
                 )}
@@ -793,7 +838,10 @@ export function ChatSidebar({
                           : "bg-gs-bg border-gs-border text-gs-muted"
                       }`}
                     >
-                      {auth.flag} {auth.name}
+                      {AUTHORITY_COUNTRY_CODE[auth.name] && (
+                        <FlagIcon code={AUTHORITY_COUNTRY_CODE[auth.name]} size={14} alt={auth.name} className="mr-1" />
+                      )}
+                      {auth.name}
                     </button>
                   ))}
                 </div>
@@ -804,7 +852,9 @@ export function ChatSidebar({
                       key={auth.name}
                       className="flex items-center gap-1.5 px-2.5 py-1 bg-gs-bg border border-gs-border rounded text-xs font-semibold text-gs-muted"
                     >
-                      <span>{auth.flag}</span>
+                      {AUTHORITY_COUNTRY_CODE[auth.name] && (
+                        <FlagIcon code={AUTHORITY_COUNTRY_CODE[auth.name]} size={14} alt={auth.name} />
+                      )}
                       <span>{auth.name}</span>
                     </div>
                   ))}

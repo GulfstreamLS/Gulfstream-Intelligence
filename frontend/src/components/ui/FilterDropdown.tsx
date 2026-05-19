@@ -6,6 +6,7 @@ import { Check, ChevronDown } from "lucide-react";
 export interface FilterOption {
   value: string;
   label: string;
+  optionIcon?: React.ReactNode;
 }
 
 interface FilterDropdownProps {
@@ -13,10 +14,12 @@ interface FilterDropdownProps {
   onChange: (value: string) => void;
   options: FilterOption[];
   icon?: React.ReactNode;
+  label?: string;
   className?: string;
+  fullWidth?: boolean;
 }
 
-export function FilterDropdown({ value, onChange, options, icon, className = "" }: FilterDropdownProps) {
+export function FilterDropdown({ value, onChange, options, icon, label, className = "", fullWidth = false }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -31,14 +34,20 @@ export function FilterDropdown({ value, onChange, options, icon, className = "" 
   const selected = options.find(o => o.value === value);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative ${fullWidth ? "w-full" : ""} ${className}`}>
+      {label && (
+        <p className="text-xs font-bold text-gs-muted uppercase mb-2">{label}</p>
+      )}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 hover:bg-gs-bg transition-colors min-h-[40px] cursor-pointer"
+        className={`flex items-center gap-2 bg-gs-card border border-gs-border rounded-lg px-3 py-2 hover:bg-gs-bg transition-colors min-h-[40px] cursor-pointer ${fullWidth ? "w-full justify-between" : ""}`}
       >
-        {icon && <span className="text-gs-muted shrink-0">{icon}</span>}
-        <span className="text-sm font-semibold text-gs-text whitespace-nowrap">{selected?.label ?? value}</span>
+        <span className="flex items-center gap-2 min-w-0">
+          {icon && <span className="text-gs-muted shrink-0">{icon}</span>}
+          {selected?.optionIcon && <span className="shrink-0">{selected.optionIcon}</span>}
+          <span className="text-sm font-semibold text-gs-text truncate">{selected?.label ?? value}</span>
+        </span>
         <ChevronDown
           size={14}
           className={`text-gs-muted ml-1 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -46,7 +55,7 @@ export function FilterDropdown({ value, onChange, options, icon, className = "" 
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-[160px] w-max bg-gs-card border border-gs-border rounded-xl shadow-lg z-50 overflow-hidden py-1.5">
+        <div className="absolute left-0 top-full mt-1.5 min-w-full w-max bg-gs-card border border-gs-border rounded-xl shadow-lg z-50 overflow-hidden py-1.5">
           {options.map(opt => {
             const active = opt.value === value;
             return (
@@ -60,7 +69,10 @@ export function FilterDropdown({ value, onChange, options, icon, className = "" 
                     : "text-gs-text hover:bg-gs-bg font-medium"
                 }`}
               >
-                <span>{opt.label}</span>
+                <span className="flex items-center gap-2">
+                  {opt.optionIcon && <span className="shrink-0">{opt.optionIcon}</span>}
+                  <span>{opt.label}</span>
+                </span>
                 {active && <Check size={13} className="text-gs-blue shrink-0" />}
               </button>
             );

@@ -10,6 +10,7 @@ import { ProjectsTable } from "../../../../components/projects/ProjectsTable";
 import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVisibilityBanner";
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../components/ui/DynamicSelect";
+import { FilterDropdown } from "../../../../components/ui/FilterDropdown";
 import { isPaymentRequiredError, organizationApi, projectApi, subscriptionApi } from "../../../../lib/api";
 import { useChatStore } from "../../../../store/chatStore";
 import type { Project, Subscription } from "../../../../types";
@@ -476,14 +477,14 @@ export default function ProjectsPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <select
-            className="flex items-center h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-sm font-semibold text-gs-text cursor-pointer focus:outline-none dark:[color-scheme:dark]"
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
-            <option value="">All Status</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FilterDropdown
+            value={statusFilter || "all"}
+            onChange={v => setStatusFilter(v === "all" ? "" : v)}
+            options={[
+              { value: "all", label: "All Status" },
+              ...STATUSES.map(s => ({ value: s, label: s })),
+            ]}
+          />
         </div>
 
         <ProjectsTable

@@ -224,7 +224,7 @@ const UserMessage = memo(function UserMessage({ msg }: { msg: DisplayMessage }) 
     : [];
 
   return (
-    <div className="flex justify-end items-start gap-3">
+    <div data-msg-role="user" className="flex justify-end items-start gap-3">
       <div className="flex flex-col items-end gap-1.5 max-w-[80%]">
         {/* File chips — one per attached file */}
         {fileNames.length > 0 && (

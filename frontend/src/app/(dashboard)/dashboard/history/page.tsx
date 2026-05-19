@@ -64,10 +64,7 @@ export default function HistoryPage() {
   const [historyPage, setHistoryPage] = useState(1);
 
   useEffect(() => {
-    // Load up to 200 conversations for history view (more than chat sidebar's 50)
-    chatApi.listConversations({ page: 1, page_size: 200 })
-      .then(res => useChatStore.getState().setConversations(res.items))
-      .catch(() => loadConversations()); // fallback to standard load
+    loadConversations().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

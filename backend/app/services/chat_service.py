@@ -134,7 +134,7 @@ class ChatService:
         user_id: uuid.UUID,
         message_content: str,
     ) -> AsyncGenerator[str, None]:
-        from app.agents.prompts import get_persona
+        from app.agents.prompts import get_persona  # noqa: F811
         from app.services.ai_service import ai_service
 
         convo = await self.get_conversation(db, conversation_id, user_id)
@@ -146,13 +146,26 @@ class ChatService:
 
         history = await self.get_messages_as_dicts(db, conversation_id)
 
-        # 1. RAG Context Injection
+        # 1. System prompt — mode-aware
+        from app.agents.prompts import (
+            GENERAL_MODE_SYSTEM_PROMPT,
+            PROGRAM_MODE_NO_PROJECT_SYSTEM_PROMPT,
+        )
+        effective_mode = convo.chat_mode or "program"
         selected_authorities = convo.authorities or []
+
+        if effective_mode == "general":
+            system_prompt = GENERAL_MODE_SYSTEM_PROMPT
+        elif convo.project_id is None and not selected_authorities:
+            system_prompt = PROGRAM_MODE_NO_PROJECT_SYSTEM_PROMPT
+        else:
+            system_prompt = get_persona(convo.authority) or "You are a Regulatory Intelligence Assistant."
+
+        # 2. RAG — skipped in general mode
         context_text = ""
-        if selected_authorities:
+        if effective_mode != "general" and selected_authorities:
             from app.services.vector_service import vector_service
 
-            # Search knowledge base for relevant context based on user query
             context_sources = await vector_service.search_regulatory_context(
                 db, message_content, authority=selected_authorities, limit=3
             )
@@ -160,8 +173,6 @@ class ChatService:
                 context_text = "\n\nREGULATORY CONTEXT:\n" + "\n".join(
                     [f"- {s.title} ({s.authority}): {s.content}" for s in context_sources]
                 )
-
-        system_prompt = get_persona(convo.authority) or "You are a Regulatory Intelligence Assistant."
 
         # 2. Document Awareness
         document_context = ""

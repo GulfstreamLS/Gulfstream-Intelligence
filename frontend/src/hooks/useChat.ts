@@ -10,7 +10,7 @@ export function useChat() {
   const store = useChatStore();
 
   const loadConversations = useCallback(async () => {
-    const res = await chatApi.listConversations({ page: 1, page_size: 50 });
+    const res = await chatApi.listConversations({ page: 1, page_size: 200 });
     store.setConversations(res?.items ?? []);
   }, [store]);
 

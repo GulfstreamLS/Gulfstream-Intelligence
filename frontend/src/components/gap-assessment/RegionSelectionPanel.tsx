@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, Globe, Edit3, ArrowRight } from "lucide-react";
+import { FlagIcon } from "../ui/FlagIcon";
 
 type SelectionMode =
   | { type: "single"; authority: string }
@@ -9,44 +10,69 @@ type SelectionMode =
   | { type: "fda-ema-pmda" }
   | { type: "global" };
 
-const REGIONS = [
-  { flag: "🇺🇸", name: "FDA",           sub: "U.S."     },
-  { flag: "🇪🇺", name: "EMA",           sub: "EU"       },
-  { flag: "🇬🇧", name: "MHRA",          sub: "UK"       },
-  { flag: "🇨🇦", name: "Health Canada", sub: "Canada"   },
-  { flag: "🇯🇵", name: "PMDA",          sub: "Japan"    },
-  { flag: "🇨🇳", name: "NMPA",          sub: "China"    },
-  { flag: "🇦🇺", name: "TGA",           sub: "Australia"},
+type RegionOption = {
+  code: string;
+  name: string;
+  sub: string;
+};
+
+type MultiRegionOption = {
+  codes: string[];
+  label: string;
+  type: Extract<SelectionMode["type"], "fda-ema" | "fda-ema-pmda">;
+};
+
+const REGIONS: RegionOption[] = [
+  { code: "us", name: "FDA",           sub: "U.S."     },
+  { code: "eu", name: "EMA",           sub: "EU"       },
+  { code: "gb", name: "MHRA",          sub: "UK"       },
+  { code: "ca", name: "Health Canada", sub: "Canada"   },
+  { code: "jp", name: "PMDA",          sub: "Japan"    },
+  { code: "cn", name: "NMPA",          sub: "China"    },
+  { code: "au", name: "TGA",           sub: "Australia"},
 ];
 
-function RegionCard({ flag, name, sub, active, onClick }: {
-  flag: string; name: string; sub: string; active?: boolean; onClick?: () => void;
+const MULTI_REGIONS: MultiRegionOption[] = [
+  { codes: ["us", "eu"],       label: "FDA + EMA",         type: "fda-ema"      },
+  { codes: ["us", "eu", "jp"], label: "FDA + EMA + PMDA",  type: "fda-ema-pmda" },
+];
+
+function findRegion(authority: string) {
+  return REGIONS.find(region => region.name === authority);
+}
+
+function findMultiRegion(type: SelectionMode["type"]) {
+  return MULTI_REGIONS.find(region => region.type === type);
+}
+
+function RegionCard({ code, name, sub, active, onClick }: {
+  code: string; name: string; sub: string; active?: boolean; onClick?: () => void;
 }) {
   return (
     <div
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-[105px] h-[105px] rounded-xl border-2 cursor-pointer transition-all ${
+      className={`flex flex-col items-center justify-center min-w-[90px] px-3 h-[105px] rounded-xl border-2 cursor-pointer transition-all ${
         active
           ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-sm ring-1 ring-blue-200 dark:ring-blue-900"
           : "border-gs-border bg-gs-card hover:border-gs-text/30"
       }`}
     >
-      <div className="relative">
-        <span className="text-[34px] mb-2 block leading-none">{flag}</span>
+      <div className="relative mb-2">
+        <FlagIcon code={code} size={36} alt={name} />
         {active && (
           <div className="absolute -top-1 -right-2 bg-blue-600 text-white rounded-full p-0.5 shadow-sm border border-white dark:border-gs-card">
             <CheckCircle2 size={12} />
           </div>
         )}
       </div>
-      <span className="text-[12px] font-bold text-gs-text tracking-wider leading-none">{name}</span>
+      <span className="text-[12px] font-bold text-gs-text tracking-wide leading-none text-center">{name}</span>
       <span className="text-[10px] font-bold text-gs-muted uppercase mt-1 leading-none">{sub}</span>
     </div>
   );
 }
 
-function MultiCard({ flags, label, active, onClick }: {
-  flags: string[]; label: string; active?: boolean; onClick: () => void;
+function MultiCard({ codes, label, active, onClick }: {
+  codes: string[]; label: string; active?: boolean; onClick: () => void;
 }) {
   return (
     <div
@@ -57,8 +83,8 @@ function MultiCard({ flags, label, active, onClick }: {
           : "bg-gs-bg border-gs-border hover:border-blue-400"
       }`}
     >
-      <div className="flex -space-x-2">
-        {flags.map((f, i) => <span key={i} className="text-xl">{f}</span>)}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {codes.map(c => <FlagIcon key={c} code={c} size={22} />)}
       </div>
       <span className={`text-[12px] font-bold uppercase tracking-wider ${active ? "text-blue-600" : "text-gs-muted"}`}>
         {label}
@@ -79,7 +105,7 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 
 function SelectionPreview({ mode }: { mode: SelectionMode }) {
   if (mode.type === "single") {
-    const r = REGIONS.find(x => x.name === mode.authority);
+    const r = findRegion(mode.authority);
     if (!r) {
       return (
         <div className="flex items-center gap-4 mb-10">
@@ -92,28 +118,19 @@ function SelectionPreview({ mode }: { mode: SelectionMode }) {
     }
     return (
       <div className="flex items-center gap-4 mb-10">
-        <div className="text-[44px] leading-none drop-shadow-sm">{r.flag}</div>
+        <FlagIcon code={r.code} size={44} alt={r.name} className="drop-shadow-sm" />
         <p className="text-[18px] font-bold text-gs-text leading-tight">{r.name} ({r.sub})</p>
       </div>
     );
   }
-  if (mode.type === "fda-ema") {
+  const multi = findMultiRegion(mode.type);
+  if (multi) {
     return (
       <div className="flex items-center gap-4 mb-10">
-        <div className="flex -space-x-3 text-[44px] leading-none drop-shadow-sm">
-          <span>🇺🇸</span><span>🇪🇺</span>
+        <div className="flex items-center gap-2">
+          {multi.codes.map(c => <FlagIcon key={c} code={c} size={44} className="drop-shadow-sm" />)}
         </div>
-        <p className="text-[18px] font-bold text-gs-text leading-tight">FDA + EMA</p>
-      </div>
-    );
-  }
-  if (mode.type === "fda-ema-pmda") {
-    return (
-      <div className="flex items-center gap-4 mb-10">
-        <div className="flex -space-x-3 text-[40px] leading-none drop-shadow-sm">
-          <span>🇺🇸</span><span>🇪🇺</span><span>🇯🇵</span>
-        </div>
-        <p className="text-[18px] font-bold text-gs-text leading-tight">FDA + EMA + PMDA</p>
+        <p className="text-[18px] font-bold text-gs-text leading-tight">{multi.label}</p>
       </div>
     );
   }
@@ -177,7 +194,7 @@ export function RegionSelectionPanel({
               {REGIONS.map(r => (
                 <RegionCard
                   key={r.name}
-                  flag={r.flag}
+                  code={r.code}
                   name={r.name}
                   sub={r.sub}
                   active={mode.type === "single" && mode.authority === r.name}
@@ -191,18 +208,15 @@ export function RegionSelectionPanel({
             <section>
               <h3 className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em] mb-5">Assess multiple regions</h3>
               <div className="flex gap-4">
-                <MultiCard
-                  flags={["🇺🇸", "🇪🇺"]}
-                  label="FDA + EMA"
-                  active={mode.type === "fda-ema"}
-                  onClick={() => apply(mode.type === "fda-ema" ? { type: "global" } : { type: "fda-ema" })}
-                />
-                <MultiCard
-                  flags={["🇺🇸", "🇪🇺", "🇯🇵"]}
-                  label="FDA + EMA + PMDA"
-                  active={mode.type === "fda-ema-pmda"}
-                  onClick={() => apply(mode.type === "fda-ema-pmda" ? { type: "global" } : { type: "fda-ema-pmda" })}
-                />
+                {MULTI_REGIONS.map(m => (
+                  <MultiCard
+                    key={m.type}
+                    codes={m.codes}
+                    label={m.label}
+                    active={mode.type === m.type}
+                    onClick={() => apply(mode.type === m.type ? { type: "global" } : { type: m.type })}
+                  />
+                ))}
               </div>
             </section>
 

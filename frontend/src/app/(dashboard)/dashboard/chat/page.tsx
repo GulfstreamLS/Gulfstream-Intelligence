@@ -2,11 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChatHeader }   from "../../../../components/regulatory-chat/ChatHeader";
-import type { ChatMode } from "../../../../components/regulatory-chat/ChatHeader";
-import { ChatMessages } from "../../../../components/regulatory-chat/ChatMessages";
-import { ChatInputBar } from "../../../../components/regulatory-chat/ChatInputBar";
-import { ChatSidebar }  from "../../../../components/regulatory-chat/ChatSidebar";
+import { ChatHeader }     from "../../../../components/regulatory-chat/ChatHeader";
+import type { ChatMode }  from "../../../../components/regulatory-chat/ChatHeader";
+import { ChatMessages }   from "../../../../components/regulatory-chat/ChatMessages";
+import { ChatInputBar }   from "../../../../components/regulatory-chat/ChatInputBar";
+import { ChatSidebar }    from "../../../../components/regulatory-chat/ChatSidebar";
+import { ChatScrollbar }  from "../../../../components/regulatory-chat/ChatScrollbar";
 import type { RecentChatItem, InsightCounts } from "../../../../components/regulatory-chat/ChatSidebar";
 import type { DisplayMessage, AnalysisAuthority } from "../../../../types/chat";
 import { useChatStore } from "../../../../store/chatStore";
@@ -280,6 +281,7 @@ function RegulatoryChatPage() {
 
   const handleNewChat = useCallback(() => {
     setConversationId(null);
+    setSelectedProjectId(null);
     setInput("");
     router.replace("/dashboard/chat");
   }, [router]);
@@ -404,14 +406,17 @@ function RegulatoryChatPage() {
       <div className="flex flex-1 gap-6 min-h-0 px-4 md:px-6 lg:px-8">
         {/* Chat column */}
         <div className="flex flex-col flex-1 min-h-0">
-          <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pr-1">
-            <ChatMessages
-              messages={displayMessages}
-              isLoading={isLoading}
-              onSendMessage={handleSendMessage}
-              chatMode={chatMode}
-              hasProgram={!!selectedProjectId}
-            />
+          <div className="relative flex-1 min-h-0">
+            <div ref={scrollContainerRef} onScroll={handleScroll} className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-hide pr-6">
+              <ChatMessages
+                messages={displayMessages}
+                isLoading={isLoading}
+                onSendMessage={handleSendMessage}
+                chatMode={chatMode}
+                hasProgram={!!selectedProjectId}
+              />
+            </div>
+            <ChatScrollbar scrollContainerRef={scrollContainerRef} messages={displayMessages} />
           </div>
 
           <ChatInputBar

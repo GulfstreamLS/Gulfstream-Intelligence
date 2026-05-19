@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { ChevronRight } from "lucide-react";
 import type { Project, SimulationListItem } from "../../types";
+import { FilterDropdown } from "../ui/FilterDropdown";
+import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
 
 const AUTHORITIES = ["FDA", "EMA", "MHRA", "Health Canada", "PMDA", "NMPA", "TGA"];
-const AUTHORITY_FLAGS: Record<string, string> = {
-  FDA: "🇺🇸", EMA: "🇪🇺", MHRA: "🇬🇧", "Health Canada": "🇨🇦",
-  PMDA: "🇯🇵", NMPA: "🇨🇳", TGA: "🇦🇺",
-};
 const SUBMISSION_TYPES = ["IND", "NDA", "BLA", "MAA", "ANDA", "510(k)", "PMA"];
 const STAGES           = ["Preclinical", "Phase 1", "Phase 2", "Phase 3", "Pre-submission", "Post-approval"];
 const FOCUS_AREAS      = ["CMC & Manufacturing", "Nonclinical", "Clinical Plan", "Quality Systems", "Regulatory Strategy"];
@@ -24,25 +21,14 @@ const PRODUCT_TYPES_BY_SUBMISSION: Record<string, string[]> = {
 };
 const DEFAULT_PRODUCT_TYPES = ["Small Molecule", "Biologic", "Cell & Gene Therapy", "Medical Device", "Combination Product", "Vaccine"];
 
-const selectClass = "w-full appearance-none p-2.5 border border-gs-border rounded-lg text-sm font-medium bg-gs-card text-gs-text pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 dark:[color-scheme:dark]";
-
-function SelectField({
-  label, value, options, onChange,
-}: {
-  label: string; value: string; options: string[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-gs-muted uppercase">{label}</label>
-      <div className="relative">
-        <select value={value} onChange={e => onChange(e.target.value)} className={selectClass}>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
-      </div>
-    </div>
-  );
+function authorityOptions(list: string[]) {
+  return list.map(a => ({
+    value: a,
+    label: a,
+    optionIcon: AUTHORITY_COUNTRY_CODE[a]
+      ? <FlagIcon code={AUTHORITY_COUNTRY_CODE[a]} size={18} alt={a} />
+      : undefined,
+  }));
 }
 
 export function SimulationScenario({
@@ -62,7 +48,7 @@ export function SimulationScenario({
   focusArea: string;          onFocusAreaChange: (v: string) => void;
   lastRun?: SimulationListItem | null;
 }) {
-  const authorityOptions = project?.authorities?.length
+  const availableAuthorities = project?.authorities?.length
     ? project.authorities.filter(a => AUTHORITIES.includes(a))
     : AUTHORITIES;
 
@@ -87,45 +73,49 @@ export function SimulationScenario({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-gs-muted uppercase">Health Authority</label>
-          <div className="relative">
-            <select value={authority} onChange={e => onAuthorityChange(e.target.value)} className={selectClass}>
-              {authorityOptions.map(a => (
-                <option key={a} value={a}>{AUTHORITY_FLAGS[a] ?? ""} {a}</option>
-              ))}
-            </select>
-            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-gs-muted uppercase">Submission Type</label>
-          <div className="relative">
-            <select
-              value={submissionType}
-              onChange={e => {
-                const next = e.target.value;
-                onSubmissionTypeChange(next);
-                const opts = PRODUCT_TYPES_BY_SUBMISSION[next] ?? DEFAULT_PRODUCT_TYPES;
-                if (!opts.includes(productType)) onProductTypeChange(opts[0] ?? "");
-              }}
-              className={selectClass}
-            >
-              {SUBMISSION_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-gs-muted pointer-events-none" />
-          </div>
-        </div>
-
-        <SelectField
-          label="Product Type"
-          value={productTypeOptions.includes(productType) ? productType : (productTypeOptions[0] ?? "")}
-          options={productTypeOptions}
-          onChange={onProductTypeChange}
+        <FilterDropdown
+          label="Health Authority"
+          fullWidth
+          value={authority}
+          onChange={onAuthorityChange}
+          options={authorityOptions(availableAuthorities)}
         />
-        <SelectField label="Stage"      value={stage}     options={STAGES}      onChange={onStageChange} />
-        <SelectField label="Focus Area" value={focusArea} options={FOCUS_AREAS} onChange={onFocusAreaChange} />
+
+        <FilterDropdown
+          label="Submission Type"
+          fullWidth
+          value={submissionType}
+          onChange={next => {
+            onSubmissionTypeChange(next);
+            const opts = PRODUCT_TYPES_BY_SUBMISSION[next] ?? DEFAULT_PRODUCT_TYPES;
+            if (!opts.includes(productType)) onProductTypeChange(opts[0] ?? "");
+          }}
+          options={SUBMISSION_TYPES.map(o => ({ value: o, label: o }))}
+        />
+
+        <FilterDropdown
+          label="Product Type"
+          fullWidth
+          value={productTypeOptions.includes(productType) ? productType : (productTypeOptions[0] ?? "")}
+          onChange={onProductTypeChange}
+          options={productTypeOptions.map(o => ({ value: o, label: o }))}
+        />
+
+        <FilterDropdown
+          label="Stage"
+          fullWidth
+          value={stage}
+          onChange={onStageChange}
+          options={STAGES.map(o => ({ value: o, label: o }))}
+        />
+
+        <FilterDropdown
+          label="Focus Area"
+          fullWidth
+          value={focusArea}
+          onChange={onFocusAreaChange}
+          options={FOCUS_AREAS.map(o => ({ value: o, label: o }))}
+        />
       </div>
     </div>
   );
