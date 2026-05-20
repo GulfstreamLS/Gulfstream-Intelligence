@@ -63,7 +63,7 @@ function SimulationHistoryPanel({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="w-[320px] max-w-full max-h-[calc(100vh-3rem)] overflow-hidden bg-gs-card rounded-xl border border-gs-border shadow-sm p-6">
+    <div className="w-[320px] max-w-full h-[calc(90vh-40px)] overflow-hidden bg-gs-card rounded-xl border border-gs-border shadow-sm p-6 flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <History size={14} className="text-indigo-500" />
         <h3 className="font-bold text-gs-text">Simulation History</h3>
@@ -73,7 +73,7 @@ function SimulationHistoryPanel({
           No simulations run yet.
         </p>
       ) : (
-        <div className="space-y-2 max-h-[calc(100vh-9rem)] overflow-y-auto pr-1">
+        <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1">
           {sessions.map((s) => (
             <div
               key={s.id}
@@ -316,12 +316,9 @@ function HealthAuthoritySimulationPage() {
         ? await projectApi.uploadDocument(project.id, file, docSaveToProject)
         : await projectApi.uploadStandaloneDocument(file);
       setSessionDocs((prev) => [...prev, doc]);
-      if (docSaveToProject) {
-        if (project)
-          projectApi
-            .listDocuments(project.id)
-            .then((docs) => setProjectDocs(Array.isArray(docs) ? docs : []))
-            .catch(() => {});
+      if (docSaveToProject && project) {
+        const docs = await projectApi.listDocuments(project.id);
+        setProjectDocs(Array.isArray(docs) ? docs : []);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Document upload failed.");
@@ -379,9 +376,6 @@ function HealthAuthoritySimulationPage() {
   const simulationUploadedDocuments = sessionDocs.filter(
     (d) => !isQuestionnaireDocument(d),
   );
-  const supplementalOnlyDocuments = simulationUploadedDocuments.filter(
-    (d) => !d.project_id,
-  );
   const projectUploadedDocuments = projectDocs.filter(
     (d) => !isQuestionnaireDocument(d),
   );
@@ -398,10 +392,7 @@ function HealthAuthoritySimulationPage() {
   const sourceCounts: Record<string, number | null> = {
     project_profile: mode === "project" && project ? 1 : 0,
     project_documents: projectUploadedDocuments.length,
-    supplemental_documents:
-      mode === "project"
-        ? supplementalOnlyDocuments.length
-        : simulationUploadedDocuments.length,
+    supplemental_documents: simulationUploadedDocuments.length,
     prior_gap_assessment: priorGapAssessmentCount,
     chat_outputs: chatOutputCount,
     regulatory_core: mode === "project" && project ? 1 : 0,
@@ -432,7 +423,11 @@ function HealthAuthoritySimulationPage() {
       : ["supplemental_documents", "pasted_questions", "manual_scenario"].some(
           sourceCanContribute,
         );
-  const canRun = scenarioComplete && purposeSet && hasSource;
+  const hasIncludedDocumentContext =
+    mode !== "project" ||
+    sourceCanContribute("project_documents") ||
+    sourceCanContribute("supplemental_documents");
+  const canRun = scenarioComplete && purposeSet && hasSource && hasIncludedDocumentContext;
 
   const gateLabel =
     mode === "project"
@@ -444,9 +439,15 @@ function HealthAuthoritySimulationPage() {
     mode,
     project?.name,
   );
+  const runHelperText =
+    mode === "project" && !hasIncludedDocumentContext
+      ? "Upload or include at least one project or supplemental document before running this simulation."
+      : canRun
+        ? "All set — your simulation is ready to run."
+        : "Select a simulation purpose and add source context to enable.";
 
   const handleRunSimulation = async () => {
-    if (!canRun || running) return;
+    if (!canRun || running) return false;
     setRunning(true);
     setError(null);
     try {
@@ -488,8 +489,10 @@ function HealthAuthoritySimulationPage() {
       setActiveSession(session);
       setActiveId(session.id);
       await loadSessions(mode === "project" ? project?.id : null);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Simulation failed.");
+      return false;
     } finally {
       setRunning(false);
     }
@@ -643,9 +646,7 @@ function HealthAuthoritySimulationPage() {
                     <div className="pt-4 border-t border-gs-border mt-6">
                       <div className="bg-gs-bg/60 dark:bg-gs-bg/30 rounded-xl border border-gs-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
                         <p className="text-[13px] text-gs-muted font-medium">
-                          {canRun
-                            ? "All set — your simulation is ready to run."
-                            : "Select a simulation purpose and add source context to enable."}
+                          {runHelperText}
                         </p>
                         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                           <button
@@ -657,15 +658,11 @@ function HealthAuthoritySimulationPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (canRun) {
-                                handleRunSimulation();
-                                setIsModalOpen(false);
-                              } else {
-                                setIsModalOpen(false);
-                              }
+                            onClick={async () => {
+                              const didRun = await handleRunSimulation();
+                              if (didRun) setIsModalOpen(false);
                             }}
-                            disabled={running}
+                            disabled={!canRun || running}
                             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap w-full sm:w-auto min-h-[40px]"
                           >
                             {running ? (
@@ -719,7 +716,7 @@ function HealthAuthoritySimulationPage() {
                 </p>
               </div>
             </div>
-          <aside className="xl:sticky xl:top-6 xl:self-start">
+          <aside className="xl:sticky xl:top-6 xl:self-start h-full">
               <SimulationHistoryPanel
                 sessions={sessions}
                 activeId={activeId}
