@@ -142,10 +142,6 @@ function HealthAuthoritySimulationPage() {
   const [manualScenario, setManualScenario] = useState("");
   const [sessionDocs, setSessionDocs] = useState<ProjectDocument[]>([]);
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
-  const [projectSourceCounts, setProjectSourceCounts] = useState({
-    prior_gap_assessment: 0,
-    chat_outputs: 0,
-  });
   const [docSaveToProject, setDocSaveToProject] = useState(true);
   const [pastedSaveToProject, setPastedSaveToProject] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -169,8 +165,8 @@ function HealthAuthoritySimulationPage() {
   useEffect(() => {
     projectApi
       .list()
-      .then((r) => setProjects(r.items))
-      .catch(() => {});
+      .then((r) => setProjects(Array.isArray(r.items) ? r.items : []))
+      .catch(() => setProjects([]));
   }, []);
 
   const resetSupplementalInputs = () => {
@@ -191,7 +187,6 @@ function HealthAuthoritySimulationPage() {
     if (next === "standalone") {
       setProject(null);
       setProjectDocs([]);
-      setProjectSourceCounts({ prior_gap_assessment: 0, chat_outputs: 0 });
     } else if (!project && projects.length > 0) {
       handleProjectSelect(projects[0]);
     }
@@ -201,7 +196,6 @@ function HealthAuthoritySimulationPage() {
     setProject(p);
     resetSupplementalInputs();
     setProjectDocs([]);
-    setProjectSourceCounts({ prior_gap_assessment: 0, chat_outputs: 0 });
     if (p) {
       const auths = p.authorities ?? [];
       if (auths.length > 0) setAuthority(auths[0]);
@@ -230,22 +224,23 @@ function HealthAuthoritySimulationPage() {
   useEffect(() => {
     if (!project) {
       setProjectDocs([]);
-      setProjectSourceCounts({ prior_gap_assessment: 0, chat_outputs: 0 });
       return;
     }
     projectApi
       .listDocuments(project.id)
-      .then(setProjectDocs)
-      .catch(() => setProjectDocs([]));
-    projectApi
-      .getSourceCounts(project.id)
-      .then(setProjectSourceCounts)
-      .catch(() => setProjectSourceCounts({ prior_gap_assessment: 0, chat_outputs: 0 }));
+      .then((docs) => {
+        const safeDocs = Array.isArray(docs) ? docs : [];
+        setProjectDocs(safeDocs);
+      })
+      .catch(() => {
+        setProjectDocs([]);
+      });
   }, [project]);
 
   const loadSessions = useCallback(async (projectId?: string | null) => {
     try {
-      const list = await simulationApi.listSessions(projectId ?? undefined);
+      const raw = await simulationApi.listSessions(projectId ?? undefined);
+      const list = Array.isArray(raw) ? raw : [];
       const visible = projectId === null ? list.filter((s) => !s.project_id) : list;
       setSessions(visible);
       return visible;
@@ -325,7 +320,7 @@ function HealthAuthoritySimulationPage() {
         if (project)
           projectApi
             .listDocuments(project.id)
-            .then(setProjectDocs)
+            .then((docs) => setProjectDocs(Array.isArray(docs) ? docs : []))
             .catch(() => {});
       }
     } catch (e) {
@@ -343,7 +338,7 @@ function HealthAuthoritySimulationPage() {
         await projectApi.deleteDocument(doc.project_id, doc.id);
         if (project?.id === doc.project_id) {
           const docs = await projectApi.listDocuments(project.id);
-          setProjectDocs(docs);
+          setProjectDocs(Array.isArray(docs) ? docs : []);
         }
       } else {
         await projectApi.deleteStandaloneDocument(doc.id);
@@ -353,7 +348,7 @@ function HealthAuthoritySimulationPage() {
       if (project)
         projectApi
           .listDocuments(project.id)
-          .then(setProjectDocs)
+          .then((docs) => setProjectDocs(Array.isArray(docs) ? docs : []))
           .catch(() => {});
     }
   };
@@ -366,7 +361,7 @@ function HealthAuthoritySimulationPage() {
       setSessionDocs((prev) => prev.filter((d) => d.id !== doc.id));
       if (project?.id === doc.project_id) {
         const docs = await projectApi.listDocuments(project.id);
-        setProjectDocs(docs);
+        setProjectDocs(Array.isArray(docs) ? docs : []);
       }
     } catch (e) {
       setError(
@@ -391,6 +386,12 @@ function HealthAuthoritySimulationPage() {
     (d) => !isQuestionnaireDocument(d),
   );
   const projectQuestionnaires = projectDocs.filter(isQuestionnaireDocument);
+  const priorGapAssessmentCount = projectUploadedDocuments.filter(
+    (doc) => (doc.gap_count ?? 0) > 0,
+  ).length;
+  const chatOutputCount = projectUploadedDocuments.filter(
+    (doc) => Boolean(doc.conversation_id),
+  ).length;
   const pastedQuestionCount =
     (pastedQuestions.trim() ? 1 : 0) + projectQuestionnaires.length;
 
@@ -401,8 +402,8 @@ function HealthAuthoritySimulationPage() {
       mode === "project"
         ? supplementalOnlyDocuments.length
         : simulationUploadedDocuments.length,
-    prior_gap_assessment: projectSourceCounts.prior_gap_assessment,
-    chat_outputs: projectSourceCounts.chat_outputs,
+    prior_gap_assessment: priorGapAssessmentCount,
+    chat_outputs: chatOutputCount,
     regulatory_core: mode === "project" && project ? 1 : 0,
     pasted_questions: pastedQuestionCount,
     manual_scenario: manualScenario.trim() ? 1 : 0,
