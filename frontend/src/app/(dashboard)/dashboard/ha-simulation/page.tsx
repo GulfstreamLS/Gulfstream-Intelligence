@@ -11,6 +11,8 @@ import {
   AlertTriangle,
   Loader2,
   History,
+  X,
+  Plus,
 } from "lucide-react";
 import { SimulationScenario } from "../../../../components/ha-simulation/SimulationScenario";
 import { SupplementalInput } from "../../../../components/ha-simulation/SupplementalInput";
@@ -162,6 +164,7 @@ function HealthAuthoritySimulationPage() {
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Load projects on mount
   useEffect(() => {
@@ -512,9 +515,18 @@ function HealthAuthoritySimulationPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors whitespace-nowrap shadow-sm"
+              >
+                <Plus size={14} /> New Simulation
+              </button>
+              {/*
               <button className="flex items-center gap-1.5 px-3 py-2 border border-gs-border bg-gs-card text-gs-text rounded-lg text-xs font-semibold hover:bg-gs-bg transition-colors whitespace-nowrap">
                 <Download size={14} className="text-indigo-600" /> Export
               </button>
+              */}
             </div>
           </div>
 
@@ -539,89 +551,141 @@ function HealthAuthoritySimulationPage() {
           )}
           <div className="flex gap-4">
             <div>
-              <SimulationScenario
-                project={project}
-                projects={projects}
-                onProjectSelect={handleProjectSelect}
-                mode={mode}
-                onModeChange={handleModeChange}
-                authority={authority}
-                onAuthorityChange={setAuthority}
-                submissionType={submissionType}
-                onSubmissionTypeChange={setSubmissionType}
-                productType={productType}
-                onProductTypeChange={setProductType}
-                stage={stage}
-                onStageChange={setStage}
-                focusArea={focusArea}
-                onFocusAreaChange={setFocusArea}
-                simulationPurpose={simulationPurpose}
-                onSimulationPurposeChange={setSimulationPurpose}
-                lastRun={lastRun}
-              />
+              {isModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  <div
+                    className="bg-gs-card rounded-2xl shadow-2xl w-full max-w-6xl p-6 border border-gs-border flex flex-col max-h-[90vh] transition-transform duration-300 scale-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between pb-4 border-b border-gs-border mb-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-gs-text">
+                          Configure Simulation Scenario & Context
+                        </h3>
+                        <p className="text-xs text-gs-muted mt-0.5">
+                          Set your simulation parameters, add supplemental files, and customize active sources.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(false)}
+                        className="text-gs-muted hover:text-gs-text transition-colors p-1.5 rounded-lg hover:bg-gs-bg"
+                        aria-label="Close modal"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
 
-              <div className="grid grid-cols-1 gap-8 items-start mb-8">
-                <div className="min-w-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <SupplementalInput
-                      mode={mode}
-                      projectSelected={!!project}
-                      projectName={project?.name ?? null}
-                      documents={simulationUploadedDocuments}
-                      projectQuestionnaires={projectQuestionnaires}
-                      onUpload={handleUpload}
-                      onRemoveDocument={handleRemoveDocument}
-                      onRemoveProjectQuestionnaire={handleRemoveProjectDocument}
-                      uploadingDoc={uploadingDoc}
-                      docSaveToProject={docSaveToProject}
-                      onDocSaveToProjectChange={setDocSaveToProject}
-                      pastedQuestions={pastedQuestions}
-                      onPastedQuestionsChange={setPastedQuestions}
-                      pastedSaveToProject={pastedSaveToProject}
-                      onPastedSaveToProjectChange={setPastedSaveToProject}
-                      manualScenario={manualScenario}
-                      onManualScenarioChange={setManualScenario}
-                    />
-                    <SourceContextSummary
-                      mode={mode}
-                      projectName={project?.name ?? null}
-                      authority={authority}
-                      submissionType={submissionType}
-                      focusArea={focusArea}
-                      simulationPurpose={simulationPurpose}
-                      includedSources={includedSources}
-                      onToggleSource={toggleSource}
-                      sourceCounts={sourceCounts}
-                    />
+                    {/* Modal Body */}
+                    <div className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-6">
+                      {/* Simulation Scenario Config */}
+                      <SimulationScenario
+                        project={project}
+                        projects={projects}
+                        onProjectSelect={handleProjectSelect}
+                        mode={mode}
+                        onModeChange={handleModeChange}
+                        authority={authority}
+                        onAuthorityChange={setAuthority}
+                        submissionType={submissionType}
+                        onSubmissionTypeChange={setSubmissionType}
+                        productType={productType}
+                        onProductTypeChange={setProductType}
+                        stage={stage}
+                        onStageChange={setStage}
+                        focusArea={focusArea}
+                        onFocusAreaChange={setFocusArea}
+                        simulationPurpose={simulationPurpose}
+                        onSimulationPurposeChange={setSimulationPurpose}
+                        lastRun={lastRun}
+                      />
+
+                      {/* Inputs & Sources Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        <SupplementalInput
+                          mode={mode}
+                          projectSelected={!!project}
+                          projectName={project?.name ?? null}
+                          documents={simulationUploadedDocuments}
+                          projectQuestionnaires={projectQuestionnaires}
+                          onUpload={handleUpload}
+                          onRemoveDocument={handleRemoveDocument}
+                          onRemoveProjectQuestionnaire={handleRemoveProjectDocument}
+                          uploadingDoc={uploadingDoc}
+                          docSaveToProject={docSaveToProject}
+                          onDocSaveToProjectChange={setDocSaveToProject}
+                          pastedQuestions={pastedQuestions}
+                          onPastedQuestionsChange={setPastedQuestions}
+                          pastedSaveToProject={pastedSaveToProject}
+                          onPastedSaveToProjectChange={setPastedSaveToProject}
+                          manualScenario={manualScenario}
+                          onManualScenarioChange={setManualScenario}
+                        />
+                        <SourceContextSummary
+                          mode={mode}
+                          projectName={project?.name ?? null}
+                          authority={authority}
+                          submissionType={submissionType}
+                          focusArea={focusArea}
+                          simulationPurpose={simulationPurpose}
+                          includedSources={includedSources}
+                          onToggleSource={toggleSource}
+                          sourceCounts={sourceCounts}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Modal Footer / Run Bar */}
+                    <div className="pt-4 border-t border-gs-border mt-6">
+                      <div className="bg-gs-bg/60 dark:bg-gs-bg/30 rounded-xl border border-gs-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+                        <p className="text-[13px] text-gs-muted font-medium">
+                          {canRun
+                            ? "All set — your simulation is ready to run."
+                            : "Select a simulation purpose and add source context to enable."}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => setIsModalOpen(false)}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 border border-gs-border bg-gs-card text-gs-text rounded-lg text-sm font-semibold hover:bg-gs-bg transition-colors whitespace-nowrap w-full sm:w-auto min-h-[40px]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (canRun) {
+                                handleRunSimulation();
+                                setIsModalOpen(false);
+                              } else {
+                                setIsModalOpen(false);
+                              }
+                            }}
+                            disabled={running}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap w-full sm:w-auto min-h-[40px]"
+                          >
+                            {running ? (
+                              <>
+                                <Loader2 size={15} className="animate-spin" /> Running…
+                              </>
+                            ) : !canRun ? (
+                              gateLabel
+                            ) : (
+                              <>
+                                <Play size={15} /> {readyLabel}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Run */}
-              <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm p-5 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-[13px] text-gs-muted">
-                  {canRun
-                    ? "All set — your simulation is ready to run."
-                    : "Select a simulation purpose and add source context to enable."}
-                </p>
-                <button
-                  onClick={handleRunSimulation}
-                  disabled={!canRun || running}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  {running ? (
-                    <>
-                      <Loader2 size={15} className="animate-spin" /> Running…
-                    </>
-                  ) : !canRun ? (
-                    gateLabel
-                  ) : (
-                    <>
-                      <Play size={15} /> {readyLabel}
-                    </>
-                  )}
-                </button>
-              </div>
+              )}
 
               <HaStatCards
                 session={activeSession}
