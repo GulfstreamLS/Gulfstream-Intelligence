@@ -9,6 +9,7 @@ from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none, check_active_subscription
 from app.models.chat import Conversation
+from app.models.project import Project
 from app.models.regulatory import AnalysisDocument, RegulatorySource
 from app.models.user import User
 from app.schemas.regulatory import DocumentAnalysisResponse
@@ -38,6 +39,7 @@ async def upload_for_analysis(
     request: Request,
     file: UploadFile = File(...),
     authority: str = Form(None),
+    project_id: uuid.UUID | None = Form(None),
     current_user: User = Depends(check_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
@@ -51,6 +53,15 @@ async def upload_for_analysis(
         user_id = mock_user.id
     else:
         user_id = current_user.id
+
+    if project_id and current_user:
+        project = await db.get(Project, project_id)
+        accessible = project and (
+            project.user_id == current_user.id
+            or (current_user.organization_id and project.organization_id == current_user.organization_id)
+        )
+        if not accessible:
+            raise HTTPException(status_code=404, detail="Project not found")
 
     content = await file.read()
     file_extension = file.filename.split(".")[-1].lower()
@@ -69,6 +80,7 @@ async def upload_for_analysis(
             file.filename,
             file_extension,
             authority=authority,
+            project_id=project_id,
             organization_id=current_user.organization_id if current_user else None,
         )
         # Fetch with relationships for the response

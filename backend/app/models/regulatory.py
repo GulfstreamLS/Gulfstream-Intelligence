@@ -2,7 +2,7 @@ import uuid
 from enum import StrEnum
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Float, ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,6 +53,32 @@ class AnalysisDocument(Base, UUIDMixin, TimestampMixin):
     gaps: Mapped[list["Gap"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     insights: Mapped[list["Insight"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     actions: Mapped[list["Action"]] = relationship(back_populates="document", cascade="all, delete-orphan")
+
+
+class GapAssessmentRun(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "gap_assessment_runs"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    assessment_type: Mapped[str] = mapped_column(String(150), nullable=False)
+    regions: Mapped[list | None] = mapped_column(JSONB)
+    document_ids: Mapped[list | None] = mapped_column(JSONB)
+    documents_reviewed: Mapped[list | None] = mapped_column(JSONB)
+    confidence_level: Mapped[str] = mapped_column(String(50), nullable=False, default="Moderate")
+    readiness_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    critical_gaps_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    high_priority_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    recommendations_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    top_risks: Mapped[list | None] = mapped_column(JSONB)
+    recommendations: Mapped[list | None] = mapped_column(JSONB)
 
 
 class Gap(Base, UUIDMixin, TimestampMixin):

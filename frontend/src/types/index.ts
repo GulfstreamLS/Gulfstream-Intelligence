@@ -123,6 +123,8 @@ export interface ProjectDocument {
   file_type: string;
   authority: string | null;
   summary: string | null;
+  source?: string | null;
+  gap_count?: number;
   created_at: string;
 }
 
@@ -145,6 +147,14 @@ export interface GapSummary {
   severity: string;
   impact: string;
   status: string;
+  why_this_matters?: string | null;
+  health_authority_relevance?: string | null;
+  source_evidence?: string | null;
+  document_reference?: string | null;
+  recommended_action?: string | null;
+  suggested_owner?: string | null;
+  target_date?: string | null;
+  priority_level?: string | null;
 }
 
 export interface GapActionItem {
@@ -162,6 +172,15 @@ export interface AnalyzedDocument {
   created_at: string;
 }
 
+export interface AssessmentDocumentSummary {
+  id: string;
+  filename: string;
+  file_type?: string | null;
+  authority?: string | null;
+  source?: string | null;
+  created_at?: string | null;
+}
+
 export interface GapAssessmentResponse {
   overall_readiness: number;
   readiness_vs_last: number;
@@ -172,6 +191,26 @@ export interface GapAssessmentResponse {
   severity_distribution: GapSeverityStat[];
   top_gaps: GapSummary[];
   next_steps: GapActionItem[];
+  documents_reviewed: AssessmentDocumentSummary[];
+}
+
+export interface GapAssessmentRun {
+  id: string;
+  project_id: string | null;
+  source_type: string;
+  assessment_type: string;
+  regions: string[];
+  document_ids: string[];
+  documents_reviewed: AssessmentDocumentSummary[];
+  confidence_level: string;
+  readiness_score: number;
+  critical_gaps_count: number;
+  high_priority_count: number;
+  recommendations_count: number;
+  top_risks: string[];
+  recommendations: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 // ── HA Simulation ────────────────────────────────────────────────────────────

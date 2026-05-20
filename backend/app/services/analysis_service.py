@@ -134,6 +134,90 @@ class AnalysisService:
         await db.refresh(doc)
         return doc
 
+    async def analyze_text(
+        self,
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        text: str,
+        filename: str,
+        authority: str = None,
+        project_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
+        source_basis: str = "Pasted program details",
+    ) -> AnalysisDocument:
+        """Perform gap analysis on user-entered program details."""
+        search_query = text[:3000]
+        context_sources = await vector_service.search_regulatory_context(
+            db, search_query, authority=authority, limit=10
+        )
+        context_text = "\n\n".join(
+            [f"SOURCE: {s.title} ({s.authority})\nCONTENT: {s.content}" for s in context_sources]
+        )
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    (
+                        "You are an expert Regulatory Affairs Consultant. Perform a regulatory readiness "
+                        "gap assessment using only the program details supplied by the user and the official "
+                        "regulatory context below.\n\n"
+                        "REGULATORY CONTEXT:\n{context}\n\n"
+                        "Rules:\n"
+                        "1. Each gap must include a Domain — use ONLY these exact values: CMC, Clinical, Nonclinical, Regulatory, Safety, Quality.\n"
+                        "2. Each gap must have a Severity: Critical, High, Medium, or Low.\n"
+                        "3. If the supplied details are incomplete, identify the missing information as a gap.\n"
+                        "4. For quoted excerpts, cite short phrases from the supplied program details when available.\n"
+                        "5. Be objective and professional."
+                    ),
+                ),
+                ("human", "Assessment source basis: {source_basis}\n\nProgram details:\n\n{program_details}"),
+            ]
+        )
+
+        chain = prompt | self.structured_llm
+        analysis_result: FullAnalysisResponse = await chain.ainvoke(
+            {"context": context_text, "program_details": text, "source_basis": source_basis}
+        )
+
+        doc = AnalysisDocument(
+            user_id=user_id,
+            project_id=project_id,
+            organization_id=organization_id,
+            filename=filename,
+            file_type="txt",
+            file_path=f"manual/{filename}",
+            authority=authority,
+            summary=analysis_result.summary,
+            extracted_text=text,
+            confidence_score=analysis_result.confidence_score,
+        )
+        db.add(doc)
+        await db.flush()
+
+        for g in analysis_result.gaps:
+            db.add(Gap(
+                document_id=doc.id,
+                title=g.title,
+                domain=g.domain,
+                severity=g.severity.lower(),
+                description=g.description,
+                regulatory_impact=g.regulatory_impact,
+                recommended_action=g.recommended_action,
+                quoted_excerpt=g.quoted_excerpt,
+                page_reference=g.page_reference,
+            ))
+
+        for i in analysis_result.insights:
+            db.add(Insight(document_id=doc.id, content=i.content, category=i.category))
+
+        for a in analysis_result.actions:
+            db.add(Action(document_id=doc.id, title=a.title, description=a.description, priority=a.priority))
+
+        await db.commit()
+        await db.refresh(doc)
+        return doc
+
     async def analyze_document_multi(
         self,
         db: AsyncSession,

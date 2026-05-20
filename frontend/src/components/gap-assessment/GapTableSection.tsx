@@ -1,4 +1,5 @@
-import { ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { GapSummary } from "../../types";
 
 const SEV_STYLES: Record<string, string> = {
@@ -8,22 +9,53 @@ const SEV_STYLES: Record<string, string> = {
   LOW:      "bg-blue-50 dark:bg-blue-950/40 text-blue-600",
 };
 
-function TableRow({ domain, title, severity, impact, status }: GapSummary) {
+function DetailItem({ label, value }: { label: string; value?: string | null }) {
   return (
-    <tr className="hover:bg-gs-bg transition-colors cursor-pointer group">
-      <td className="px-8 py-5 text-[12px] font-bold text-gs-muted uppercase tracking-widest">{domain}</td>
-      <td className="px-8 py-5">
-        <p className="text-[14px] font-bold text-gs-text leading-relaxed max-w-[380px] group-hover:text-blue-600 transition-colors">{title}</p>
-      </td>
-      <td className="px-8 py-5">
-        <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest ${SEV_STYLES[severity] ?? SEV_STYLES.LOW}`}>
-          {severity}
-        </span>
-      </td>
-      <td className="px-8 py-5 text-[12px] font-bold text-gs-muted uppercase tracking-widest">{impact}</td>
-      <td className="px-8 py-5 text-[12px] font-bold text-blue-600 uppercase tracking-widest">{status}</td>
-      <td className="px-8 py-5 text-right"><ChevronRight size={18} className="text-gs-muted inline" /></td>
-    </tr>
+    <div>
+      <p className="text-[10px] font-black text-gs-muted uppercase tracking-[0.14em] mb-1">{label}</p>
+      <p className="text-[12px] font-semibold text-gs-text leading-relaxed">{value || "Not specified"}</p>
+    </div>
+  );
+}
+
+function TableRow(gap: GapSummary) {
+  const [open, setOpen] = useState(false);
+  const { domain, title, severity, impact, status } = gap;
+  return (
+    <>
+      <tr className="hover:bg-gs-bg transition-colors cursor-pointer group" onClick={() => setOpen(v => !v)}>
+        <td className="px-8 py-5 text-[12px] font-bold text-gs-muted uppercase tracking-widest">{domain}</td>
+        <td className="px-8 py-5">
+          <p className="text-[14px] font-bold text-gs-text leading-relaxed max-w-[380px] group-hover:text-blue-600 transition-colors">{title}</p>
+        </td>
+        <td className="px-8 py-5">
+          <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest ${SEV_STYLES[severity] ?? SEV_STYLES.LOW}`}>
+            {severity}
+          </span>
+        </td>
+        <td className="px-8 py-5 text-[12px] font-bold text-gs-muted uppercase tracking-widest">{impact}</td>
+        <td className="px-8 py-5 text-[12px] font-bold text-blue-600 uppercase tracking-widest">{status}</td>
+        <td className="px-8 py-5 text-right">
+          {open ? <ChevronDown size={18} className="text-blue-600 inline" /> : <ChevronRight size={18} className="text-gs-muted inline" />}
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={6} className="px-8 py-6 bg-gs-bg border-t border-gs-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
+              <DetailItem label="Why this matters" value={gap.why_this_matters} />
+              <DetailItem label="Health authority relevance" value={gap.health_authority_relevance} />
+              <DetailItem label="Source / evidence" value={gap.source_evidence} />
+              <DetailItem label="Supporting document reference" value={gap.document_reference} />
+              <DetailItem label="Recommended action" value={gap.recommended_action} />
+              <DetailItem label="Suggested owner" value={gap.suggested_owner} />
+              <DetailItem label="Target date" value={gap.target_date} />
+              <DetailItem label="Priority level" value={gap.priority_level || severity} />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

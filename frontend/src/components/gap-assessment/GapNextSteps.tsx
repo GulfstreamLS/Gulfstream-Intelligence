@@ -35,7 +35,7 @@ function SkeletonStep() {
 
 export function GapNextSteps({ data, loading }: { data: GapActionItem[]; loading: boolean }) {
   return (
-    <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm">
+    <div className="lg:col-span-3 bg-gs-card p-4 rounded-xl border border-gs-border shadow-sm">
       <h3 className="text-[16px] font-bold text-gs-text mb-8">Next Steps</h3>
       <div className="space-y-4">
         {loading ? (

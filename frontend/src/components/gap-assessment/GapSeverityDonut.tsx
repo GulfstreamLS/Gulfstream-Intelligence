@@ -39,7 +39,7 @@ export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; l
 
   if (loading) {
     return (
-      <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm flex flex-col items-center animate-pulse">
+      <div className="lg:col-span-3 bg-gs-card p-4 rounded-xl border border-gs-border shadow-sm flex flex-col items-center animate-pulse">
         <div className="h-4 w-40 bg-gs-border rounded mb-10 self-start" />
         <div className="w-48 h-48 rounded-full bg-gs-border mb-10" />
         <div className="w-full space-y-3.5">
@@ -50,7 +50,7 @@ export function GapSeverityDonut({ data, loading }: { data: GapSeverityStat[]; l
   }
 
   return (
-    <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm flex flex-col items-center">
+    <div className="lg:col-span-3 bg-gs-card p-4 rounded-xl border border-gs-border shadow-sm flex flex-col items-center">
       <h3 className="text-[16px] font-bold text-gs-text w-full mb-10">Gap Severity Distribution</h3>
 
       {total === 0 ? (

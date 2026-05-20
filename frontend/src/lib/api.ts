@@ -1,4 +1,4 @@
-import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, InviteDetails, OrgMember, Organization, Project, ProjectDocument, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
+import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, GapAssessmentRun, InviteDetails, OrgMember, Organization, Project, ProjectDocument, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
 import Cookies from "js-cookie";
 
 interface BillingPlan {
@@ -461,12 +461,64 @@ export const projectApi = {
 export const assessmentApi = {
   listDocuments: () => request<AnalyzedDocument[]>("/assessments/documents"),
 
-  getGlobalGap: (authority?: string, documentId?: string) => {
+  getGlobalGap: (authority?: string, documentId?: string, projectId?: string, documentIds?: string[], source?: string) => {
     const params = new URLSearchParams();
     if (authority) params.set("authority", authority);
     if (documentId) params.set("document_id", documentId);
+    if (projectId) params.set("project_id", projectId);
+    if (documentIds?.length) params.set("document_ids", documentIds.join(","));
+    if (source) params.set("source", source);
     const q = params.toString() ? `?${params.toString()}` : "";
     return request<GapAssessmentResponse>(`/assessments/global-gap${q}`);
+  },
+
+  createRun: (data: {
+    source_type: string;
+    assessment_type: string;
+    regions: string[];
+    project_id?: string | null;
+    document_ids?: string[];
+    confidence_level?: string;
+  }) => request<GapAssessmentRun>("/assessments/runs", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+
+  runManual: (data: {
+    program_details: string;
+    source_type: string;
+    assessment_type: string;
+    authority?: string;
+    project_id?: string | null;
+    confidence_level?: string;
+  }) => request<GapAssessmentResponse>("/assessments/manual-analysis", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+
+  getRun: (id: string) => request<GapAssessmentRun>(`/assessments/runs/${id}`),
+
+  listProjectRuns: (projectId: string) =>
+    request<GapAssessmentRun[]>(`/assessments/projects/${projectId}/runs`),
+
+  deleteRun: (id: string) =>
+    request<void>(`/assessments/runs/${id}`, { method: "DELETE" }),
+
+  uploadForAnalysis: async (file: File, authority?: string, projectId?: string): Promise<ProjectDocument> => {
+    const token = Cookies.get("access_token");
+    const form = new FormData();
+    form.append("file", file);
+    if (authority) form.append("authority", authority);
+    if (projectId) form.append("project_id", projectId);
+    const res = await fetch(`${BASE_URL}/regulatory/analysis/upload`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+    if (!res.ok) {
+      await throwApiError(res);
+    }
+    return res.json();
   },
 };
 

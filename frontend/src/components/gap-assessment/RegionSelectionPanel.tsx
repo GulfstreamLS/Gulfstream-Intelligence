@@ -241,7 +241,7 @@ export function RegionSelectionPanel({
       </div>
 
       {/* Summary panel */}
-      <div className="lg:col-span-3 bg-gs-card p-8 rounded-xl border border-gs-border shadow-sm flex flex-col">
+      <div className="lg:col-span-3 bg-gs-card p-4 rounded-xl border border-gs-border shadow-sm flex flex-col">
         <div className="flex justify-between items-center mb-8">
           <span className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em]">Your selection</span>
           <button onClick={handleReset} className="text-blue-600 text-[12px] font-bold flex items-center gap-1 hover:underline">

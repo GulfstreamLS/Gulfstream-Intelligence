@@ -363,9 +363,34 @@ class ProjectDocumentResponse(BaseModel):
     file_type: str
     authority: Optional[str]
     summary: Optional[str]
+    source: Optional[str] = None
+    gap_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+def _project_document_response(doc: AnalysisDocument) -> ProjectDocumentResponse:
+    if doc.conversation_id:
+        source = "Regulatory Chat"
+    elif doc.project_id and doc.gaps:
+        source = "Gap Assessment"
+    elif doc.project_id:
+        source = "Project Upload"
+    else:
+        source = "Standalone Upload"
+    return ProjectDocumentResponse(
+        id=doc.id,
+        project_id=doc.project_id,
+        conversation_id=doc.conversation_id,
+        filename=doc.filename,
+        file_type=doc.file_type,
+        authority=doc.authority,
+        summary=doc.summary,
+        source=source,
+        gap_count=len(doc.gaps or []),
+        created_at=doc.created_at,
+    )
 
 
 class ProjectSourceCountsResponse(BaseModel):
@@ -445,10 +470,11 @@ async def list_project_documents(
     await _get_accessible_project(project_id, current_user, db)
     result = await db.execute(
         select(AnalysisDocument)
+        .options(selectinload(AnalysisDocument.gaps))
         .where(AnalysisDocument.project_id == project_id)
         .order_by(AnalysisDocument.created_at.desc())
     )
-    return result.scalars().all()
+    return [_project_document_response(doc) for doc in result.scalars().unique().all()]
 
 
 @router.get("/{project_id}/source-counts", response_model=ProjectSourceCountsResponse)

@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X, FileText,
+  AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X, FileText, ClipboardList, Eye,
 } from "lucide-react";
-import { isPaymentRequiredError, projectApi, simulationApi } from "../../../../../lib/api";
+import { assessmentApi, isPaymentRequiredError, projectApi, simulationApi } from "../../../../../lib/api";
 import { ConfirmModal } from "../../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../../components/ui/DynamicSelect";
 import { useSubscription } from "../../../../../hooks/useSubscription";
-import type { Conversation, Project, ProjectDocument, SimulationListItem, Subscription } from "../../../../../types";
+import type { Conversation, GapAssessmentRun, Project, ProjectDocument, SimulationListItem, Subscription } from "../../../../../types";
 
 const AUTHORITY_FLAGS: Record<string, string> = {
   FDA: "🇺🇸", EMA: "🇪🇺", "Health Canada": "🇨🇦", PMDA: "🇯🇵", MHRA: "🇬🇧",
@@ -221,6 +221,7 @@ export default function ProjectDetailPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [simulations, setSimulations] = useState<SimulationListItem[]>([]);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [assessments, setAssessments] = useState<GapAssessmentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -233,12 +234,14 @@ export default function ProjectDetailPage() {
       projectApi.getConversations(id),
       simulationApi.listSessions(id),
       projectApi.listDocuments(id),
+      assessmentApi.listProjectRuns(id),
     ])
-      .then(([p, convos, sims, docs]) => {
+      .then(([p, convos, sims, docs, runs]) => {
         setProject(p);
         setConversations(Array.isArray(convos) ? convos : ((convos as { items?: Conversation[] })?.items ?? []));
         setSimulations(Array.isArray(sims) ? sims : ((sims as { items?: SimulationListItem[] })?.items ?? []));
         setDocuments(Array.isArray(docs) ? docs : []);
+        setAssessments(Array.isArray(runs) ? runs : []);
       })
       .catch(() => router.push("/dashboard/projects"))
       .finally(() => setLoading(false));
@@ -264,7 +267,8 @@ export default function ProjectDetailPage() {
   const showSimulations = canAccess("ha_simulation");
   const projectDocuments = documents.filter(d => !isQuestionnaireDocument(d));
   const chatDocuments = projectDocuments.filter(d => !!d.conversation_id);
-  const simulationDocuments = projectDocuments.filter(d => !d.conversation_id);
+  const gapAssessmentDocuments = projectDocuments.filter(d => d.source === "Gap Assessment");
+  const simulationDocuments = projectDocuments.filter(d => !d.conversation_id && d.source !== "Gap Assessment");
   const projectQuestionnaires = documents.filter(isQuestionnaireDocument);
 
   async function handleRemoveProjectDocument(doc: ProjectDocument) {
@@ -274,6 +278,16 @@ export default function ProjectDetailPage() {
       setDocuments(prev => prev.filter(d => d.id !== doc.id));
     } catch {
       // Keep the current list if removal fails; the page will refresh on navigation.
+    }
+  }
+
+  async function handleDeleteAssessment(run: GapAssessmentRun) {
+    if (subscriptionExpired) return;
+    try {
+      await assessmentApi.deleteRun(run.id);
+      setAssessments(prev => prev.filter(item => item.id !== run.id));
+    } catch {
+      // Keep the current list if removal fails.
     }
   }
 
@@ -433,6 +447,40 @@ export default function ProjectDetailPage() {
                   </button>
                 </li>
               ))}
+              {gapAssessmentDocuments.length > 0 && (
+                <li className="px-6 py-3 bg-gs-bg">
+                  <p className="text-[11px] font-bold text-gs-muted uppercase tracking-wide">
+                    Uploaded from Global Gap Assessment ({gapAssessmentDocuments.length})
+                  </p>
+                </li>
+              )}
+              {gapAssessmentDocuments.map(doc => (
+                <li key={doc.id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <ClipboardList size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gs-text truncate">{doc.filename}</p>
+                      <p className="text-xs text-gs-muted mt-0.5">
+                        {doc.file_type.toUpperCase()} · {doc.gap_count ?? 0} gaps · {new Date(doc.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-blue-50 text-blue-600">
+                    Assessment
+                  </span>
+                  <button
+                    onClick={() => handleRemoveProjectDocument(doc)}
+                    disabled={subscriptionExpired}
+                    title={writeDisabledTitle}
+                    className="ml-3 text-gs-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Remove ${doc.filename}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
               {projectQuestionnaires.length > 0 && (
                 <li className="px-6 py-3 bg-gs-bg">
                   <p className="text-[11px] font-bold text-gs-muted uppercase tracking-wide">
@@ -462,6 +510,79 @@ export default function ProjectDetailPage() {
                   >
                     <Trash2 size={14} />
                   </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Global Gap Assessments */}
+        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mb-6">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
+            <h2 className="text-sm font-bold text-gs-text">Global Gap Assessment History ({assessments.length})</h2>
+            <button
+              onClick={() => router.push(`/dashboard/gap-assessment?projectId=${id}`)}
+              disabled={subscriptionExpired}
+              title={writeDisabledTitle}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-sm text-xs font-bold hover:bg-blue-700 transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600"
+            >
+              <Plus size={14} /> Run Assessment
+            </button>
+          </div>
+          {assessments.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <ClipboardList size={28} className="mx-auto text-gs-muted mb-3" />
+              <p className="text-sm text-gs-muted font-medium">No Global Gap Assessments saved for this project yet.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gs-border">
+              {assessments.map((run, index) => (
+                <li key={run.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <ClipboardList size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-gs-text">{index === 0 ? "Latest Global Gap Assessment" : run.assessment_type}</p>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-blue-50 text-blue-600">{run.confidence_level}</span>
+                        </div>
+                        <p className="text-xs text-gs-muted mt-1">
+                          {run.assessment_type} · {run.readiness_score}% readiness · {run.regions.join(", ") || "Global"} · {new Date(run.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          <div className="rounded-lg border border-gs-border bg-gs-bg p-3">
+                            <p className="text-[10px] font-bold text-gs-muted uppercase tracking-wide mb-2">Top risks</p>
+                            <p className="text-xs font-semibold text-gs-text leading-relaxed">{run.top_risks.length ? run.top_risks.join("; ") : "No top risks saved."}</p>
+                          </div>
+                          <div className="rounded-lg border border-gs-border bg-gs-bg p-3">
+                            <p className="text-[10px] font-bold text-gs-muted uppercase tracking-wide mb-2">Recommendations</p>
+                            <p className="text-xs font-semibold text-gs-text leading-relaxed">{run.recommendations.length ? run.recommendations.join("; ") : "No recommendations saved."}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gs-muted mt-3">
+                          Related Document Intelligence findings: {run.documents_reviewed.length} documents · Related HA Simulation outputs: {simulations.length}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => router.push(`/dashboard/gap-assessment?assessmentId=${run.id}&projectId=${id}`)}
+                        className="flex items-center gap-1.5 px-3 py-2 border border-gs-border rounded-lg text-xs font-bold text-gs-muted hover:bg-gs-bg"
+                      >
+                        <Eye size={13} /> View
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAssessment(run)}
+                        disabled={subscriptionExpired}
+                        title={writeDisabledTitle}
+                        className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
