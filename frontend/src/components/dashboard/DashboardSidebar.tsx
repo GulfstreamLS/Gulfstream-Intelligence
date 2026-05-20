@@ -86,13 +86,10 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
 
         {/* Support link */}
         <div className="px-4 py-4 border-t border-gs-border">
-          <a
-            href="mailto:support@gulfstreamintelligence.com"
-            className="flex items-center gap-3 px-4 py-[11px] rounded-lg transition-all min-h-[44px] text-gs-muted hover:bg-gs-bg font-semibold"
-          >
-            <LifeBuoy className="w-[19px] h-[19px] shrink-0 text-gs-muted" />
-            <span className="text-[14px]">Support & Feedback</span>
-          </a>
+          <NavLink
+            item={{ label: "Support", href: "/dashboard/support", icon: LifeBuoy }}
+            active={pathname === "/dashboard/support"}
+          />
         </div>
       </aside>
     </>

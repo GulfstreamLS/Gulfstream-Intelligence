@@ -1,6 +1,12 @@
 import smtplib
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
+
+# (filename, content, content_type)
+Attachment = tuple[str, bytes, str]
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -15,15 +21,37 @@ FROM_NAME = "Gulfstream Intelligence"
 FROM_ADDR = SMTP_USER
 
 
-def _send(to: str, subject: str, html: str) -> None:
+def _send(
+    to: str,
+    subject: str,
+    html: str,
+    reply_to: str | None = None,
+    attachments: list[Attachment] | None = None,
+) -> None:
     if not SMTP_USER or not SMTP_PASSWORD:
         raise RuntimeError("SMTP_USER and SMTP_PASSWORD must be configured to send email.")
 
-    msg = MIMEMultipart("alternative")
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(html, "html"))
+
+    if attachments:
+        msg: MIMEMultipart = MIMEMultipart("mixed")
+        msg.attach(body)
+        for filename, content, content_type in attachments:
+            maintype, _, subtype = content_type.partition("/")
+            part = MIMEBase(maintype or "application", subtype or "octet-stream")
+            part.set_payload(content)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    else:
+        msg = body
+
     msg["Subject"] = subject
     msg["From"] = f"{FROM_NAME} <{FROM_ADDR}>"
     msg["To"] = to
-    msg.attach(MIMEText(html, "html"))
+    if reply_to:
+        msg["Reply-To"] = reply_to
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
         server.ehlo()
         server.starttls()
@@ -165,3 +193,45 @@ def send_contact_sales(name: str, email: str, company: str, message: str) -> Non
           <td style="white-space:pre-wrap;">{message}</td></tr>
     </table>"""
     _send(SMTP_USER, f"Enterprise inquiry from {name}", _base_template(body))
+
+
+def send_support_request(
+    name: str,
+    email: str,
+    subject: str,
+    message: str,
+    attachments: list[Attachment] | None = None,
+) -> None:
+    safe_name = escape(name)
+    safe_email = escape(email)
+    safe_subject = escape(subject)
+    safe_message = escape(message)
+    attachment_row = ""
+    if attachments:
+        names = ", ".join(escape(f[0]) for f in attachments)
+        attachment_row = (
+            f'<tr><td style="padding:8px 0;font-weight:bold;">Attachments:</td>'
+            f"<td>{names}</td></tr>"
+        )
+    body = f"""
+    <p style="color:#334155;font-size:16px;margin:0 0 16px;">
+      New support request from a Gulfstream Intelligence user.
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;color:#334155;">
+      <tr><td style="padding:8px 0;font-weight:bold;width:120px;">Name:</td><td>{safe_name}</td></tr>
+      <tr><td style="padding:8px 0;font-weight:bold;">Email:</td><td>{safe_email}</td></tr>
+      <tr><td style="padding:8px 0;font-weight:bold;">Subject:</td><td>{safe_subject}</td></tr>
+      {attachment_row}
+      <tr><td style="padding:8px 0;font-weight:bold;vertical-align:top;">Message:</td>
+          <td style="white-space:pre-wrap;">{safe_message}</td></tr>
+    </table>
+    <p style="color:#94a3b8;font-size:13px;margin:24px 0 0;">
+      Reply directly to this email to respond to the user.
+    </p>"""
+    _send(
+        settings.SUPPORT_EMAIL,
+        f"[Support] {safe_subject}",
+        _base_template(body),
+        reply_to=email,
+        attachments=attachments,
+    )

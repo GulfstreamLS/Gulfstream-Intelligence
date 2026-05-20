@@ -22,6 +22,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard/history":         "History",
   "/dashboard/reports":         "Reports",
   "/dashboard/settings":        "Settings",
+  "/dashboard/subscription":    "Subscription",
+  "/dashboard/support":         "Support",
 };
 
 function getInitials(name: string | null | undefined, email: string): string {

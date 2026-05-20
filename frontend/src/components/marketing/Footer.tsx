@@ -22,10 +22,10 @@ export const Footer: React.FC = () => {
           <h4 className="text-gs-text text-[14px] font-bold mb-1">Contact Us</h4>
           <p className="text-gs-muted text-[14px] font-medium mb-1">We&apos;d love to hear from you.</p>
           <a
-            href="mailto:contact@gulfstreamintelligence.com"
+            href="mailto:support@gulfstreamintelligence.com"
             className="text-gs-muted text-[14px] font-medium hover:underline break-all"
           >
-            contact@gulfstreamintelligence.com
+            support@gulfstreamintelligence.com
           </a>
         </div>
 

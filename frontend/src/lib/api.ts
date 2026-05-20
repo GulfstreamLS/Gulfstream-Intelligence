@@ -506,6 +506,27 @@ export const subscriptionApi = {
     }),
 };
 
+export const supportApi = {
+  submit: async (data: { subject: string; message: string; files?: File[] }): Promise<{ message: string }> => {
+    const token = Cookies.get("access_token");
+    const form = new FormData();
+    form.append("subject", data.subject);
+    form.append("message", data.message);
+    (data.files ?? []).forEach((f) => form.append("files", f));
+
+    const res = await fetch(`${BASE_URL}/support`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+
+    if (!res.ok) {
+      await throwApiError(res);
+    }
+    return res.json();
+  },
+};
+
 export const notificationApi = {
   list: (limit = 20) =>
     request<AppNotification[]>(`/notifications?limit=${limit}`),
