@@ -5,7 +5,7 @@ import { LifeBuoy, Send, CheckCircle, Mail, Paperclip, X } from "lucide-react";
 import { supportApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
 
-const SUPPORT_EMAIL = "contact@gulfstreamlifescience.com";
+const SUPPORT_EMAIL = "support@gulfstreamintelligence.com";
 const MAX_FILES = 5;
 const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
 const ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.log,.zip,image/*";

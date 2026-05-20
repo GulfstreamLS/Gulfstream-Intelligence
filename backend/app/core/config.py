@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SUPPORT_EMAIL: str = "contact@gulfstreamlifescience.com"
+    SUPPORT_EMAIL: str = "support@gulfstreamintelligence.com"
 
     # GCP
     GCP_PROJECT_ID: str = ""
