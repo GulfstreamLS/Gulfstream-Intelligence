@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
@@ -14,7 +14,7 @@ class SimulationSession(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     project_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
     )
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
@@ -38,6 +38,14 @@ class SimulationSession(Base, UUIDMixin, TimestampMixin):
     feedback_summary: Mapped[str | None] = mapped_column(Text)
     meeting_brief: Mapped[str | None] = mapped_column(Text)
     response_guidance: Mapped[str | None] = mapped_column(Text)
+
+    # Source-of-truth inputs (project-grounded simulations)
+    mode: Mapped[str | None] = mapped_column(String(20))
+    simulation_purpose: Mapped[str | None] = mapped_column(String(120))
+    pasted_questions: Mapped[str | None] = mapped_column(Text)
+    manual_scenario: Mapped[str | None] = mapped_column(Text)
+    included_sources: Mapped[list | None] = mapped_column(JSONB)
+    supplemental_document_ids: Mapped[list | None] = mapped_column(JSONB)
 
     # Relationships
     questions: Mapped[list["SimQuestion"]] = relationship(back_populates="session", cascade="all, delete-orphan")

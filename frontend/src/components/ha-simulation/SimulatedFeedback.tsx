@@ -276,7 +276,9 @@ export function SimulatedFeedback({ session, loading }: { session: SimulationSes
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <FileText size={32} className="text-gs-muted mb-3" />
                 <p className="text-sm font-bold text-gs-muted">No questions generated yet.</p>
-                <p className="text-xs text-gs-muted mt-1">Run a simulation to see questions.</p>
+                <p className="text-xs text-gs-muted mt-1 max-w-sm">
+                  Add source context and run the simulation to see authority questions and feedback.
+                </p>
               </div>
             ) : (
               <>

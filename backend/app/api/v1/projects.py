@@ -1,8 +1,9 @@
 import io
 import uuid
+from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
@@ -11,13 +12,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import check_active_subscription, get_current_user, get_user_or_none
-from app.models.chat import Conversation
+from app.models.chat import Conversation, Message, MessageRole
 from app.models.notification import Notification, NotificationType
 from app.models.organization import MemberRole, OrganizationMember
 from app.models.project import Project
+from app.models.regulatory import AnalysisDocument, Gap
+from app.models.simulation import SimulationSession
 from app.models.user import User
 from app.schemas.chat import ConversationResponse
 from app.schemas.project import ProjectCreate, ProjectListResponse, ProjectResponse, ProjectUpdate
+
+ALLOWED_DOC_EXTENSIONS = {"pdf", "docx", "doc", "txt"}
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -194,6 +199,7 @@ async def delete_project(
         raise HTTPException(status_code=403, detail="Only the project creator or organization owner can delete this project")
 
     project_name = project.name
+    await db.execute(delete(SimulationSession).where(SimulationSession.project_id == project_id))
     await db.execute(delete(Conversation).where(Conversation.project_id == project_id))
     await db.delete(project)
 
@@ -345,3 +351,245 @@ async def import_projects(
 
     await db.commit()
     return {"created": created, "errors": errors}
+
+
+# ── Project documents ─────────────────────────────────────────────────────────
+
+class ProjectDocumentResponse(BaseModel):
+    id: uuid.UUID
+    project_id: Optional[uuid.UUID]
+    conversation_id: Optional[uuid.UUID]
+    filename: str
+    file_type: str
+    authority: Optional[str]
+    summary: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectSourceCountsResponse(BaseModel):
+    prior_gap_assessment: int
+    chat_outputs: int
+
+
+async def _get_accessible_project(
+    project_id: uuid.UUID, current_user: User, db: AsyncSession
+) -> Project:
+    project = await db.get(Project, project_id)
+    accessible = project and (
+        project.user_id == current_user.id
+        or (current_user.organization_id and project.organization_id == current_user.organization_id)
+    )
+    if not accessible:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+@router.post("/documents", response_model=ProjectDocumentResponse)
+async def upload_standalone_document(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(check_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload an unlinked document for one-off standalone simulations."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file format. Please upload PDF, Word, or TXT documents.",
+        )
+
+    content = await file.read()
+    from app.services.document_processor import document_processor
+
+    try:
+        text = document_processor.extract_text(content, ext)
+    except Exception:
+        text = ""
+
+    doc = AnalysisDocument(
+        user_id=current_user.id,
+        project_id=None,
+        organization_id=_org_id(current_user),
+        filename=file.filename,
+        file_type=ext,
+        file_path=f"uploads/{file.filename}",
+        extracted_text=text or None,
+        summary=(text[:500] if text else None),
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+
+    await log_audit(
+        db, current_user.id, "STANDALONE_DOCUMENT_UPLOADED",
+        resource_type="document",
+        resource_id=doc.id,
+        resource_name=file.filename,
+        ip_address=get_ip(request),
+        organization_id=_org_id(current_user),
+    )
+    await db.commit()
+    return doc
+
+
+@router.get("/{project_id}/documents", response_model=list[ProjectDocumentResponse])
+async def list_project_documents(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List documents saved to a project."""
+    await _get_accessible_project(project_id, current_user, db)
+    result = await db.execute(
+        select(AnalysisDocument)
+        .where(AnalysisDocument.project_id == project_id)
+        .order_by(AnalysisDocument.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/{project_id}/source-counts", response_model=ProjectSourceCountsResponse)
+async def get_project_source_counts(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return available project source counts for HA simulation source controls."""
+    await _get_accessible_project(project_id, current_user, db)
+
+    gap_count = (await db.execute(
+        select(func.count(Gap.id))
+        .join(AnalysisDocument, Gap.document_id == AnalysisDocument.id)
+        .where(AnalysisDocument.project_id == project_id)
+    )).scalar_one()
+
+    chat_output_count = (await db.execute(
+        select(func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.project_id == project_id,
+            Conversation.is_temporary == False,  # noqa: E712
+            Message.role == MessageRole.ASSISTANT,
+            Message.content != "",
+        )
+    )).scalar_one()
+
+    return ProjectSourceCountsResponse(
+        prior_gap_assessment=gap_count,
+        chat_outputs=chat_output_count,
+    )
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_standalone_document(
+    request: Request,
+    document_id: uuid.UUID,
+    current_user: User = Depends(check_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an unlinked document used for one-off simulations."""
+    doc = await db.get(AnalysisDocument, document_id)
+    accessible = doc and doc.project_id is None and (
+        doc.user_id == current_user.id
+        or (current_user.organization_id and doc.organization_id == current_user.organization_id)
+    )
+    if not accessible:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await db.delete(doc)
+    await log_audit(
+        db, current_user.id, "STANDALONE_DOCUMENT_DELETED",
+        resource_type="document",
+        resource_id=document_id,
+        resource_name=doc.filename,
+        ip_address=get_ip(request),
+        organization_id=_org_id(current_user),
+    )
+    await db.commit()
+
+
+@router.post("/{project_id}/documents", response_model=ProjectDocumentResponse)
+async def upload_project_document(
+    request: Request,
+    project_id: uuid.UUID,
+    file: UploadFile = File(...),
+    save_to_project: bool = Form(True),
+    current_user: User = Depends(check_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a document for a project.
+
+    When ``save_to_project`` is true the document is linked to the project and
+    becomes available to other features (Gap Assessment, Document Intelligence,
+    Regulatory Chat). When false it is stored unlinked for one-off simulation use.
+    """
+    await _get_accessible_project(project_id, current_user, db)
+
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file format. Please upload PDF, Word, or TXT documents.",
+        )
+
+    content = await file.read()
+    from app.services.document_processor import document_processor
+
+    try:
+        text = document_processor.extract_text(content, ext)
+    except Exception:
+        text = ""
+
+    doc = AnalysisDocument(
+        user_id=current_user.id,
+        project_id=project_id if save_to_project else None,
+        organization_id=_org_id(current_user),
+        filename=file.filename,
+        file_type=ext,
+        file_path=f"uploads/{file.filename}",
+        extracted_text=text or None,
+        summary=(text[:500] if text else None),
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+
+    await log_audit(
+        db, current_user.id, "PROJECT_DOCUMENT_UPLOADED",
+        resource_type="document",
+        resource_id=doc.id,
+        resource_name=file.filename,
+        ip_address=get_ip(request),
+        organization_id=_org_id(current_user),
+    )
+    await db.commit()
+    return doc
+
+
+@router.delete("/{project_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_document(
+    request: Request,
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    current_user: User = Depends(check_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a document saved to a project."""
+    await _get_accessible_project(project_id, current_user, db)
+    doc = await db.get(AnalysisDocument, document_id)
+    if not doc or doc.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await db.delete(doc)
+    await log_audit(
+        db, current_user.id, "PROJECT_DOCUMENT_DELETED",
+        resource_type="document",
+        resource_id=document_id,
+        resource_name=doc.filename,
+        ip_address=get_ip(request),
+        organization_id=_org_id(current_user),
+    )
+    await db.commit()

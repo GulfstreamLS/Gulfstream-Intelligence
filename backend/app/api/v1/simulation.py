@@ -2,14 +2,13 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, check_active_subscription, require_plan
-from app.models.chat import Conversation
 from app.models.project import Project as ProjectModel
 from app.models.simulation import SimulationSession
 from app.models.user import User
@@ -38,19 +37,50 @@ async def run_simulation(
     current_user: User = Depends(require_plan("professional")),
 ):
     """Run a new simulation and return the full session with all results."""
-    # Require at least one regulatory chat before running a project simulation
-    if body.project_id:
-        chat_count = (
-            await db.execute(
-                select(func.count()).select_from(Conversation).where(
-                    Conversation.project_id == body.project_id
-                )
-            )
-        ).scalar_one()
-        if chat_count == 0:
+    if not (body.simulation_purpose and body.simulation_purpose.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select a simulation purpose before running the simulation.",
+        )
+
+    # Standalone simulations need at least one user-provided source of context.
+    if body.mode == "standalone" and not (
+        (body.pasted_questions and body.pasted_questions.strip())
+        or (body.manual_scenario and body.manual_scenario.strip())
+        or body.supplemental_document_ids
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Add at least one source of context — a document, pasted questions, or a manual scenario — before running a standalone simulation.",
+        )
+
+    if body.mode == "project":
+        if not body.project_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This project has no regulatory chats. Start a chat first so the simulation has document context to work with.",
+                detail="Select a project before running a project-based simulation.",
+            )
+        wanted = set(body.included_sources or [])
+        project_sources_enabled = not wanted or bool(
+            wanted.intersection({
+                "project_profile",
+                "project_documents",
+                "prior_gap_assessment",
+                "chat_outputs",
+                "regulatory_core",
+                "pasted_questions",
+                "prior_simulations",
+            })
+        )
+        supplemental_sources_enabled = bool(
+            (body.supplemental_document_ids and ("supplemental_documents" in wanted or not wanted))
+            or (body.pasted_questions and body.pasted_questions.strip() and ("pasted_questions" in wanted or not wanted))
+            or (body.manual_scenario and body.manual_scenario.strip() and ("manual_scenario" in wanted or not wanted))
+        )
+        if not project_sources_enabled and not supplemental_sources_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Add project context or enable at least one available source before running the simulation.",
             )
 
     session = await simulation_service.run_simulation(
@@ -62,6 +92,12 @@ async def run_simulation(
         product_type=body.product_type,
         stage=body.stage,
         focus_area=body.focus_area,
+        mode=body.mode,
+        simulation_purpose=body.simulation_purpose,
+        pasted_questions=body.pasted_questions,
+        manual_scenario=body.manual_scenario,
+        included_sources=body.included_sources,
+        supplemental_document_ids=body.supplemental_document_ids,
     )
     # Re-fetch with all relationships loaded
     result = await db.execute(
@@ -118,6 +154,8 @@ async def list_sessions(
             total_questions=s.total_questions,
             readiness_score=s.readiness_score,
             confidence_level=s.confidence_level,
+            mode=s.mode,
+            simulation_purpose=s.simulation_purpose,
             created_at=s.created_at,
         )
         for s in sessions

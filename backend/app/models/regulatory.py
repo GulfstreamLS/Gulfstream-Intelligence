@@ -47,6 +47,7 @@ class AnalysisDocument(Base, UUIDMixin, TimestampMixin):
     file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(100), index=True) # Added for filtering
     summary: Mapped[str | None] = mapped_column(Text)
+    extracted_text: Mapped[str | None] = mapped_column(Text)
     confidence_score: Mapped[float | None] = mapped_column(Float)
 
     gaps: Mapped[list["Gap"]] = relationship(back_populates="document", cascade="all, delete-orphan")

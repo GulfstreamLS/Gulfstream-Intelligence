@@ -15,11 +15,12 @@ interface FilterDropdownProps {
   options: FilterOption[];
   icon?: React.ReactNode;
   label?: string;
+  placeholder?: string;
   className?: string;
   fullWidth?: boolean;
 }
 
-export function FilterDropdown({ value, onChange, options, icon, label, className = "", fullWidth = false }: FilterDropdownProps) {
+export function FilterDropdown({ value, onChange, options, icon, label, placeholder, className = "", fullWidth = false }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -46,7 +47,9 @@ export function FilterDropdown({ value, onChange, options, icon, label, classNam
         <span className="flex items-center gap-2 min-w-0">
           {icon && <span className="text-gs-muted shrink-0">{icon}</span>}
           {selected?.optionIcon && <span className="shrink-0">{selected.optionIcon}</span>}
-          <span className="text-sm font-semibold text-gs-text truncate">{selected?.label ?? value}</span>
+          <span className={`text-sm font-semibold truncate ${selected || value ? "text-gs-text" : "text-gs-muted"}`}>
+            {selected?.label ?? (value || placeholder || "")}
+          </span>
         </span>
         <ChevronDown
           size={14}

@@ -142,9 +142,6 @@ export function ChatHeader({
             {chatMode === "program" && <Check size={14} className="text-gs-blue" />}
             Program Mode
           </button>
-          {modeDisabled && (
-            <span className="text-[10px] text-gs-muted font-medium">Locked for this chat</span>
-          )}
         </div>
       </div>
 

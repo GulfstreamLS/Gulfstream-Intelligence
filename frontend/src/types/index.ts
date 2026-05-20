@@ -115,6 +115,17 @@ export interface ProjectListResponse {
   page_size: number;
 }
 
+export interface ProjectDocument {
+  id: string;
+  project_id: string | null;
+  conversation_id: string | null;
+  filename: string;
+  file_type: string;
+  authority: string | null;
+  summary: string | null;
+  created_at: string;
+}
+
 export interface GapDomainReadiness {
   domain: string;
   readiness: number;
@@ -235,6 +246,12 @@ export interface SimulationRunRequest {
   product_type: string;
   stage: string;
   focus_area: string;
+  mode?: string;
+  simulation_purpose?: string;
+  pasted_questions?: string;
+  manual_scenario?: string;
+  included_sources?: string[];
+  supplemental_document_ids?: string[];
 }
 
 export interface StreamChunk {

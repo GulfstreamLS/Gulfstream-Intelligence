@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X,
+  AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X, FileText,
 } from "lucide-react";
 import { isPaymentRequiredError, projectApi, simulationApi } from "../../../../../lib/api";
 import { ConfirmModal } from "../../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../../components/ui/DynamicSelect";
 import { useSubscription } from "../../../../../hooks/useSubscription";
-import type { Conversation, Project, SimulationListItem, Subscription } from "../../../../../types";
+import type { Conversation, Project, ProjectDocument, SimulationListItem, Subscription } from "../../../../../types";
 
 const AUTHORITY_FLAGS: Record<string, string> = {
   FDA: "🇺🇸", EMA: "🇪🇺", "Health Canada": "🇨🇦", PMDA: "🇯🇵", MHRA: "🇬🇧",
@@ -19,6 +19,12 @@ const ALL_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
 const STATUSES = ["On Track", "At Risk", "Planning"];
 const EXPIRED_SUBSCRIPTION_MESSAGE =
   "Your free trial has ended. Please upgrade your plan to edit projects.";
+const QUESTIONNAIRE_FILENAMES = ["pasted-questions", "simulation-questionnaire"];
+
+function isQuestionnaireDocument(doc: ProjectDocument) {
+  const filename = doc.filename.toLowerCase();
+  return QUESTIONNAIRE_FILENAMES.some(name => filename.startsWith(name));
+}
 
 function BillingError({ message }: { message: string }) {
   const router = useRouter();
@@ -214,6 +220,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [simulations, setSimulations] = useState<SimulationListItem[]>([]);
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -225,11 +232,13 @@ export default function ProjectDetailPage() {
       projectApi.get(id),
       projectApi.getConversations(id),
       simulationApi.listSessions(id),
+      projectApi.listDocuments(id),
     ])
-      .then(([p, convos, sims]) => {
+      .then(([p, convos, sims, docs]) => {
         setProject(p);
         setConversations(Array.isArray(convos) ? convos : ((convos as { items?: Conversation[] })?.items ?? []));
         setSimulations(Array.isArray(sims) ? sims : ((sims as { items?: SimulationListItem[] })?.items ?? []));
+        setDocuments(Array.isArray(docs) ? docs : []);
       })
       .catch(() => router.push("/dashboard/projects"))
       .finally(() => setLoading(false));
@@ -253,6 +262,20 @@ export default function ProjectDetailPage() {
   const subscriptionExpired = isSubscriptionExpired(subscription);
   const writeDisabledTitle = subscriptionExpired ? "Upgrade your plan to continue using this action" : undefined;
   const showSimulations = canAccess("ha_simulation");
+  const projectDocuments = documents.filter(d => !isQuestionnaireDocument(d));
+  const chatDocuments = projectDocuments.filter(d => !!d.conversation_id);
+  const simulationDocuments = projectDocuments.filter(d => !d.conversation_id);
+  const projectQuestionnaires = documents.filter(isQuestionnaireDocument);
+
+  async function handleRemoveProjectDocument(doc: ProjectDocument) {
+    if (subscriptionExpired || !doc.project_id) return;
+    try {
+      await projectApi.deleteDocument(doc.project_id, doc.id);
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+    } catch {
+      // Keep the current list if removal fails; the page will refresh on navigation.
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gs-bg p-4 md:p-8 font-sans">
@@ -320,6 +343,129 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Project Documents */}
+        <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm overflow-hidden mb-6">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gs-border">
+            <h2 className="text-sm font-bold text-gs-text">Project Documents ({projectDocuments.length})</h2>
+            <button
+              onClick={() => router.push(`/dashboard/ha-simulation?projectId=${id}`)}
+              disabled={subscriptionExpired}
+              title={writeDisabledTitle}
+              className="flex items-center gap-2 px-3 py-2 border border-gs-border rounded-sm text-xs font-bold text-gs-muted hover:bg-gs-bg transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              <Plus size={14} /> Add via Simulation
+            </button>
+          </div>
+          {documents.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <FileText size={28} className="mx-auto text-gs-muted mb-3" />
+              <p className="text-sm text-gs-muted font-medium">No project documents saved yet.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gs-border">
+              {chatDocuments.length > 0 && (
+                <li className="px-6 py-3 bg-gs-bg">
+                  <p className="text-[11px] font-bold text-gs-muted uppercase tracking-wide">
+                    Uploaded from Regulatory Chat ({chatDocuments.length})
+                  </p>
+                </li>
+              )}
+              {chatDocuments.map(doc => (
+                <li key={doc.id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <FileText size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gs-text truncate">{doc.filename}</p>
+                      <p className="text-xs text-gs-muted mt-0.5">
+                        {doc.file_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-indigo-50 text-indigo-600">
+                    Saved
+                  </span>
+                  <button
+                    onClick={() => handleRemoveProjectDocument(doc)}
+                    disabled={subscriptionExpired}
+                    title={writeDisabledTitle}
+                    className="ml-3 text-gs-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Remove ${doc.filename}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+              {simulationDocuments.length > 0 && (
+                <li className="px-6 py-3 bg-gs-bg">
+                  <p className="text-[11px] font-bold text-gs-muted uppercase tracking-wide">
+                    Uploaded from HA Simulation ({simulationDocuments.length})
+                  </p>
+                </li>
+              )}
+              {simulationDocuments.map(doc => (
+                <li key={doc.id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <FileText size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gs-text truncate">{doc.filename}</p>
+                      <p className="text-xs text-gs-muted mt-0.5">
+                        {doc.file_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-indigo-50 text-indigo-600">
+                    Saved
+                  </span>
+                  <button
+                    onClick={() => handleRemoveProjectDocument(doc)}
+                    disabled={subscriptionExpired}
+                    title={writeDisabledTitle}
+                    className="ml-3 text-gs-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Remove ${doc.filename}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+              {projectQuestionnaires.length > 0 && (
+                <li className="px-6 py-3 bg-gs-bg">
+                  <p className="text-[11px] font-bold text-gs-muted uppercase tracking-wide">
+                    Saved Questionnaires ({projectQuestionnaires.length})
+                  </p>
+                </li>
+              )}
+              {projectQuestionnaires.map(doc => (
+                <li key={doc.id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <MessageSquare size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gs-text truncate">{doc.filename}</p>
+                      <p className="text-xs text-gs-muted mt-0.5">
+                        Saved questionnaire · {new Date(doc.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveProjectDocument(doc)}
+                    disabled={subscriptionExpired}
+                    title={writeDisabledTitle}
+                    className="ml-3 text-gs-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Remove ${doc.filename}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Conversations */}

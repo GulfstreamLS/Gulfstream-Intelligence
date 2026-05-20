@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { Folder, User } from "lucide-react";
 import type { Project, SimulationListItem } from "../../types";
 import { FilterDropdown } from "../ui/FilterDropdown";
 import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
+import { SIMULATION_PURPOSES, type SimulationMode } from "./simulationConstants";
 
 const AUTHORITIES = ["FDA", "EMA", "MHRA", "Health Canada", "PMDA", "NMPA", "TGA"];
 const SUBMISSION_TYPES = ["IND", "NDA", "BLA", "MAA", "ANDA", "510(k)", "PMA"];
@@ -31,21 +33,53 @@ function authorityOptions(list: string[]) {
   }));
 }
 
+function ModeToggle({ mode, onChange }: { mode: SimulationMode; onChange: (m: SimulationMode) => void }) {
+  const options: { value: SimulationMode; label: string; icon: React.ElementType }[] = [
+    { value: "project",    label: "Project-Based", icon: Folder },
+    { value: "standalone", label: "Standalone",    icon: User },
+  ];
+  return (
+    <div className="inline-flex rounded-lg border border-gs-border bg-gs-bg p-0.5">
+      {options.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onChange(value)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+            mode === value
+              ? "bg-gs-card text-indigo-600 shadow-sm"
+              : "text-gs-muted hover:text-gs-text"
+          }`}
+        >
+          <Icon size={13} />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SimulationScenario({
-  project,
+  project, projects, onProjectSelect,
+  mode, onModeChange,
   authority, onAuthorityChange,
   submissionType, onSubmissionTypeChange,
   productType, onProductTypeChange,
   stage, onStageChange,
   focusArea, onFocusAreaChange,
+  simulationPurpose, onSimulationPurposeChange,
   lastRun,
 }: {
   project: Project | null;
-  authority: string;          onAuthorityChange: (v: string) => void;
-  submissionType: string;     onSubmissionTypeChange: (v: string) => void;
-  productType: string;        onProductTypeChange: (v: string) => void;
-  stage: string;              onStageChange: (v: string) => void;
-  focusArea: string;          onFocusAreaChange: (v: string) => void;
+  projects: Project[];
+  onProjectSelect: (p: Project | null) => void;
+  mode: SimulationMode;            onModeChange: (m: SimulationMode) => void;
+  authority: string;              onAuthorityChange: (v: string) => void;
+  submissionType: string;         onSubmissionTypeChange: (v: string) => void;
+  productType: string;            onProductTypeChange: (v: string) => void;
+  stage: string;                  onStageChange: (v: string) => void;
+  focusArea: string;              onFocusAreaChange: (v: string) => void;
+  simulationPurpose: string;      onSimulationPurposeChange: (v: string) => void;
   lastRun?: SimulationListItem | null;
 }) {
   const availableAuthorities = project?.authorities?.length
@@ -63,16 +97,36 @@ export function SimulationScenario({
 
   return (
     <div className="bg-gs-card rounded-xl border border-gs-border shadow-sm p-5 mb-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h2 className="font-bold text-gs-text">Simulation Scenario</h2>
-        <span className="text-[10px] uppercase tracking-wider font-bold text-gs-muted">
-          {lastRun
-            ? `Last run: ${new Date(lastRun.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
-            : "No runs yet"}
-        </span>
+        <div className="flex items-center gap-3">
+          <ModeToggle mode={mode} onChange={onModeChange} />
+          <span className="text-[10px] uppercase tracking-wider font-bold text-gs-muted">
+            {lastRun
+              ? `Last run: ${new Date(lastRun.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
+              : "No runs yet"}
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
+      {mode === "project" && (
+        <div className="mb-6">
+          <FilterDropdown
+            label="Project"
+            fullWidth
+            icon={<Folder size={14} className="text-indigo-500" />}
+            value={project?.id ?? ""}
+            placeholder="Select a project…"
+            onChange={(id) => onProjectSelect(projects.find(p => p.id === id) ?? null)}
+            options={projects.map(p => ({ value: p.id, label: p.name }))}
+          />
+          <p className="text-[11px] text-gs-muted mt-1.5">
+            The selected project is the primary source of truth for this simulation.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
         <FilterDropdown
           label="Health Authority"
           fullWidth
@@ -115,6 +169,15 @@ export function SimulationScenario({
           value={focusArea}
           onChange={onFocusAreaChange}
           options={FOCUS_AREAS.map(o => ({ value: o, label: o }))}
+        />
+
+        <FilterDropdown
+          label="Simulation Purpose *"
+          fullWidth
+          value={simulationPurpose}
+          placeholder="Select purpose…"
+          onChange={onSimulationPurposeChange}
+          options={SIMULATION_PURPOSES.map(o => ({ value: o, label: o }))}
         />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, InviteDetails, OrgMember, Organization, Project, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
+import type { AuditLog, AnalyzedDocument, AppNotification, Conversation, GapAssessmentResponse, InviteDetails, OrgMember, Organization, Project, ProjectDocument, ProjectListResponse, SimulationListItem, SimulationRunRequest, SimulationSession, StreamChunk, Subscription, TokenResponse, User, UserPreferences } from "../types";
 import Cookies from "js-cookie";
 
 interface BillingPlan {
@@ -399,6 +399,48 @@ export const projectApi = {
     }),
 
   getConversations: (id: string) => request<Conversation[]>(`/projects/${id}/conversations`),
+
+  listDocuments: (id: string) => request<ProjectDocument[]>(`/projects/${id}/documents`),
+
+  getSourceCounts: (id: string) =>
+    request<{ prior_gap_assessment: number; chat_outputs: number }>(`/projects/${id}/source-counts`),
+
+  uploadDocument: async (id: string, file: File, saveToProject: boolean): Promise<ProjectDocument> => {
+    const token = Cookies.get("access_token");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("save_to_project", String(saveToProject));
+    const res = await fetch(`${BASE_URL}/projects/${id}/documents`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+    if (!res.ok) {
+      await throwApiError(res);
+    }
+    return res.json();
+  },
+
+  uploadStandaloneDocument: async (file: File): Promise<ProjectDocument> => {
+    const token = Cookies.get("access_token");
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE_URL}/projects/documents`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+    if (!res.ok) {
+      await throwApiError(res);
+    }
+    return res.json();
+  },
+
+  deleteDocument: (projectId: string, documentId: string) =>
+    request<void>(`/projects/${projectId}/documents/${documentId}`, { method: "DELETE" }),
+
+  deleteStandaloneDocument: (documentId: string) =>
+    request<void>(`/projects/documents/${documentId}`, { method: "DELETE" }),
 
   importExcel: async (file: File): Promise<{ created: number; errors: string[] }> => {
     const token = Cookies.get("access_token");

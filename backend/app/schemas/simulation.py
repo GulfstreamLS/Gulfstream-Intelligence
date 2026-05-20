@@ -39,6 +39,12 @@ class SimulationRunRequest(BaseModel):
     product_type: str
     stage: str
     focus_area: str
+    mode: Optional[str] = None
+    simulation_purpose: Optional[str] = None
+    pasted_questions: Optional[str] = None
+    manual_scenario: Optional[str] = None
+    included_sources: Optional[list[str]] = None
+    supplemental_document_ids: Optional[list[uuid.UUID]] = None
 
 
 # ── API response ──────────────────────────────────────────────────────────────
@@ -93,6 +99,12 @@ class SimulationSessionResponse(BaseModel):
     feedback_summary: Optional[str]
     meeting_brief: Optional[str]
     response_guidance: Optional[str]
+    mode: Optional[str] = None
+    simulation_purpose: Optional[str] = None
+    pasted_questions: Optional[str] = None
+    manual_scenario: Optional[str] = None
+    included_sources: Optional[list[str]] = None
+    supplemental_document_ids: Optional[list[str]] = None
     questions: list[SimQuestionResponse] = []
     concerns: list[SimConcernResponse] = []
     followups: list[SimFollowupResponse] = []
@@ -113,6 +125,8 @@ class SimulationListItem(BaseModel):
     total_questions: int
     readiness_score: float
     confidence_level: str
+    mode: Optional[str] = None
+    simulation_purpose: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
