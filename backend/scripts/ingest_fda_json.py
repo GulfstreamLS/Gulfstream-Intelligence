@@ -152,7 +152,7 @@ async def main(limit: int = 5, status_filter: str = "Final"):
     total_to_process = min(len(filtered_data), limit)
     logger.info(f"Loaded {len(data)} total records. After filtering, {total_to_process} will be processed.")
 
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     count = 0
@@ -164,14 +164,17 @@ async def main(limit: int = 5, status_filter: str = "Final"):
     }
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
-        async with async_session() as db:
-            for i, item in enumerate(filtered_data):
-                if count >= limit:
-                    break
+        for i, item in enumerate(filtered_data):
+            if count >= limit:
+                break
 
-                logger.info(f"--- Document {i + 1} / {total_to_process} ---")
-                await ingest_record(db, client, item)
-                count += 1
+            logger.info(f"--- Document {i + 1} / {total_to_process} ---")
+            try:
+                async with async_session() as db:
+                    await ingest_record(db, client, item)
+            except Exception as e:
+                logger.error(f"Unexpected error processing document {i + 1}: {e}")
+            count += 1
 
     logger.info(f"Ingestion finished. Processed {count} records.")
 
