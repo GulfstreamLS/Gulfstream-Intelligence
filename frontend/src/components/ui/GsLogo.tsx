@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { cn } from "../../lib/utils";
 
 interface GsLogoProps {
@@ -10,12 +11,25 @@ interface GsLogoProps {
   iconSize?: number;
 }
 
-export function GsLogo({ variant = "default", className, iconSize = 44 }: GsLogoProps) {
-  const wordmarkClass =
-    variant === "light" ? "text-white" : "text-gs-text";
+export function GsLogo({
+  variant = "default",
+  className,
+  iconSize = 44,
+}: GsLogoProps) {
+const pathname = usePathname();
+
+const wordmarkClass =
+  pathname === "/"
+    ? "text-black"
+    : variant === "light"
+    ? "text-white"
+    : "text-gs-text";
 
   return (
-    <Link href="/" className={cn("flex items-center gap-2.5 shrink-0", className)}>
+    <Link
+      href="/"
+      className={cn("flex items-center gap-2.5 shrink-0", className)}
+    >
       <WaveIcon size={iconSize} />
 
       <div className={cn("leading-[1.08] uppercase", wordmarkClass)}>
@@ -31,10 +45,15 @@ export function GsLogo({ variant = "default", className, iconSize = 44 }: GsLogo
 }
 
 export function WaveIcon({ size }: { size?: number }) {
-  const width = size&&Math.round(size * 1.08);
-  const height = size&&Math.round(size * 0.72);
+  const width = size && Math.round(size * 1.08);
+  const height = size && Math.round(size * 0.72);
 
   return (
-   <Image src={"/images/FullLogo_NoBuffer.png"} alt="GulfStream Logo" width={width ?? 48} height={height ?? 32} />
+    <Image
+      src={"/images/FullLogo_NoBuffer.png"}
+      alt="GulfStream Logo"
+      width={width ?? 48}
+      height={height ?? 32}
+    />
   );
 }

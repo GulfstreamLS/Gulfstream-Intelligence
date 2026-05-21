@@ -259,6 +259,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
           
           const price = annual ? plan.annual_price : plan.monthly_price;
           const isPopular = plan.id === "professional" || plan.id === "business";
+          const annualTotal = annual && plan.annual_price !== null ? plan.annual_price * 12 : null;
 
           return (
             <div
@@ -287,17 +288,44 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
 
               <div>
                 {price !== null ? (
-                  <>
-                    <div className="flex items-end gap-1 leading-none">
-                      <span className="text-4xl font-bold text-gs-text">
-                        ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
-                      </span>
-                      <span className="text-sm text-gs-muted mb-1">USD / month</span>
+                  annual && annualTotal !== null ? (
+                    <div className="grid grid-cols-2 gap-3 border-t border-gs-border pt-4">
+                      <div className="min-w-0">
+                        <div className="flex items-end gap-1 leading-none flex-wrap">
+                          <span className="text-[clamp(1.65rem,2.4vw,2.25rem)] font-bold text-gs-text">
+                            ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
+                          </span>
+                          <span className="text-[11px] leading-tight text-gs-muted mb-1">USD /<br />month</span>
+                        </div>
+                        <p className="text-xs text-gs-blue font-medium mt-1">
+                          Billed annually
+                        </p>
+                      </div>
+                      <div className="min-w-0 border-l border-gs-border pl-3">
+                        <div className="flex items-end gap-1 leading-none flex-wrap">
+                          <span className="text-[clamp(1.65rem,2.4vw,2.25rem)] font-bold text-gs-text">
+                            ${annualTotal.toLocaleString("en-US")}
+                          </span>
+                          <span className="text-[11px] leading-tight text-gs-muted mb-1">USD /<br />year</span>
+                        </div>
+                        <p className="text-xs text-gs-green font-medium mt-1">
+                          Includes annual savings
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gs-blue font-medium mt-1">
-                      {annual ? "Billed annually" : "Billed monthly"}
-                    </p>
-                  </>
+                  ) : (
+                    <>
+                      <div className="flex items-end gap-1 leading-none">
+                        <span className="text-4xl font-bold text-gs-text">
+                          ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
+                        </span>
+                        <span className="text-sm text-gs-muted mb-1">USD / month</span>
+                      </div>
+                      <p className="text-xs text-gs-blue font-medium mt-1">
+                        Billed monthly
+                      </p>
+                    </>
+                  )
                 ) : (
                   <>
                     <p className="text-4xl font-bold text-gs-text">Custom</p>
