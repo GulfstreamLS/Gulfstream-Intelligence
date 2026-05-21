@@ -16,6 +16,18 @@ export interface BillingUsage {
   upload_limit: number | null;
 }
 
+export interface UserSubscriptionInfo {
+  id: string | null;
+  plan: string | null;
+  billing_cycle: string | null;
+  status: string | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  is_active: boolean;
+  is_trial_expired: boolean;
+  subscription_scope: string | null;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -27,6 +39,7 @@ export interface User {
   organization_id: string | null;
   created_at: string;
   preferences?: UserPreferences | null;
+  subscription?: UserSubscriptionInfo | null;
 }
 
 export interface AuditLog {
@@ -256,6 +269,8 @@ export interface SimulationSession {
   feedback_summary: string | null;
   meeting_brief: string | null;
   response_guidance: string | null;
+  mode?: string | null;
+  simulation_purpose?: string | null;
   questions: SimQuestion[];
   concerns: SimConcern[];
   followups: SimFollowup[];
@@ -274,6 +289,8 @@ export interface SimulationListItem {
   total_questions: number;
   readiness_score: number;
   confidence_level: string;
+  mode?: string | null;
+  simulation_purpose?: string | null;
   created_at: string;
 }
 

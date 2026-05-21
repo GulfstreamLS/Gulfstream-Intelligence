@@ -1,4 +1,5 @@
 import uuid as _uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -52,28 +53,69 @@ async def _is_org_owner(user: User, db: AsyncSession) -> bool:
     return bool(member and member.role == MemberRole.OWNER)
 
 
-async def _user_response(user: User, db: AsyncSession) -> User:
-    """Apply organization-wide preferences that members inherit from the owner."""
-    if not user.organization_id or await _is_org_owner(user, db):
-        return user
+async def _subscription_info(user: User, db: AsyncSession) -> dict | None:
+    sub = await auth_service.get_subscription(db, user)
+    if not sub:
+        return None
 
-    owner_result = await db.execute(
-        select(User)
-        .join(OrganizationMember, OrganizationMember.user_id == User.id)
-        .where(
-            OrganizationMember.organization_id == user.organization_id,
-            OrganizationMember.role == MemberRole.OWNER,
-        )
+    trial_ends_at = sub.trial_ends_at
+    comparable_trial_end = trial_ends_at
+    if comparable_trial_end and comparable_trial_end.tzinfo is None:
+        comparable_trial_end = comparable_trial_end.replace(tzinfo=UTC)
+    now = datetime.now(UTC)
+    active = sub.status == SubscriptionStatus.ACTIVE or (
+        sub.status == SubscriptionStatus.TRIALING
+        and bool(comparable_trial_end)
+        and comparable_trial_end > now
     )
-    owner = owner_result.scalar_one_or_none()
-    owner_default = (owner.preferences or {}).get("default_workspace_view") if owner else None
-    if not owner_default:
-        return user
+    trial_expired = (
+        sub.plan == SubscriptionPlan.TRIAL
+        and bool(comparable_trial_end)
+        and comparable_trial_end <= now
+    )
+    return {
+        "id": sub.id,
+        "plan": sub.plan,
+        "billing_cycle": sub.billing_cycle,
+        "status": sub.status,
+        "trial_ends_at": sub.trial_ends_at,
+        "current_period_end": sub.current_period_end,
+        "is_active": active,
+        "is_trial_expired": trial_expired,
+        "subscription_scope": "organization" if sub.organization_id else "user" if sub.user_id else None,
+    }
 
+
+async def _user_response(user: User, db: AsyncSession) -> dict:
+    """Apply organization-wide preferences that members inherit from the owner."""
     prefs = dict(user.preferences or {})
-    prefs["default_workspace_view"] = owner_default
-    user.preferences = prefs
-    return user
+    if user.organization_id and not await _is_org_owner(user, db):
+        owner_result = await db.execute(
+            select(User)
+            .join(OrganizationMember, OrganizationMember.user_id == User.id)
+            .where(
+                OrganizationMember.organization_id == user.organization_id,
+                OrganizationMember.role == MemberRole.OWNER,
+            )
+        )
+        owner = owner_result.scalar_one_or_none()
+        owner_default = (owner.preferences or {}).get("default_workspace_view") if owner else None
+        if owner_default:
+            prefs["default_workspace_view"] = owner_default
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "avatar_url": user.avatar_url,
+        "is_active": user.is_active,
+        "is_verified": user.is_verified,
+        "account_type": user.account_type,
+        "organization_id": user.organization_id,
+        "created_at": user.created_at,
+        "preferences": prefs or None,
+        "subscription": await _subscription_info(user, db),
+    }
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)

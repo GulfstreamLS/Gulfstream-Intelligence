@@ -3,7 +3,7 @@ Centralised subscription / plan business logic.
 
 Plan access matrix
 ──────────────────
-  trial        →  rank 1  (same as Starter — NOT Professional)
+  active trial →  rank 4  (full feature access during the trial)
   starter      →  rank 1
   professional →  rank 2
   business     →  rank 3
@@ -25,7 +25,7 @@ from app.models.subscription import Subscription, SubscriptionPlan, Subscription
 # ── Plan rank ────────────────────────────────────────────────────────────────
 
 PLAN_RANK: dict[str, int] = {
-    SubscriptionPlan.TRIAL:        1,   # trial == starter access
+    SubscriptionPlan.TRIAL:        4,   # active trial gets full feature access
     SubscriptionPlan.STARTER:      1,
     SubscriptionPlan.PROFESSIONAL: 2,
     SubscriptionPlan.BUSINESS:     3,

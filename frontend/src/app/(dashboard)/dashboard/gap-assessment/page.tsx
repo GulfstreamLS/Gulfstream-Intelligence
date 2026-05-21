@@ -358,6 +358,7 @@ function GlobalGapAssessmentContent() {
   const [data, setData] = useState<GapAssessmentResponse | null>(null);
   const [basis, setBasis] = useState<AssessmentBasis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backgroundRun, setBackgroundRun] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -459,36 +460,32 @@ function GlobalGapAssessmentContent() {
       await showRun(runs[0]);
       return;
     }
-    setLoading(true);
-    try {
-      const res = await assessmentApi.getGlobalGap(undefined, undefined, project.id);
-      setData(res);
-      setBasis({
-        assessmentType: "Global Development Readiness",
-        sourceType: "Project-Based",
-        projectName: project.name,
-        documentsReviewed: res.documents_reviewed,
-        regions: project.authorities?.length ? project.authorities : ["Global"],
-        lastRun: "Not saved",
-        confidence: "Moderate",
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load project assessment");
-    } finally {
-      setLoading(false);
-    }
+    setData(null);
+    setBasis(null);
+    setLoading(false);
   }
 
   async function handleDeleteRun(run: GapAssessmentRun) {
     try {
       await assessmentApi.deleteRun(run.id);
-      setProjectRuns(prev => prev.filter(item => item.id !== run.id));
+      const remaining = projectRuns.filter(item => item.id !== run.id);
+      setProjectRuns(remaining);
+      if (run.project_id === selectedProjectId) {
+        if (remaining[0]) {
+          await showRun(remaining[0]);
+        } else {
+          setData(null);
+          setBasis(null);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete assessment");
     }
   }
 
   async function handleRun(settings: SetupRunSettings) {
+    setSetupOpen(false);
+    setBackgroundRun(true);
     setLoading(true);
     setError(null);
     try {
@@ -531,20 +528,22 @@ function GlobalGapAssessmentContent() {
         ((settings.source === "upload" || settings.source === "paste" || settings.source === "general") && settings.saveMode !== "none")
           ? projectId
           : undefined;
-      const res: GapAssessmentResponse = settings.source === "paste" || settings.source === "general"
-        ? await assessmentApi.runManual({
+      let res: GapAssessmentResponse | null = null;
+      let savedRun: GapAssessmentRun | null = null;
+
+      if (settings.source === "paste" || settings.source === "general") {
+        res = await assessmentApi.runManual({
             program_details: settings.programDetails,
             source_type: sourceLabel(settings.source),
             assessment_type: settings.assessmentType,
             authority: settings.authority,
             project_id: projectFilter,
             confidence_level: settings.source === "general" ? "Low" : "Moderate",
-          })
-        : await assessmentApi.getGlobalGap(settings.authority, undefined, projectFilter, documentIds);
-      const assessedDocumentIds = res.documents_reviewed.map(doc => doc.id);
+          });
+      }
 
-      let savedRun: GapAssessmentRun | null = null;
       if (projectFilter) {
+        const assessedDocumentIds = res?.documents_reviewed.map(doc => doc.id) ?? [];
         savedRun = await assessmentApi.createRun({
           source_type: sourceLabel(settings.source),
           assessment_type: settings.assessmentType,
@@ -556,6 +555,9 @@ function GlobalGapAssessmentContent() {
         setSelectedProjectId(projectFilter);
         const runs = await assessmentApi.listProjectRuns(projectFilter);
         setProjectRuns(runs);
+        res = await assessmentApi.getGlobalGap(undefined, undefined, savedRun.project_id ?? undefined, savedRun.document_ids);
+      } else if (!res) {
+        res = await assessmentApi.getGlobalGap(settings.authority, undefined, undefined, documentIds);
       }
 
       setData(res);
@@ -568,11 +570,11 @@ function GlobalGapAssessmentContent() {
         lastRun: savedRun ? formatDate(savedRun.created_at) : lastRunDate,
         confidence: savedRun?.confidence_level || (settings.source === "general" ? "Low" : "Moderate"),
       });
-      setSetupOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to run assessment");
     } finally {
       setLoading(false);
+      setBackgroundRun(false);
     }
   }
 
@@ -591,14 +593,27 @@ function GlobalGapAssessmentContent() {
           </div>
         )}
 
+        {backgroundRun && (
+          <div className="flex items-center gap-3 mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+            <Clock size={18} className="text-indigo-500 shrink-0 animate-pulse" />
+            <p className="text-[13px] font-bold text-indigo-700">
+              Running gap assessment in the background. You can keep working; you will receive a notification when it is ready.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-10 min-w-0">
             {!hasResults && !loading && (
               <div className="bg-gs-card border border-gs-border rounded-xl shadow-sm p-10 mb-8 text-center">
                 <ShieldCheck size={34} className="mx-auto text-blue-600 mb-4" />
-                <h2 className="text-xl font-bold text-gs-text mb-2">No chat-based assessment data yet</h2>
+                <h2 className="text-xl font-bold text-gs-text mb-2">
+                  {selectedProjectId ? "No saved assessment for this project" : "No chat-based assessment data yet"}
+                </h2>
                 <p className="text-sm font-medium text-gs-muted max-w-2xl mx-auto mb-6">
-                  The default view uses AI gap analysis from documents uploaded in Regulatory Chat. Start a new assessment to use a project, upload documents, paste program details, or run a general assessment.
+                  {selectedProjectId
+                    ? "Run a new gap assessment to create fresh results for the selected project."
+                    : "The default view uses AI gap analysis from documents uploaded in Regulatory Chat. Start a new assessment to use a project, upload documents, paste program details, or run a general assessment."}
                 </p>
                 <button onClick={() => setSetupOpen(true)} className="h-10 px-5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700">
                   Start New Assessment

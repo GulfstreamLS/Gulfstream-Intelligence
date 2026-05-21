@@ -447,6 +447,14 @@ async def create_gap_assessment_run(
         payload.assessment_type,
         run.id,
     )
+    db.add(Notification(
+        user_id=current_user.id,
+        type=NotificationType.GAP_ASSESSMENT_READY,
+        title="Gap assessment ready",
+        body=f"{payload.assessment_type} is ready to review.",
+        resource_type="gap_assessment",
+        resource_id=str(run.id),
+    ))
     await db.commit()
     await db.refresh(run)
     return _run_response(run)

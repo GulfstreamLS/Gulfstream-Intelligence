@@ -22,6 +22,8 @@ class NotificationType(StrEnum):
     TRIAL_EXPIRING = "trial_expiring"
     TRIAL_EXPIRED = "trial_expired"
     EXPORT_READY = "export_ready"
+    GAP_ASSESSMENT_READY = "gap_assessment_ready"
+    SIMULATION_READY = "simulation_ready"
 
 
 class Notification(Base, UUIDMixin):

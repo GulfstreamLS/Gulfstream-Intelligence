@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 import { DashboardSidebar } from "../../components/dashboard/DashboardSidebar";
 import { DashboardTopNav } from "../../components/dashboard/DashboardTopNav";
-import { subscriptionApi } from "../../lib/api";
+import { organizationApi, subscriptionApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
 import { useThemeStore } from "../../store/themeStore";
 import type { Subscription } from "../../types";
@@ -18,13 +18,38 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
   const router = useRouter();
   const user = useChatStore((s) => s.user);
   const setTheme = useThemeStore((s) => s.setTheme);
 
   useEffect(() => {
-    subscriptionApi.get().then(setSubscription).catch(() => null);
+    function loadSubscription() {
+      subscriptionApi.get().then(setSubscription).catch(() => null);
+    }
+
+    loadSubscription();
+    const refreshOnFocus = () => loadSubscription();
+    const refreshOnVisible = () => {
+      if (document.visibilityState === "visible") loadSubscription();
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnVisible);
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnVisible);
+    };
   }, []);
+
+  useEffect(() => {
+    if (user?.account_type !== "organization_member") {
+      setIsOrgOwner(false);
+      return;
+    }
+    organizationApi.get()
+      .then((org) => setIsOrgOwner(org.owner_id === user.id))
+      .catch(() => setIsOrgOwner(false));
+  }, [user]);
 
   // Use server preference only until the browser has an explicit local theme.
   // After that, localStorage wins so refreshes do not undo a user-selected theme.
@@ -37,8 +62,7 @@ export default function DashboardLayout({
   const isExpired = subscription?.status === "expired" || subscription?.status === "cancelled";
   const showBanner = isExpired && !bannerDismissed;
 
-  // Org members (non-owners) should not see pricing — only owners and solo users
-  const canSeePricing = user?.account_type !== "organization_member";
+  const canSeePricing = user?.account_type !== "organization_member" || isOrgOwner;
 
   return (
     <div className="flex bg-gs-bg overflow-hidden" style={{ height: "100dvh" }}>

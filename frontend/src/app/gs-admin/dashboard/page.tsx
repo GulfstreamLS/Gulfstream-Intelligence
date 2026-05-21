@@ -9,7 +9,8 @@ const BASE_URL    =
   process.env.NEXT_PUBLIC_API_URL ??
   "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
 
-const PLANS = ["trial", "starter", "professional", "business", "enterprise"];
+const SOLO_PLANS = ["trial", "starter", "professional"];
+const ORGANIZATION_PLANS = ["trial", "business", "enterprise"];
 
 interface AdminUser {
   id:                 string;
@@ -17,6 +18,8 @@ interface AdminUser {
   full_name:          string | null;
   account_type:       string;
   organization_id:    string | null;
+  organization_role:  "owner" | "member" | null;
+  can_manage_subscription: boolean;
   subscription_scope: string | null;
   is_active:          boolean;
   created_at:         string | null;
@@ -74,6 +77,16 @@ function PlanBadge({ plan }: { plan: string | null }) {
   );
 }
 
+function plansForUser(user: AdminUser) {
+  return user.account_type === "organization_member" || user.organization_id
+    ? ORGANIZATION_PLANS
+    : SOLO_PLANS;
+}
+
+function canManageSubscription(user: AdminUser) {
+  return user.can_manage_subscription !== false;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [users,   setUsers]   = useState<AdminUser[]>([]);
@@ -128,6 +141,28 @@ export default function AdminDashboard() {
       showToast(`✗ ${msg}`);
     } finally {
       setBusy(b => ({ ...b, [userId + label]: false }));
+    }
+  }
+
+  async function deleteUser(user: AdminUser) {
+    const label = "Delete user";
+    const name = user.full_name ? `${user.full_name} (${user.email})` : user.email;
+    if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return;
+
+    setBusy(b => ({ ...b, [user.id + label]: true }));
+    try {
+      const res = await adminFetch(`/admin/users/${user.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail ?? res.status.toString());
+      }
+      showToast("✓ User deleted");
+      await loadUsers();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      showToast(`✗ ${msg}`);
+    } finally {
+      setBusy(b => ({ ...b, [user.id + label]: false }));
     }
   }
 
@@ -210,7 +245,7 @@ export default function AdminDashboard() {
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Trial / Period End</th>
                   <th className="text-left px-4 py-3">Joined</th>
-                  <th className="text-left px-4 py-3 min-w-[380px]">Actions</th>
+                  <th className="text-left px-4 py-3 min-w-[460px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
@@ -223,7 +258,9 @@ export default function AdminDashboard() {
                         <div className="text-gray-400 text-xs truncate">{user.full_name}</div>
                       )}
                       {user.subscription_scope === "organization" && (
-                        <div className="text-blue-300 text-xs truncate">Organization subscription</div>
+                        <div className="text-blue-300 text-xs truncate">
+                          Organization subscription · {user.organization_role === "owner" ? "Owner" : "Member"}
+                        </div>
                       )}
                     </td>
 
@@ -247,16 +284,20 @@ export default function AdminDashboard() {
                         {/* Change plan */}
                         <select
                           defaultValue=""
+                          disabled={!canManageSubscription(user)}
                           onChange={e => {
                             const val = e.target.value;
                             if (!val) return;
                             e.target.value = "";
                             patch(user.id, { plan: val }, `Plan → ${val}`);
                           }}
-                          className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          title={canManageSubscription(user) ? "Change plan" : "Use the organization owner row to update this subscription"}
+                          className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <option value="">Change plan…</option>
-                          {PLANS.map(p => (
+                          <option value="">
+                            {canManageSubscription(user) ? "Change plan…" : "Managed by owner"}
+                          </option>
+                          {plansForUser(user).map(p => (
                             <option key={p} value={p} disabled={p === user.plan}>
                               {p.charAt(0).toUpperCase() + p.slice(1)}
                             </option>
@@ -266,7 +307,7 @@ export default function AdminDashboard() {
                         {/* Extend trial 7 days */}
                         <button
                           onClick={() => patch(user.id, { extend_trial_days: 7 }, "+7 days")}
-                          disabled={!!busy[user.id + "+7 days"]}
+                          disabled={!canManageSubscription(user) || !!busy[user.id + "+7 days"]}
                           className="bg-blue-900 hover:bg-blue-800 disabled:opacity-50 border border-blue-700 text-blue-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                         >
                           {busy[user.id + "+7 days"] ? "…" : "+7 days"}
@@ -275,7 +316,7 @@ export default function AdminDashboard() {
                         {/* Extend trial 30 days */}
                         <button
                           onClick={() => patch(user.id, { extend_trial_days: 30 }, "+30 days")}
-                          disabled={!!busy[user.id + "+30 days"]}
+                          disabled={!canManageSubscription(user) || !!busy[user.id + "+30 days"]}
                           className="bg-blue-900 hover:bg-blue-800 disabled:opacity-50 border border-blue-700 text-blue-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                         >
                           {busy[user.id + "+30 days"] ? "…" : "+30 days"}
@@ -283,11 +324,24 @@ export default function AdminDashboard() {
 
                         {/* Full access (professional) */}
                         <button
-                          onClick={() => patch(user.id, { plan: "professional", status: "active" }, "Full access")}
-                          disabled={!!busy[user.id + "Full access"]}
+                          onClick={() => patch(
+                            user.id,
+                            { plan: user.account_type === "organization_member" || user.organization_id ? "business" : "professional", status: "active" },
+                            "Full access",
+                          )}
+                          disabled={!canManageSubscription(user) || !!busy[user.id + "Full access"]}
                           className="bg-purple-900 hover:bg-purple-800 disabled:opacity-50 border border-purple-700 text-purple-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                         >
                           {busy[user.id + "Full access"] ? "…" : "Full access"}
+                        </button>
+
+                        {/* Delete user */}
+                        <button
+                          onClick={() => deleteUser(user)}
+                          disabled={!!busy[user.id + "Delete user"]}
+                          className="bg-red-950 hover:bg-red-900 disabled:opacity-50 border border-red-800 text-red-200 text-xs px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          {busy[user.id + "Delete user"] ? "…" : "Delete"}
                         </button>
                       </div>
                     </td>

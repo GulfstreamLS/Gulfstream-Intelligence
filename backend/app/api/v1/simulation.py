@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.v1._audit import get_ip, log_audit
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, check_active_subscription, require_plan
+from app.models.notification import Notification, NotificationType
 from app.models.project import Project as ProjectModel
 from app.models.simulation import SimulationSession
 from app.models.user import User
@@ -137,6 +138,15 @@ async def run_simulation(
         ip_address=get_ip(request),
         organization_id=current_user.organization_id,
     )
+    db.add(Notification(
+        user_id=current_user.id,
+        type=NotificationType.SIMULATION_READY,
+        title="HA simulation ready",
+        body=f"{full.authority} · {full.focus_area} simulation is ready to review.",
+        resource_type="simulation",
+        resource_id=str(full.id),
+    ))
+    await db.commit()
     return full
 
 

@@ -185,7 +185,7 @@ export function TeamView({ onOwnerChanged }: { onOwnerChanged?: () => void }) {
 
       {/* Invite modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => setShowInviteModal(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4 !mt-0" onClick={() => setShowInviteModal(false)}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gs-text">Invite Member</h3>
@@ -225,7 +225,7 @@ export function TeamView({ onOwnerChanged }: { onOwnerChanged?: () => void }) {
 
       {/* Make owner confirmation */}
       {confirmOwner && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => { setConfirmOwner(null); setActionError(""); }}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4 !mt-0" onClick={() => { setConfirmOwner(null); setActionError(""); }}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gs-text">Transfer Ownership</h3>
             <p className="text-sm text-gs-muted">
@@ -249,7 +249,7 @@ export function TeamView({ onOwnerChanged }: { onOwnerChanged?: () => void }) {
 
       {/* Remove confirmation */}
       {confirmRemove && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => { setConfirmRemove(null); setActionError(""); }}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4 !mt-0" onClick={() => { setConfirmRemove(null); setActionError(""); }}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gs-text">Remove Member</h3>
             <p className="text-sm text-gs-muted">

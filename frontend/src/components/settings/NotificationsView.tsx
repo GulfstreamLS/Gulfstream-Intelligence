@@ -46,7 +46,7 @@ export function NotificationsView() {
 
   if (!isOrgMember || !isOwner) {
     return (
-      <div className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card max-w-[800px]">
+      <div className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card max-w-[100%]">
         <h3 className="text-[18px] font-bold text-gs-text mb-3">Notification Settings</h3>
         <p className="text-[13px] text-gs-muted">
           Notification preferences are managed by the organization owner.
@@ -56,7 +56,7 @@ export function NotificationsView() {
   }
 
   return (
-    <div className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card max-w-[800px]">
+    <div className="bg-gs-card rounded-xl border border-gs-border p-8 shadow-card max-w-[100%]">
       <h3 className="text-[18px] font-bold text-gs-text mb-6">Notification Settings</h3>
 
       {msg && (

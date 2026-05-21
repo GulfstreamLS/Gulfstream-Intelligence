@@ -82,6 +82,27 @@ export function useChat() {
       // server ID arrives via the conversation_ready SSE chunk below.
     }
 
+    const subscription = store.user?.subscription;
+    if (subscription && !subscription.is_active) {
+      const errorTarget = params.conversationId ?? tempId;
+      if (errorTarget) {
+        const isOrgSubscription = subscription.subscription_scope === "organization";
+        store.appendMessage(errorTarget, {
+          id: crypto.randomUUID(),
+          conversation_id: errorTarget,
+          role: "assistant",
+          content: isOrgSubscription
+            ? "Your organization's trial or subscription has ended. Ask the organization owner to update the subscription before continuing chat."
+            : "Your free trial or subscription has ended. Please upgrade your plan before continuing chat.",
+          token_count: null,
+          created_at: new Date().toISOString(),
+        } as Message);
+      }
+      store.setIsStreaming(false);
+      store.setStreamingContent("");
+      return params.conversationId ?? null;
+    }
+
     // Optimistic user message — one combined bubble for both file and text
     const optimisticTarget = params.conversationId ?? tempId;
     if (optimisticTarget && firstFilename) {
@@ -208,7 +229,7 @@ export function useChat() {
       const errorTarget = resolvedId ?? tempId;
       if (!accumulated && errorTarget) {
         const content = isPaymentRequiredError(error)
-          ? "Your free trial has ended. Please upgrade your plan from Subscription to continue using chat."
+          ? error.message || "Your free trial has ended. Please upgrade your plan from Subscription to continue using chat."
           : "The request could not be completed. Please try again.";
         store.appendMessage(errorTarget, {
           id: crypto.randomUUID(), conversation_id: errorTarget,

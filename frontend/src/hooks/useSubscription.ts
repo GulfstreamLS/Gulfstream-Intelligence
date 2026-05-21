@@ -8,13 +8,13 @@ export type PlanFeature = "gap_assessment" | "ha_simulation" | "unlimited_upload
 
 /**
  * Map plan names to a comparable rank.
- * Trial intentionally maps to rank 1 (starter access), NOT professional.
+ * Active trial users get full feature access until the trial expires.
  * Org subscriptions start at "business" (rank 3) so org members always pass
  * professional gates.
  */
 function planRank(plan: string | undefined | null): number {
   switch (plan) {
-    case "trial":        return 1;
+    case "trial":        return 4;
     case "starter":      return 1;
     case "professional": return 2;
     case "business":     return 3;
@@ -53,17 +53,14 @@ export function useSubscription(): SubscriptionState {
   }, []);
 
   const canAccess = useMemo(() => {
-    // Trial plan users (status "trialing" or manually set "active") get full access.
-    const isTrial =
-      subscription?.plan === "trial" && (
-        subscription?.status === "active" ||
-        (
-          subscription?.status === "trialing" &&
-          subscription?.trial_ends_at != null &&
-          new Date(subscription.trial_ends_at) > new Date()
-        )
+    const isActiveSubscription =
+      subscription?.status === "active" ||
+      (
+        subscription?.status === "trialing" &&
+        subscription?.trial_ends_at != null &&
+        new Date(subscription.trial_ends_at) > new Date()
       );
-    if (isTrial) return () => true;
+    if (!isActiveSubscription) return () => false;
 
     const rank = planRank(subscription?.plan);
     return (feature: PlanFeature): boolean => rank >= REQUIRED_RANK[feature];

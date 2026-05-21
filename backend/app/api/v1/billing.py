@@ -12,6 +12,27 @@ from app.services.plan_service import get_upload_limit, get_monthly_upload_count
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+
+async def _is_org_owner(user: User, db: AsyncSession) -> bool:
+    if not user.organization_id:
+        return False
+    from app.models.organization import MemberRole, OrganizationMember
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.organization_id == user.organization_id,
+            OrganizationMember.role == MemberRole.OWNER,
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _require_billing_manager(user: User, db: AsyncSession) -> None:
+    if user.organization_id and not await _is_org_owner(user, db):
+        raise HTTPException(status_code=403, detail="Only the organization owner can manage billing.")
+
 @router.post("/checkout-session", response_model=CheckoutSessionResponse)
 async def create_checkout_session(
     request: CheckoutSessionRequest,
@@ -19,6 +40,7 @@ async def create_checkout_session(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a Stripe Checkout Session."""
+    await _require_billing_manager(current_user, db)
     try:
         url = await StripeService.create_checkout_session(
             db,
@@ -59,7 +81,7 @@ async def get_billing_status(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user's subscription status."""
-    sub = await StripeService.get_subscription_status(current_user, db)
+    sub = await auth_service.get_subscription(db, current_user)
     if not sub:
         raise HTTPException(status_code=404, detail="No subscription found")
     return sub
@@ -70,19 +92,7 @@ async def get_plans(
     db: AsyncSession = Depends(get_db)
 ):
     """Get available subscription plans."""
-    # Check if user is an organization owner
-    is_org_owner = False
-    if current_user.organization_id:
-        from app.models.organization import OrganizationMember, MemberRole
-        from sqlalchemy import select
-        stmt = select(OrganizationMember).where(
-            OrganizationMember.user_id == current_user.id,
-            OrganizationMember.organization_id == current_user.organization_id,
-            OrganizationMember.role == MemberRole.OWNER
-        )
-        res = await db.execute(stmt)
-        if res.scalar_one_or_none():
-            is_org_owner = True
+    is_org_owner = await _is_org_owner(current_user, db)
 
     plans = {
         "solo": [
@@ -138,6 +148,7 @@ async def sync_subscription(
     db: AsyncSession = Depends(get_db)
 ):
     """Manually sync subscription status from Stripe."""
+    await _require_billing_manager(current_user, db)
     success = await StripeService.sync_subscription_status(current_user, db)
     if not success:
         raise HTTPException(status_code=400, detail="No Stripe customer found for this user.")
@@ -149,6 +160,7 @@ async def reactivate_subscription(
     db: AsyncSession = Depends(get_db)
 ):
     """Reactivate a cancelled subscription."""
+    await _require_billing_manager(current_user, db)
     success = await StripeService.reactivate_subscription(current_user, db)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to reactivate subscription or no subscription found.")
@@ -160,6 +172,7 @@ async def cancel_subscription(
     db: AsyncSession = Depends(get_db)
 ):
     """Cancel the current subscription."""
+    await _require_billing_manager(current_user, db)
     success = await StripeService.cancel_subscription(current_user, db)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to cancel subscription or no active subscription found.")

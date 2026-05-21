@@ -51,6 +51,10 @@ function RegulatoryChatPage() {
   const { conversations, isStreaming, streamingContent, updateConversation, removeConversation, setActiveConversation } = useChatStore();
   const user = useChatStore((s) => s.user);
   const { loadConversations, sendAll } = useChat();
+  const subscriptionInactive = !!user?.subscription && !user.subscription.is_active;
+  const subscriptionBlockMessage = user?.subscription?.subscription_scope === "organization"
+    ? "Your organization's trial or subscription has ended. Ask the organization owner to update the subscription before continuing chat."
+    : "Your free trial or subscription has ended. Please upgrade your plan before continuing chat.";
 
   // Restore client-side persisted state after hydration (avoids SSR/client mismatch)
   useEffect(() => {
@@ -529,10 +533,15 @@ function RegulatoryChatPage() {
             onChange={setInput}
             onSend={() => handleSendMessage()}
             onFileUpload={handleFileUpload}
-            disabled={isStreaming}
+            disabled={isStreaming || subscriptionInactive}
             chatMode={chatMode}
             hasProgram={!!selectedProjectId}
           />
+          {subscriptionInactive && (
+            <div className="border-t border-gs-border bg-gs-bg px-4 pb-4 text-center text-sm font-medium text-red-500">
+              {subscriptionBlockMessage}
+            </div>
+          )}
         </div>
 
         {/* Right sidebar — desktop */}

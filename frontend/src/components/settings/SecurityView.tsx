@@ -240,7 +240,7 @@ export function SecurityView() {
       </section>
 
       {deleteOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4" onClick={() => setDeleteOpen(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4 !mt-0" onClick={() => setDeleteOpen(false)}>
           <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-card-hover space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <div>

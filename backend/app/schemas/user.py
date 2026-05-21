@@ -40,6 +40,18 @@ class PasswordUpdate(BaseModel):
     new_password: str
 
 
+class UserSubscriptionInfo(BaseModel):
+    id: uuid.UUID | None = None
+    plan: str | None = None
+    billing_cycle: str | None = None
+    status: str | None = None
+    trial_ends_at: datetime | None = None
+    current_period_end: datetime | None = None
+    is_active: bool = False
+    is_trial_expired: bool = False
+    subscription_scope: str | None = None
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
@@ -51,6 +63,7 @@ class UserResponse(BaseModel):
     organization_id: uuid.UUID | None = None
     created_at: datetime
     preferences: dict | None = None
+    subscription: UserSubscriptionInfo | None = None
 
     model_config = {"from_attributes": True}
 

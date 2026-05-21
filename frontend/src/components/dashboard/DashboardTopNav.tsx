@@ -69,6 +69,7 @@ function getResourceUrl(type: string | null, id: string | null): string | null {
   if (type === "project") return `/dashboard/projects/${id}`;
   if (type === "conversation") return `/dashboard/chat?conversation=${id}`;
   if (type === "gap_assessment") return `/dashboard/gap-assessment?assessmentId=${id}`;
+  if (type === "simulation") return `/dashboard/ha-simulation?sessionId=${id}`;
   return null;
 }
 

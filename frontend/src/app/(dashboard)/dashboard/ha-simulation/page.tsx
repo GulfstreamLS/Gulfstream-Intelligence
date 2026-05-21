@@ -54,11 +54,21 @@ function isQuestionnaireDocument(doc: ProjectDocument) {
 function SimulationHistoryPanel({
   sessions,
   activeId,
+  projects,
+  historyMode,
+  historyProjectId,
+  onHistoryModeChange,
+  onHistoryProjectChange,
   onSelect,
   onDelete,
 }: {
   sessions: SimulationListItem[];
   activeId: string | null;
+  projects: Project[];
+  historyMode: SimulationMode;
+  historyProjectId: string | null;
+  onHistoryModeChange: (mode: SimulationMode) => void;
+  onHistoryProjectChange: (projectId: string | null) => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
@@ -67,6 +77,49 @@ function SimulationHistoryPanel({
       <div className="flex items-center gap-2 mb-3">
         <History size={14} className="text-indigo-500" />
         <h3 className="font-bold text-gs-text">Simulation History</h3>
+      </div>
+      <div className="space-y-2 mb-3">
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-gs-border bg-gs-bg p-1">
+          <button
+            type="button"
+            onClick={() => onHistoryModeChange("project")}
+            className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${
+              historyMode === "project"
+                ? "bg-white text-indigo-600 shadow-sm dark:bg-indigo-950/60"
+                : "text-gs-muted hover:text-gs-text"
+            }`}
+          >
+            Project-Based
+          </button>
+          <button
+            type="button"
+            onClick={() => onHistoryModeChange("standalone")}
+            className={`rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors ${
+              historyMode === "standalone"
+                ? "bg-white text-indigo-600 shadow-sm dark:bg-indigo-950/60"
+                : "text-gs-muted hover:text-gs-text"
+            }`}
+          >
+            Standalone
+          </button>
+        </div>
+        {historyMode === "project" && (
+          <select
+            value={historyProjectId ?? ""}
+            onChange={(e) => onHistoryProjectChange(e.target.value || null)}
+            className="w-full rounded-lg border border-gs-border bg-gs-card px-3 py-2 text-xs font-semibold text-gs-text outline-none focus:border-indigo-300"
+          >
+            {projects.length === 0 ? (
+              <option value="">No projects available</option>
+            ) : (
+              projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))
+            )}
+          </select>
+        )}
       </div>
       {sessions.length === 0 ? (
         <p className="text-[12px] font-semibold text-gs-muted">
@@ -154,6 +207,8 @@ function HealthAuthoritySimulationPage() {
     null,
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [historyMode, setHistoryMode] = useState<SimulationMode>("project");
+  const [historyProjectId, setHistoryProjectId] = useState<string | null>(null);
 
   // UI state
   const [running, setRunning] = useState(false);
@@ -165,7 +220,11 @@ function HealthAuthoritySimulationPage() {
   useEffect(() => {
     projectApi
       .list()
-      .then((r) => setProjects(Array.isArray(r.items) ? r.items : []))
+      .then((r) => {
+        const items = Array.isArray(r.items) ? r.items : [];
+        setProjects(items);
+        setHistoryProjectId((current) => current ?? items[0]?.id ?? null);
+      })
       .catch(() => setProjects([]));
   }, []);
 
@@ -205,6 +264,18 @@ function HealthAuthoritySimulationPage() {
     }
   };
 
+  const handleHistoryModeChange = (next: SimulationMode) => {
+    if (next === historyMode) return;
+    setHistoryMode(next);
+    if (next === "project") {
+      setHistoryProjectId((current) => current ?? project?.id ?? projects[0]?.id ?? null);
+    }
+  };
+
+  const handleHistoryProjectChange = (projectId: string | null) => {
+    setHistoryProjectId(projectId);
+  };
+
   // Handle URL params
   useEffect(() => {
     if (projects.length === 0) return;
@@ -212,9 +283,14 @@ function HealthAuthoritySimulationPage() {
     const sid = searchParams.get("sessionId");
     if (pid) {
       const found = projects.find((p) => p.id === pid);
-      if (found) handleProjectSelect(found);
+      if (found) {
+        handleProjectSelect(found);
+        setHistoryMode("project");
+        setHistoryProjectId(found.id);
+      }
     } else if (!sid && mode === "project" && !project) {
       handleProjectSelect(projects[0]);
+      setHistoryProjectId((current) => current ?? projects[0]?.id ?? null);
     }
     if (sid) loadSession(sid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,7 +327,7 @@ function HealthAuthoritySimulationPage() {
   }, []);
 
   useEffect(() => {
-    if (mode === "standalone") {
+    if (historyMode === "standalone") {
       loadSessions(null).then((list) => {
         if (list.length > 0) loadSession(list[0].id);
         else {
@@ -261,13 +337,14 @@ function HealthAuthoritySimulationPage() {
       });
       return;
     }
-    if (!project) {
+
+    if (!historyProjectId) {
       setSessions([]);
       setActiveSession(null);
       setActiveId(null);
       return;
     }
-    loadSessions(project.id).then((list) => {
+    loadSessions(historyProjectId).then((list) => {
       if (list.length > 0) loadSession(list[0].id);
       else {
         setActiveSession(null);
@@ -275,7 +352,7 @@ function HealthAuthoritySimulationPage() {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, project]);
+  }, [historyMode, historyProjectId]);
 
   const loadSession = async (id: string) => {
     setLoading(true);
@@ -289,6 +366,17 @@ function HealthAuthoritySimulationPage() {
       setProductType(s.product_type);
       setStage(s.stage);
       setFocusArea(s.focus_area);
+      if (s.project_id) {
+        const found = projects.find((p) => p.id === s.project_id);
+        if (found) {
+          setMode("project");
+          setProject(found);
+        }
+      } else {
+        setMode("standalone");
+        setProject(null);
+        setProjectDocs([]);
+      }
     } catch {
       setError("Failed to load session.");
     } finally {
@@ -488,7 +576,14 @@ function HealthAuthoritySimulationPage() {
       });
       setActiveSession(session);
       setActiveId(session.id);
-      await loadSessions(mode === "project" ? project?.id : null);
+      if (mode === "project" && project?.id) {
+        setHistoryMode("project");
+        setHistoryProjectId(project.id);
+        await loadSessions(project.id);
+      } else {
+        setHistoryMode("standalone");
+        await loadSessions(null);
+      }
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Simulation failed.");
@@ -521,7 +616,7 @@ function HealthAuthoritySimulationPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors whitespace-nowrap shadow-sm"
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-blue-600 text-white text-[12px] font-bold hover:bg-blue-700 transition-colors shadow-sm"
               >
                 <Plus size={14} /> New Simulation
               </button>
@@ -547,8 +642,7 @@ function HealthAuthoritySimulationPage() {
                 className="text-indigo-500 animate-spin shrink-0"
               />
               <p className="text-[13px] font-bold text-indigo-700">
-                Running simulation for {authority} · {focusArea} — this may take
-                15–30 seconds…
+                Running simulation for {authority} · {focusArea} in the background. You can keep working; you will receive a notification when it is ready.
               </p>
             </div>
           )}
@@ -660,8 +754,8 @@ function HealthAuthoritySimulationPage() {
                           <button
                             type="button"
                             onClick={async () => {
-                              const didRun = await handleRunSimulation();
-                              if (didRun) setIsModalOpen(false);
+                              setIsModalOpen(false);
+                              await handleRunSimulation();
                             }}
                             disabled={!canRun || running}
                             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap w-full sm:w-auto min-h-[40px]"
@@ -721,6 +815,11 @@ function HealthAuthoritySimulationPage() {
               <SimulationHistoryPanel
                 sessions={sessions}
                 activeId={activeId}
+                projects={projects}
+                historyMode={historyMode}
+                historyProjectId={historyProjectId}
+                onHistoryModeChange={handleHistoryModeChange}
+                onHistoryProjectChange={handleHistoryProjectChange}
                 onSelect={loadSession}
                 onDelete={handleDelete}
               />

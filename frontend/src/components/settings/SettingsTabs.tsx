@@ -47,9 +47,8 @@ export function SettingsTabs() {
     "Profile",
     "Preferences",
     "Security",
-    "Notifications",
     "Audit Log",
-    ...(isOwner ? (["Organization", "Team"] as Tab[]) : []),
+    ...(isOwner ? (["Notifications", "Organization", "Team"] as Tab[]) : []),
   ];
 
   // Reset active tab if it's no longer visible (e.g. role changed)
