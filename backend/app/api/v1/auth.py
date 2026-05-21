@@ -3,6 +3,7 @@ import uuid as _uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
 from app.core.config import settings
@@ -10,7 +11,7 @@ from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.middleware.auth import get_current_user
 from app.models.audit_log import AuditLog
-from app.models.organization import Invitation, MemberRole, MemberStatus, OrganizationMember
+from app.models.organization import Invitation, MemberRole, MemberStatus, Organization, OrganizationMember
 from app.models.subscription import BillingCycle, Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.user import AccountType, User
 from app.schemas.user import (
@@ -36,6 +37,43 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = get_logger(__name__)
 
 _FRONTEND_BASE = settings.FRONTEND_URL if hasattr(settings, "FRONTEND_URL") else "http://localhost:3000"
+
+
+async def _is_org_owner(user: User, db: AsyncSession) -> bool:
+    if not user.organization_id:
+        return False
+    member_result = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.organization_id == user.organization_id,
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    return bool(member and member.role == MemberRole.OWNER)
+
+
+async def _user_response(user: User, db: AsyncSession) -> User:
+    """Apply organization-wide preferences that members inherit from the owner."""
+    if not user.organization_id or await _is_org_owner(user, db):
+        return user
+
+    owner_result = await db.execute(
+        select(User)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .where(
+            OrganizationMember.organization_id == user.organization_id,
+            OrganizationMember.role == MemberRole.OWNER,
+        )
+    )
+    owner = owner_result.scalar_one_or_none()
+    owner_default = (owner.preferences or {}).get("default_workspace_view") if owner else None
+    if not owner_default:
+        return user
+
+    prefs = dict(user.preferences or {})
+    prefs["default_workspace_view"] = owner_default
+    user.preferences = prefs
+    return user
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -132,8 +170,8 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _user_response(current_user, db)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -148,13 +186,18 @@ async def update_me(
     if data.preferences is not None:
         from sqlalchemy.orm.attributes import flag_modified
         prefs = dict(current_user.preferences or {})
-        prefs.update(data.preferences.model_dump(exclude_none=True))
+        incoming = data.preferences.model_dump(exclude_none=True)
+        if "high_priority_alerts" in incoming and not await _is_org_owner(current_user, db):
+            incoming.pop("high_priority_alerts", None)
+        if "default_workspace_view" in incoming and current_user.organization_id and not await _is_org_owner(current_user, db):
+            incoming.pop("default_workspace_view", None)
+        prefs.update(incoming)
         current_user.preferences = prefs
         flag_modified(current_user, "preferences")
     await log_audit(db, current_user.id, "PROFILE_UPDATED", resource_type="account", resource_name=current_user.email, ip_address=get_ip(request))
     await db.commit()
     await db.refresh(current_user)
-    return current_user
+    return await _user_response(current_user, db)
 
 
 @router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
@@ -170,6 +213,49 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be at least 8 characters")
     current_user.hashed_password = hash_password(data.new_password)
     await log_audit(db, current_user.id, "PASSWORD_CHANGED", resource_type="account", resource_name=current_user.email, ip_address=get_ip(request))
+    await db.commit()
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    request: Request,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    password = data.get("password", "")
+    if not verify_password(password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is incorrect")
+
+    if current_user.organization_id and await _is_org_owner(current_user, db):
+        member_count = (
+            await db.execute(
+                select(OrganizationMember).where(
+                    OrganizationMember.organization_id == current_user.organization_id,
+                    OrganizationMember.user_id != current_user.id,
+                )
+            )
+        ).scalars().all()
+        if member_count:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Transfer ownership or delete the organization before deleting this owner account.",
+            )
+        org = await db.get(Organization, current_user.organization_id)
+        if org:
+            await db.delete(org)
+
+    await log_audit(
+        db,
+        current_user.id,
+        "ACCOUNT_DELETED",
+        resource_type="account",
+        resource_name=current_user.email,
+        ip_address=get_ip(request),
+        organization_id=current_user.organization_id,
+    )
+    await db.flush()
+    await db.delete(current_user)
     await db.commit()
 
 
@@ -197,6 +283,7 @@ async def get_activity(
     if is_owner and current_user.organization_id:
         q = (
             select(AuditLog)
+            .options(selectinload(AuditLog.user))
             .where(AuditLog.organization_id == current_user.organization_id)
             .order_by(AuditLog.created_at.desc())
             .limit(limit)
@@ -205,6 +292,7 @@ async def get_activity(
     else:
         q = (
             select(AuditLog)
+            .options(selectinload(AuditLog.user))
             .where(AuditLog.user_id == current_user.id)
             .order_by(AuditLog.created_at.desc())
             .limit(limit)
@@ -222,8 +310,8 @@ async def get_activity(
             resource_name=log.resource_name,
             ip_address=log.ip_address,
             created_at=log.created_at,
-            user_email=current_user.email,
-            user_full_name=current_user.full_name,
+            user_email=log.user.email if log.user else None,
+            user_full_name=log.user.full_name if log.user else None,
             details=log.details,
         )
         for log in logs
@@ -254,7 +342,7 @@ async def get_invite_details(token: _uuid.UUID, db: AsyncSession = Depends(get_d
     if invite.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=410, detail="This invite link has expired")
     org = await db.get(Organization, invite.organization_id)
-    return {"email": invite.email, "org_name": org.name if org else "", "token": str(token)}
+    return {"email": invite.email, "full_name": invite.full_name, "org_name": org.name if org else "", "token": str(token)}
 
 
 @router.post("/invite/{token}/accept", response_model=TokenResponse)
@@ -284,7 +372,7 @@ async def accept_invite(token: _uuid.UUID, data: dict, db: AsyncSession = Depend
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    full_name = data.get("full_name") or None
+    full_name = data.get("full_name") or invite.full_name or None
     user = User(
         email=invite.email,
         full_name=full_name,

@@ -18,6 +18,7 @@ class NotificationType(StrEnum):
     MEMBER_INVITED = "member_invited"
     MEMBER_JOINED = "member_joined"
     MEMBER_REMOVED = "member_removed"
+    CRITICAL_GAP_ALERT = "critical_gap_alert"
     TRIAL_EXPIRING = "trial_expiring"
     TRIAL_EXPIRED = "trial_expired"
     EXPORT_READY = "export_ready"

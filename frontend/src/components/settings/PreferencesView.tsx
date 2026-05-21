@@ -5,17 +5,14 @@ import { Check, AlertCircle } from "lucide-react";
 import { ToggleRow, GsSelect } from "./SettingsPrimitives";
 import { useThemeStore } from "../../store/themeStore";
 import { useChatStore } from "../../store/chatStore";
-import { authApi } from "../../lib/api";
-
-const WORKSPACE_OPTIONS = [
-  "Document Intelligence Overview",
-  "Regulatory Chat",
-  "Global Gap Assessment",
-  "Health Authority Simulation",
-  "History",
-];
+import { authApi, organizationApi } from "../../lib/api";
+import { DEFAULT_WORKSPACE_OPTIONS } from "../../lib/defaultWorkspace";
 
 interface Toast { type: "success" | "error"; message: string; }
+
+function normalizeWorkspace(value?: string | null) {
+  return DEFAULT_WORKSPACE_OPTIONS.find((option) => option.value === value || option.label === value)?.value ?? DEFAULT_WORKSPACE_OPTIONS[0].value;
+}
 
 export function PreferencesView() {
   const theme   = useThemeStore((s) => s.theme);
@@ -24,21 +21,35 @@ export function PreferencesView() {
   const setUser = useChatStore((s) => s.setUser);
 
   const prefs = user?.preferences;
+  const isOrgMember = user?.account_type === "organization_member";
 
-  const [aiAutoSummarize,    setAiAutoSummarize]    = useState(prefs?.ai_auto_summarize     ?? true);
   const [highPriorityAlerts, setHighPriorityAlerts] = useState(prefs?.high_priority_alerts  ?? true);
-  const [workspaceView,      setWorkspaceView]      = useState(prefs?.default_workspace_view ?? WORKSPACE_OPTIONS[0]);
+  const [workspaceView,      setWorkspaceView]      = useState<string>(normalizeWorkspace(prefs?.default_workspace_view));
+  const [isOwner,            setIsOwner]            = useState(false);
   const [saving,             setSaving]             = useState(false);
   const [toast,              setToast]              = useState<Toast | null>(null);
+
+  useEffect(() => {
+    if (!isOrgMember || !user) {
+      setIsOwner(false);
+      return;
+    }
+    organizationApi.get()
+      .then((org) => setIsOwner(org.owner_id === user.id))
+      .catch(() => setIsOwner(false));
+  }, [isOrgMember, user]);
+
+  const canSetOrgPreferences = isOrgMember && isOwner;
+  const canSetDefaultView = !isOrgMember || isOwner;
+  const hasSavedPreferences = canSetDefaultView || canSetOrgPreferences;
 
   // Sync from store when user loads (handles page refresh / first load)
   useEffect(() => {
     if (!user?.preferences) return;
     const p = user.preferences;
-    if (p.ai_auto_summarize    !== undefined) setAiAutoSummarize(p.ai_auto_summarize);
     if (p.high_priority_alerts !== undefined) setHighPriorityAlerts(p.high_priority_alerts);
-    if (p.default_workspace_view)            setWorkspaceView(p.default_workspace_view);
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (p.default_workspace_view)            setWorkspaceView(normalizeWorkspace(p.default_workspace_view));
+  }, [user?.id, user?.preferences]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -65,13 +76,12 @@ export function PreferencesView() {
   async function handleSave() {
     setSaving(true);
     try {
+      const preferences = {
+        ...(canSetOrgPreferences ? { high_priority_alerts: highPriorityAlerts } : {}),
+        ...(canSetDefaultView ? { default_workspace_view: workspaceView } : {}),
+      };
       const updated = await authApi.updateProfile({
-        preferences: {
-          ai_auto_summarize:      aiAutoSummarize,
-          high_priority_alerts:   highPriorityAlerts,
-          default_workspace_view: workspaceView,
-          dark_mode:              theme === "dark",
-        },
+        preferences,
       });
       if (updated) setUser(updated);
       setToast({ type: "success", message: "Preferences saved." });
@@ -82,11 +92,27 @@ export function PreferencesView() {
     }
   }
 
-  function handleReset() {
-    setAiAutoSummarize(true);
-    setHighPriorityAlerts(true);
-    setWorkspaceView(WORKSPACE_OPTIONS[0]);
-    if (theme === "dark") persistDarkModePreference(false);
+  async function handleReset() {
+    const resetHighPriority = true;
+    const resetWorkspace = DEFAULT_WORKSPACE_OPTIONS[0].value;
+    if (canSetOrgPreferences) setHighPriorityAlerts(resetHighPriority);
+    if (canSetDefaultView) setWorkspaceView(resetWorkspace);
+    setSaving(true);
+    setToast(null);
+    try {
+      const updated = await authApi.updateProfile({
+        preferences: {
+          ...(canSetOrgPreferences ? { high_priority_alerts: resetHighPriority } : {}),
+          ...(canSetDefaultView ? { default_workspace_view: resetWorkspace } : {}),
+        },
+      });
+      if (updated) setUser(updated);
+      setToast({ type: "success", message: "Preferences reset." });
+    } catch (e) {
+      setToast({ type: "error", message: e instanceof Error ? e.message : "Failed to reset preferences." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -107,54 +133,54 @@ export function PreferencesView() {
       )}
 
       <div className="space-y-8">
-        <ToggleRow
-          title="AI Auto-Summarization"
-          desc="Automatically generate summaries for newly uploaded regulatory documents."
-          enabled={aiAutoSummarize}
-          onChange={setAiAutoSummarize}
-        />
-        <ToggleRow
-          title="High-Priority Email Alerts"
-          desc="Get notified immediately when critical regulatory gaps are identified."
-          enabled={highPriorityAlerts}
-          onChange={setHighPriorityAlerts}
-        />
+        {canSetOrgPreferences && (
+          <ToggleRow
+            title="High-Priority Email Alerts"
+            desc="Notify the organization owner when a member's analysis identifies critical regulatory gaps."
+            enabled={highPriorityAlerts}
+            onChange={setHighPriorityAlerts}
+          />
+        )}
         <ToggleRow
           title="Dark Mode Interface"
           desc="Switch between light and dark visual themes for the dashboard."
           enabled={theme === "dark"}
           onChange={handleDarkModeToggle}
         />
-        <div className="pt-4 border-t border-gs-border">
-          <label className="block text-[12px] font-bold text-gs-muted uppercase tracking-wider mb-3">
-            Default Workspace View
-          </label>
-          <div className="w-full md:w-1/2">
-            <GsSelect
-              value={workspaceView}
-              onChange={setWorkspaceView}
-              options={WORKSPACE_OPTIONS}
-            />
+        {canSetDefaultView && (
+          <div className="pt-4 border-t border-gs-border">
+            <label className="block text-[12px] font-bold text-gs-muted uppercase tracking-wider mb-3">
+              Default Workspace View
+            </label>
+            <div className="w-full md:w-1/2">
+              <GsSelect
+                value={workspaceView}
+                onChange={setWorkspaceView}
+                options={DEFAULT_WORKSPACE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="mt-10 flex justify-end gap-3">
-        <button
-          onClick={handleReset}
-          disabled={saving}
-          className="px-6 py-2.5 text-gs-muted text-[14px] font-bold hover:text-gs-text transition-colors disabled:opacity-50"
-        >
-          Reset Defaults
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-primary px-8 py-2.5 disabled:opacity-60"
-        >
-          {saving ? "Saving…" : "Update Preferences"}
-        </button>
-      </div>
+      {hasSavedPreferences && (
+        <div className="mt-10 flex justify-end gap-3">
+          <button
+            onClick={handleReset}
+            disabled={saving}
+            className="px-6 py-2.5 text-gs-muted text-[14px] font-bold hover:text-gs-text transition-colors disabled:opacity-50"
+          >
+            Reset Defaults
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary px-8 py-2.5 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Update Preferences"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

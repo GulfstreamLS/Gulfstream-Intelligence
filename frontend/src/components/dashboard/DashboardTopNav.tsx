@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown, Menu, ChevronRight, LogOut, Check, Settings } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "../../hooks/useAuth";
-import { notificationApi } from "../../lib/api";
+import { notificationApi, organizationApi } from "../../lib/api";
 import type { AppNotification } from "../../types";
 
 interface DashboardTopNavProps {
@@ -68,6 +68,7 @@ function getResourceUrl(type: string | null, id: string | null): string | null {
   if (!type || !id) return null;
   if (type === "project") return `/dashboard/projects/${id}`;
   if (type === "conversation") return `/dashboard/chat?conversation=${id}`;
+  if (type === "gap_assessment") return `/dashboard/gap-assessment?assessmentId=${id}`;
   return null;
 }
 
@@ -78,6 +79,7 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [orgName, setOrgName] = useState("");
 
   const pathname = usePathname();
   const router = useRouter();
@@ -86,6 +88,16 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
   const notifRef = useRef<HTMLDivElement>(null);
 
   const prevUnreadRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (user?.account_type !== "organization_member") {
+      setOrgName("");
+      return;
+    }
+    organizationApi.get()
+      .then((org) => setOrgName(org.name))
+      .catch(() => setOrgName(""));
+  }, [user]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -178,8 +190,15 @@ export function DashboardTopNav({ onMenuClick }: DashboardTopNavProps) {
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Breadcrumb — desktop only */}
-      <Breadcrumb pathname={pathname} />
+      <div className="hidden lg:flex items-center gap-3 min-w-0">
+        <Breadcrumb pathname={pathname} />
+        {orgName && (
+          <div className="flex items-center gap-1.5 rounded-full border border-gs-border bg-gs-bg px-3 py-1 text-[11px] font-bold text-gs-muted max-w-[280px]">
+            <span className="uppercase tracking-wider shrink-0">Org</span>
+            <span className="truncate text-gs-text">{orgName}</span>
+          </div>
+        )}
+      </div>
 
       {/* Right controls */}
       <div className="flex items-center gap-2 md:gap-3">

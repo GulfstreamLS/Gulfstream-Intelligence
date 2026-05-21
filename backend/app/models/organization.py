@@ -70,6 +70,7 @@ class Invitation(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     token: Mapped[_uuid.UUID] = mapped_column(UUID(as_uuid=True), default=_uuid.uuid4, unique=True, nullable=False)
     invited_by: Mapped[_uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False

@@ -560,6 +560,7 @@ function HealthAuthoritySimulationPage() {
                   onClick={() => setIsModalOpen(false)}
                 >
                   <div
+                    data-dropdown-boundary
                     className="bg-gs-card rounded-2xl shadow-2xl w-full max-w-6xl p-6 border border-gs-border flex flex-col max-h-[90vh] transition-transform duration-300 scale-100"
                     onClick={(e) => e.stopPropagation()}
                   >

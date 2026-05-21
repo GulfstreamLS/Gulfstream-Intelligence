@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import Cookies from "js-cookie";
 import { authApi, setTokenCookies } from "../../../lib/api";
+import { defaultWorkspaceHref } from "../../../lib/defaultWorkspace";
 import { useChatStore } from "../../../store/chatStore";
 
 export default function LoginPage() {
@@ -40,7 +41,7 @@ export default function LoginPage() {
       }
       const user = await authApi.me();
       setUser(user);
-      router.push("/dashboard");
+      router.push(defaultWorkspaceHref(user.preferences?.default_workspace_view));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

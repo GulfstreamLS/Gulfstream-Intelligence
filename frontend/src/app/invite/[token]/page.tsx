@@ -26,7 +26,7 @@ export default function InvitePage() {
   useEffect(() => {
     if (!token) return;
     inviteApi.getDetails(token)
-      .then((data) => { setInvite(data); setPageState("ready"); })
+      .then((data) => { setInvite(data); setFullName(data.full_name ?? ""); setPageState("ready"); })
       .catch(() => setPageState("expired"));
   }, [token]);
 

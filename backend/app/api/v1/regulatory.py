@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.v1._audit import get_ip, log_audit
+from app.api.v1.assessments import _accessible_analysis_document_filter, _notify_owner_critical_gaps
 from app.db.session import get_db
 from app.middleware.auth import get_current_user, get_user_or_none, check_active_subscription
 from app.models.chat import Conversation
@@ -101,7 +102,11 @@ async def upload_for_analysis(
                 resource_id=full_doc.id,
                 resource_name=file.filename,
                 ip_address=get_ip(request),
+                organization_id=current_user.organization_id,
             )
+            critical_count = sum(1 for gap in full_doc.gaps if str(gap.severity).lower() == "critical")
+            await _notify_owner_critical_gaps(db, current_user, critical_count, file.filename, full_doc.id)
+            await db.commit()
         return full_doc
     except Exception as e:
         import traceback
@@ -123,7 +128,8 @@ async def get_analysis_result(
             selectinload(AnalysisDocument.actions),
         )
         .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
-        .where(AnalysisDocument.id == document_id, AnalysisDocument.user_id == current_user.id)
+        .where(AnalysisDocument.id == document_id)
+        .where(_accessible_analysis_document_filter(current_user))
         .where(_visible_analysis_document_filter())
     )
     doc = result.scalar_one_or_none()

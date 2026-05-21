@@ -37,20 +37,26 @@ export function GsSelect({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   value: string;
   onChange?: (value: string) => void;
-  options?: string[];
+  options?: Array<string | { value: string; label: string }>;
+  disabled?: boolean;
 }) {
   return (
     <div className="relative">
       <select
         value={value}
+        disabled={disabled}
         onChange={e => onChange?.(e.target.value)}
-        className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text appearance-none focus:outline-none focus:border-gs-blue"
+        className="w-full h-11 px-4 bg-gs-card border border-gs-border rounded-lg text-[14px] font-medium text-gs-text appearance-none focus:outline-none focus:border-gs-blue disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {options
-          ? options.map(o => <option key={o} value={o}>{o}</option>)
+          ? options.map(o => {
+              const option = typeof o === "string" ? { value: o, label: o } : o;
+              return <option key={option.value} value={option.value}>{option.label}</option>;
+            })
           : <option value={value}>{value}</option>}
       </select>
       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gs-muted pointer-events-none w-4 h-4" />
@@ -63,18 +69,20 @@ export function SelectGroup({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange?: (value: string) => void;
-  options?: string[];
+  options?: Array<string | { value: string; label: string }>;
+  disabled?: boolean;
 }) {
   return (
     <div>
       <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
         {label}
       </label>
-      <GsSelect value={value} onChange={onChange} options={options} />
+      <GsSelect value={value} onChange={onChange} options={options} disabled={disabled} />
     </div>
   );
 }

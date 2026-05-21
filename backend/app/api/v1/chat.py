@@ -637,6 +637,9 @@ async def _stream_full(
                 from app.db.session import AsyncSessionLocal
                 from app.models.chat import Conversation as _Convo
                 from app.models.notification import Notification as _Notif, NotificationType as _NT
+                from app.models.organization import Organization as _Org, OrganizationMember as _OrgMember, MemberRole as _MR
+                from app.models.user import User as _User
+                from app.services import email_service as _email_svc
                 from app.services.export_service import export_service as _exp_svc
                 from sqlalchemy import select as _sel
 
@@ -668,6 +671,38 @@ async def _stream_full(
                     if not analysis_msg or not analysis_msg.analysis_data:
                         logger.warning(f"[Analysis] no data produced  convo={_convo_id}")
                         return
+
+                    if _analysis_org_id:
+                        critical_count = 0
+                        for auth_data in (analysis_msg.analysis_data or {}).values():
+                            for gap in auth_data.get("gaps", []) if isinstance(auth_data, dict) else []:
+                                if str(gap.get("severity", "")).lower() == "critical":
+                                    critical_count += 1
+                        if critical_count:
+                            owner_res = await bg_db.execute(
+                                _sel(_User, _Org)
+                                .join(_OrgMember, _OrgMember.user_id == _User.id)
+                                .join(_Org, _Org.id == _OrgMember.organization_id)
+                                .where(_OrgMember.organization_id == _analysis_org_id, _OrgMember.role == _MR.OWNER)
+                            )
+                            owner_row = owner_res.first()
+                            actor = (current_user.full_name or current_user.email) if current_user else "An organization member"
+                            if owner_row:
+                                owner, org = owner_row
+                                if owner.id != _user_id and (owner.preferences or {}).get("high_priority_alerts", True):
+                                    bg_db.add(_Notif(
+                                        user_id=owner.id,
+                                        type=_NT.CRITICAL_GAP_ALERT,
+                                        title="Critical gaps detected",
+                                        body=f"{actor} completed a chat analysis with {critical_count} critical gap{'s' if critical_count != 1 else ''}.",
+                                        resource_type="conversation",
+                                        resource_id=str(_convo_id),
+                                    ))
+                                    try:
+                                        _email_svc.send_critical_gap_alert(owner.email, org.name, actor, critical_count, _analysis_filename)
+                                    except Exception:
+                                        pass
+                                    await bg_db.commit()
 
                     # ── 1.5 Analyze additional uploaded files ─────────────────
                     # Creates AnalysisDocument records so they appear in Document Intelligence

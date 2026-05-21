@@ -276,13 +276,23 @@ class StripeService:
 
     @staticmethod
     async def get_subscription_status(user: User, db: AsyncSession) -> Optional[Subscription]:
-        query = None
         if user.organization_id:
-            query = select(Subscription).where(Subscription.organization_id == user.organization_id)
-        else:
-            query = select(Subscription).where(Subscription.user_id == user.id)
-        
-        result = await db.execute(query)
+            result = await db.execute(
+                select(Subscription)
+                .where(Subscription.organization_id == user.organization_id)
+                .order_by(Subscription.created_at.desc())
+                .limit(1)
+            )
+            sub = result.scalar_one_or_none()
+            if sub:
+                return sub
+
+        result = await db.execute(
+            select(Subscription)
+            .where(Subscription.user_id == user.id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        )
         return result.scalar_one_or_none()
 
     @staticmethod

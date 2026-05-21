@@ -72,7 +72,9 @@ export function SettingsTabs() {
         {active === "Notifications" && <NotificationsView />}
         {active === "Audit Log"     && <AuditLogView />}
         {active === "Organization"  && isOwner && <OrganizationView />}
-        {active === "Team"          && isOwner && <TeamView />}
+        {active === "Team"          && isOwner && (
+          <TeamView onOwnerChanged={() => { setIsOwner(false); setActive("Profile"); }} />
+        )}
       </div>
     </>
   );

@@ -183,13 +183,16 @@ class AuthService:
                 .order_by(Subscription.created_at.desc())
                 .limit(1)
             )
-        else:
-            result = await db.execute(
-                select(Subscription)
-                .where(Subscription.user_id == user.id)
-                .order_by(Subscription.created_at.desc())
-                .limit(1)
-            )
+            sub = result.scalar_one_or_none()
+            if sub:
+                return sub
+
+        result = await db.execute(
+            select(Subscription)
+            .where(Subscription.user_id == user.id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        )
         return result.scalar_one_or_none()
 
 

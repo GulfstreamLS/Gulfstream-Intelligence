@@ -6,7 +6,6 @@ export interface UserPreferences {
   job_title?: string;
   organization?: string;
   dark_mode?: boolean;
-  ai_auto_summarize?: boolean;
   high_priority_alerts?: boolean;
   default_workspace_view?: string;
 }
@@ -330,6 +329,7 @@ export interface OrgMember {
 
 export interface InviteDetails {
   email: string;
+  full_name?: string | null;
   org_name: string;
   token: string;
 }

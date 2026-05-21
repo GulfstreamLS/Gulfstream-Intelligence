@@ -180,6 +180,21 @@ def send_password_reset_email(to: str, reset_url: str) -> None:
     _send(to, "Reset your Gulfstream Intelligence password", _base_template(body))
 
 
+def send_critical_gap_alert(to: str, org_name: str, actor: str, critical_count: int, context: str) -> None:
+    safe_org = escape(org_name)
+    safe_actor = escape(actor)
+    safe_context = escape(context)
+    body = f"""
+    <p style="color:#334155;font-size:16px;margin:0 0 16px;">
+      <strong>{safe_actor}</strong> completed an analysis for <strong>{safe_org}</strong>
+      with <strong>{critical_count}</strong> critical gap{"s" if critical_count != 1 else ""}.
+    </p>
+    <p style="color:#64748b;font-size:14px;margin:0;">
+      Review the assessment context: <strong>{safe_context}</strong>
+    </p>"""
+    _send(to, "Critical regulatory gaps detected", _base_template(body))
+
+
 def send_contact_sales(name: str, email: str, company: str, message: str) -> None:
     body = f"""
     <p style="color:#334155;font-size:16px;margin:0 0 16px;">

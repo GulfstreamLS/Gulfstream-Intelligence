@@ -16,7 +16,7 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-export function TeamView() {
+export function TeamView({ onOwnerChanged }: { onOwnerChanged?: () => void }) {
   const user = useChatStore((s) => s.user);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,11 +45,15 @@ export function TeamView() {
     e.preventDefault();
     setInviteError("");
     setInviteSuccess("");
-    if (!inviteEmail.trim()) return;
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      setInviteError("Email address is required.");
+      return;
+    }
     setInviteLoading(true);
     try {
-      await organizationApi.inviteMember(inviteEmail.trim(), inviteName.trim() || undefined);
-      setInviteSuccess(`Invite sent to ${inviteEmail}`);
+      await organizationApi.inviteMember(email, inviteName.trim() || undefined);
+      setInviteSuccess(`Invite sent to ${email}`);
       setInviteEmail("");
       setInviteName("");
       setTimeout(() => { setInviteSuccess(""); setShowInviteModal(false); }, 2000);
@@ -68,6 +72,7 @@ export function TeamView() {
       await organizationApi.updateMemberRole(confirmOwner.user_id, "owner");
       await loadMembers();
       setConfirmOwner(null);
+      onOwnerChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to transfer ownership. Please try again.");
     } finally {

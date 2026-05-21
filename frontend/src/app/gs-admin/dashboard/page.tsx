@@ -15,6 +15,9 @@ interface AdminUser {
   id:                 string;
   email:              string;
   full_name:          string | null;
+  account_type:       string;
+  organization_id:    string | null;
+  subscription_scope: string | null;
   is_active:          boolean;
   created_at:         string | null;
   subscription_id:    string | null;
@@ -218,6 +221,9 @@ export default function AdminDashboard() {
                       <div className="font-medium text-white truncate max-w-[200px]">{user.email}</div>
                       {user.full_name && (
                         <div className="text-gray-400 text-xs truncate">{user.full_name}</div>
+                      )}
+                      {user.subscription_scope === "organization" && (
+                        <div className="text-blue-300 text-xs truncate">Organization subscription</div>
                       )}
                     </td>
 

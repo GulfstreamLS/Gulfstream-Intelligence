@@ -9,6 +9,8 @@ from app.db.session import get_db
 from app.models.chat import Conversation
 from app.api.v1._audit import get_ip, log_audit
 from app.models.project import Project
+from app.models.notification import Notification, NotificationType
+from app.models.organization import MemberRole, Organization, OrganizationMember
 from app.models.regulatory import Gap, AnalysisDocument, SeverityLevel, GapAssessmentRun
 from app.schemas.assessment import (
     AssessmentDocumentSummary,
@@ -23,6 +25,7 @@ from app.schemas.assessment import (
     ActionItem,
 )
 from app.services.analysis_service import analysis_service
+from app.services import email_service
 from app.middleware.auth import get_current_user, require_plan
 from app.models.user import User
 
@@ -55,6 +58,12 @@ def _visible_analysis_document_filter():
         AnalysisDocument.conversation_id.is_(None),
         Conversation.is_temporary == False,  # noqa: E712
     )
+
+
+def _accessible_analysis_document_filter(current_user: User):
+    if current_user.organization_id:
+        return AnalysisDocument.organization_id == current_user.organization_id
+    return AnalysisDocument.user_id == current_user.id
 
 
 def _document_source(doc: AnalysisDocument) -> str:
@@ -101,7 +110,7 @@ async def _load_assessment_documents(
         select(AnalysisDocument)
         .options(selectinload(AnalysisDocument.gaps), selectinload(AnalysisDocument.actions))
         .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
-        .where(AnalysisDocument.user_id == current_user.id)
+        .where(_accessible_analysis_document_filter(current_user))
         .where(_visible_analysis_document_filter())
     )
     if authority:
@@ -211,6 +220,49 @@ def _build_assessment_response(docs: list[AnalysisDocument]) -> GapAssessmentRes
     )
 
 
+async def _notify_owner_critical_gaps(
+    db: AsyncSession,
+    current_user: User,
+    critical_count: int,
+    context: str,
+    resource_id: UUID | str | None = None,
+) -> None:
+    if critical_count <= 0 or not current_user.organization_id:
+        return
+
+    owner_result = await db.execute(
+        select(User, Organization)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .join(Organization, Organization.id == OrganizationMember.organization_id)
+        .where(
+            OrganizationMember.organization_id == current_user.organization_id,
+            OrganizationMember.role == MemberRole.OWNER,
+        )
+    )
+    row = owner_result.first()
+    if not row:
+        return
+    owner, org = row
+    if owner.id == current_user.id:
+        return
+    if not (owner.preferences or {}).get("high_priority_alerts", True):
+        return
+
+    actor = current_user.full_name or current_user.email
+    db.add(Notification(
+        user_id=owner.id,
+        type=NotificationType.CRITICAL_GAP_ALERT,
+        title="Critical gaps detected",
+        body=f"{actor} completed an analysis with {critical_count} critical gap{'s' if critical_count != 1 else ''}.",
+        resource_type="gap_assessment",
+        resource_id=str(resource_id) if resource_id else None,
+    ))
+    try:
+        email_service.send_critical_gap_alert(owner.email, org.name, actor, critical_count, context)
+    except Exception:
+        pass
+
+
 @router.get("/documents", response_model=list[AnalyzedDocumentSummary])
 async def list_analyzed_documents(
     db: AsyncSession = Depends(get_db),
@@ -228,7 +280,7 @@ async def list_analyzed_documents(
         )
         .outerjoin(Gap, Gap.document_id == AnalysisDocument.id)
         .outerjoin(Conversation, Conversation.id == AnalysisDocument.conversation_id)
-        .where(AnalysisDocument.user_id == current_user.id)
+        .where(_accessible_analysis_document_filter(current_user))
         .where(_visible_analysis_document_filter())
         .group_by(AnalysisDocument.id)
         .order_by(AnalysisDocument.created_at.desc())
@@ -300,7 +352,16 @@ async def run_manual_gap_assessment(
         source_basis=payload.source_type,
     )
     docs = await _load_assessment_documents(db, current_user, document_ids=[doc.id])
-    return _build_assessment_response(docs)
+    assessment = _build_assessment_response(docs)
+    await _notify_owner_critical_gaps(
+        db,
+        current_user,
+        assessment.critical_gaps_count,
+        payload.assessment_type,
+        doc.id,
+    )
+    await db.commit()
+    return assessment
 
 
 def _run_response(run: GapAssessmentRun) -> GapAssessmentRunResponse:
@@ -378,6 +439,13 @@ async def create_gap_assessment_run(
         resource_name=payload.assessment_type,
         ip_address=get_ip(request),
         organization_id=current_user.organization_id,
+    )
+    await _notify_owner_critical_gaps(
+        db,
+        current_user,
+        assessment.critical_gaps_count,
+        payload.assessment_type,
+        run.id,
     )
     await db.commit()
     await db.refresh(run)

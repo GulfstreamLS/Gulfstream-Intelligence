@@ -185,6 +185,7 @@ async def invite_member(
     invite = Invitation(
         organization_id=org.id,
         email=data.email,
+        full_name=data.full_name,
         invited_by=current_user.id,
         expires_at=datetime.now(UTC) + timedelta(days=7),
     )

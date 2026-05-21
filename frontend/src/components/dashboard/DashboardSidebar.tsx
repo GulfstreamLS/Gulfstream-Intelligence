@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 import { GsLogo } from "../ui/GsLogo";
 import { cn } from "../../lib/utils";
+import { organizationApi } from "../../lib/api";
+import { useChatStore } from "../../store/chatStore";
 
 interface NavItem {
   label: string;
@@ -45,6 +48,33 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const user = useChatStore((s) => s.user);
+  const [orgName, setOrgName] = useState("");
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
+
+  const isOrgMember = user?.account_type === "organization_member";
+
+  useEffect(() => {
+    if (!isOrgMember || !user) {
+      setOrgName("");
+      setIsOrgOwner(false);
+      return;
+    }
+    organizationApi.get()
+      .then((org) => {
+        setOrgName(org.name);
+        setIsOrgOwner(org.owner_id === user.id);
+      })
+      .catch(() => {
+        setOrgName("");
+        setIsOrgOwner(false);
+      });
+  }, [isOrgMember, user]);
+
+  const visiblePrimaryNav = primaryNav.filter((item) => {
+    if (item.href !== "/dashboard/subscription") return true;
+    return !isOrgMember || isOrgOwner;
+  });
 
   return (
     <>
@@ -66,20 +96,28 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-[26px] py-5 border-b border-gs-border">
-          <GsLogo variant="default" iconSize={36} />
-          <button
-            onClick={onClose}
-            className="lg:hidden text-gs-muted hover:text-gs-text transition-colors"
-            aria-label="Close sidebar"
-          >
-            <X className="w-5 h-5" />
-          </button>
+        <div className="px-[26px] py-5 border-b border-gs-border">
+          <div className="flex items-center justify-between">
+            <GsLogo variant="default" iconSize={36} />
+            <button
+              onClick={onClose}
+              className="lg:hidden text-gs-muted hover:text-gs-text transition-colors"
+              aria-label="Close sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {orgName && (
+            <div className="mt-3 rounded-lg border border-gs-border bg-gs-bg px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gs-muted">Organization</p>
+              <p className="mt-0.5 truncate text-[13px] font-bold text-gs-text">{orgName}</p>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-[2px]">
-          {primaryNav.map((item) => (
+          {visiblePrimaryNav.map((item) => (
             <NavLink key={item.href} item={item} active={pathname === item.href} />
           ))}
         </nav>

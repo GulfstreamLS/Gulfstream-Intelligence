@@ -84,7 +84,7 @@ export function ProfileView() {
     try {
       await authApi.updateProfile({
         full_name: fullName,
-        preferences: { organization: isOrgMember ? org : undefined, timezone },
+        preferences: { timezone },
       });
       await refreshUser();
       setProfileMsg({ ok: true, text: "Profile saved." });
@@ -127,7 +127,7 @@ export function ProfileView() {
             <InputGroup label="Full Name"    value={fullName}  onChange={setFullName} />
             <InputGroup label="Email"        value={user?.email ?? ""} readOnly />
             {/* <InputGroup label="Job Title" value={jobTitle} onChange={setJobTitle} /> */}
-            {isOrgMember && <InputGroup label="Organization" value={org} onChange={setOrg} />}
+            {isOrgMember && <InputGroup label="Organization" value={org} readOnly />}
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-gs-muted uppercase tracking-wider mb-2">
                 Time Zone
@@ -154,7 +154,7 @@ export function ProfileView() {
             <p className="text-[13px] text-gs-muted">Set your language and regional preferences.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-            <SelectGroup label="Language"      value={language}    onChange={setLanguage}    options={LANGUAGES} />
+            <SelectGroup label="Language"      value={language}    options={LANGUAGES} disabled />
             <SelectGroup label="Date Format"   value={dateFormat}  onChange={setDateFormat}  options={DATE_FORMATS} />
             <SelectGroup label="Number Format" value={numFormat}   onChange={setNumFormat}   options={NUMBER_FORMATS} />
           </div>

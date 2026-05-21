@@ -202,6 +202,7 @@ class SimulationService:
         self,
         db: AsyncSession,
         user_id: uuid.UUID,
+        organization_id: uuid.UUID | None,
         project_id: uuid.UUID | None,
         authority: str,
         submission_type: str,
@@ -289,6 +290,7 @@ class SimulationService:
         # Persist session
         session = SimulationSession(
             user_id=user_id,
+            organization_id=organization_id,
             project_id=project_id,
             authority=authority,
             submission_type=submission_type,

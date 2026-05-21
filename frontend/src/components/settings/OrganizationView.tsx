@@ -35,6 +35,10 @@ export function OrganizationView() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim()) {
+      setSaveMsg({ ok: false, text: "Organization name is required." });
+      return;
+    }
     setSaving(true);
     setSaveMsg(null);
     try {

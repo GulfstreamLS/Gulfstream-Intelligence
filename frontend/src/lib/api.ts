@@ -143,6 +143,12 @@ export const authApi = {
       body: JSON.stringify({ current_password, new_password }),
     }),
 
+  deleteAccount: (password: string) =>
+    request<void>("/auth/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    }),
+
   getActivity: (limit = 20, offset = 0) =>
     request<AuditLog[]>(`/auth/me/activity?limit=${limit}&offset=${offset}`),
 

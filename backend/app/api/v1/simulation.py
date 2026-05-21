@@ -2,7 +2,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,6 +27,27 @@ _LOAD_FULL = [
     selectinload(SimulationSession.followups),
     selectinload(SimulationSession.actions),
 ]
+
+
+def _accessible_session_filter(current_user: User):
+    if current_user.organization_id:
+        org_project_ids = select(ProjectModel.id).where(ProjectModel.organization_id == current_user.organization_id)
+        return or_(
+            SimulationSession.organization_id == current_user.organization_id,
+            SimulationSession.project_id.in_(org_project_ids),
+        )
+    return SimulationSession.user_id == current_user.id
+
+
+async def _get_accessible_project(project_id: uuid.UUID, current_user: User, db: AsyncSession) -> ProjectModel:
+    project = await db.get(ProjectModel, project_id)
+    accessible = project and (
+        project.user_id == current_user.id
+        or (current_user.organization_id and project.organization_id == current_user.organization_id)
+    )
+    if not accessible:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return project
 
 
 @router.post("/run", response_model=SimulationSessionResponse)
@@ -60,6 +81,7 @@ async def run_simulation(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Select a project before running a project-based simulation.",
             )
+        await _get_accessible_project(body.project_id, current_user, db)
         wanted = set(body.included_sources or [])
         project_sources_enabled = not wanted or bool(
             wanted.intersection({
@@ -86,6 +108,7 @@ async def run_simulation(
     session = await simulation_service.run_simulation(
         db=db,
         user_id=current_user.id,
+        organization_id=current_user.organization_id,
         project_id=body.project_id,
         authority=body.authority,
         submission_type=body.submission_type,
@@ -112,6 +135,7 @@ async def run_simulation(
         resource_id=full.id,
         resource_name=f"{full.authority} · {full.focus_area}",
         ip_address=get_ip(request),
+        organization_id=current_user.organization_id,
     )
     return full
 
@@ -122,10 +146,12 @@ async def list_sessions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all simulation sessions for the current user, optionally filtered by project."""
+    """List all visible simulation sessions, optionally filtered by project."""
+    if project_id:
+        await _get_accessible_project(project_id, current_user, db)
     stmt = (
         select(SimulationSession)
-        .where(SimulationSession.user_id == current_user.id)
+        .where(_accessible_session_filter(current_user))
         .order_by(SimulationSession.created_at.desc())
     )
     if project_id:
@@ -171,7 +197,8 @@ async def get_session(
     result = await db.execute(
         select(SimulationSession)
         .options(*_LOAD_FULL)
-        .where(SimulationSession.id == session_id, SimulationSession.user_id == current_user.id)
+        .where(SimulationSession.id == session_id)
+        .where(_accessible_session_filter(current_user))
     )
     session = result.scalar_one_or_none()
     if not session:

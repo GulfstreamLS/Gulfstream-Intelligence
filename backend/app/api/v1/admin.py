@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
+from app.models.organization import MemberRole, OrganizationMember
 from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.user import User
 
@@ -36,6 +37,76 @@ class UpdateSubscriptionBody(BaseModel):
     extend_trial_days: int | None = None
 
 
+async def _is_org_owner(user: User, db: AsyncSession) -> bool:
+    if not user.organization_id:
+        return False
+    result = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.organization_id == user.organization_id,
+            OrganizationMember.role == MemberRole.OWNER,
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _effective_subscription(user: User, db: AsyncSession) -> Subscription | None:
+    if user.organization_id:
+        result = await db.execute(
+            select(Subscription)
+            .where(Subscription.organization_id == user.organization_id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        )
+        sub = result.scalar_one_or_none()
+        if sub:
+            return sub
+
+    result = await db.execute(
+        select(Subscription)
+        .where(Subscription.user_id == user.id)
+        .order_by(Subscription.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_or_create_effective_subscription(user: User, db: AsyncSession) -> Subscription:
+    sub = await _effective_subscription(user, db)
+
+    if user.organization_id:
+        if sub and sub.organization_id == user.organization_id:
+            return sub
+
+        # Older admin edits may have created a user-level subscription for an org owner.
+        # Move that record to the organization so the user dashboard resolves the same row.
+        if sub and sub.user_id == user.id and await _is_org_owner(user, db):
+            sub.user_id = None
+            sub.organization_id = user.organization_id
+            return sub
+
+        sub = Subscription(
+            organization_id=user.organization_id,
+            plan=SubscriptionPlan.TRIAL,
+            status=SubscriptionStatus.TRIALING,
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
+        )
+        db.add(sub)
+        return sub
+
+    if sub:
+        return sub
+
+    sub = Subscription(
+        user_id=user.id,
+        plan=SubscriptionPlan.TRIAL,
+        status=SubscriptionStatus.TRIALING,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
+    )
+    db.add(sub)
+    return sub
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/users")
@@ -43,19 +114,19 @@ async def list_users(
     _: None = Depends(_verify),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(User, Subscription)
-        .outerjoin(Subscription, Subscription.user_id == User.id)
-        .order_by(User.created_at.desc())
-    )
-    rows = result.all()
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    rows = result.scalars().all()
 
     users = []
-    for user, sub in rows:
+    for user in rows:
+        sub = await _effective_subscription(user, db)
         users.append({
             "id":                 str(user.id),
             "email":              user.email,
             "full_name":          user.full_name,
+            "account_type":        user.account_type,
+            "organization_id":     str(user.organization_id) if user.organization_id else None,
+            "subscription_scope":  "organization" if sub and sub.organization_id else "user" if sub else None,
             "is_active":          user.is_active,
             "created_at":         user.created_at.isoformat() if user.created_at else None,
             "subscription_id":    str(sub.id) if sub else None,
@@ -78,32 +149,23 @@ async def update_subscription(
 
     # Verify user exists
     user_result = await db.execute(select(User).where(User.id == uid))
-    if not user_result.scalar_one_or_none():
+    user = user_result.scalar_one_or_none()
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    sub_result = await db.execute(
-        select(Subscription)
-        .where(Subscription.user_id == uid)
-        .order_by(Subscription.created_at.desc())
-        .limit(1)
-    )
-    sub = sub_result.scalar_one_or_none()
-    if not sub:
-        sub = Subscription(
-            user_id=uid,
-            plan=SubscriptionPlan.TRIAL,
-            status=SubscriptionStatus.TRIALING,
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=7),
-        )
-        db.add(sub)
+    sub = await _get_or_create_effective_subscription(user, db)
 
     if body.plan is not None:
         if body.plan not in [p.value for p in SubscriptionPlan]:
             raise HTTPException(status_code=400, detail=f"Invalid plan: {body.plan}")
         sub.plan = body.plan
-        # Activating a paid plan → mark active
-        if body.plan not in (SubscriptionPlan.TRIAL,):
+        if body.plan == SubscriptionPlan.TRIAL:
+            sub.status = SubscriptionStatus.TRIALING
+            if not sub.trial_ends_at or sub.trial_ends_at <= datetime.now(timezone.utc):
+                sub.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=7)
+        else:
             sub.status = SubscriptionStatus.ACTIVE
+            sub.trial_ends_at = None
 
     if body.status is not None:
         if body.status not in [s.value for s in SubscriptionStatus]:
@@ -126,6 +188,7 @@ async def update_subscription(
 
     return {
         "success":       True,
+        "subscription_scope": "organization" if sub.organization_id else "user",
         "plan":          sub.plan,
         "status":        sub.status,
         "trial_ends_at": sub.trial_ends_at.isoformat() if sub.trial_ends_at else None,
