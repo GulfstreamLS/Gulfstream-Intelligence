@@ -2,8 +2,15 @@ name: Backend Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-pipeline.yml"
   workflow_dispatch:
+
+concurrency:
+  group: backend-deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:

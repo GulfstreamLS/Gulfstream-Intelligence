@@ -142,6 +142,16 @@ async def main(limit: int = 5, status_filter: str = "Final"):
         logger.error("fda_data.json not found in backend directory.")
         return
 
+    # Pre-filter to get an accurate total count
+    filtered_data = []
+    for item in data:
+        if status_filter and status_filter.lower() not in item.get("field_final_guidance_1", "").lower():
+            continue
+        filtered_data.append(item)
+        
+    total_to_process = min(len(filtered_data), limit)
+    logger.info(f"Loaded {len(data)} total records. After filtering, {total_to_process} will be processed.")
+
     engine = create_async_engine(settings.DATABASE_URL)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -155,14 +165,11 @@ async def main(limit: int = 5, status_filter: str = "Final"):
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
         async with async_session() as db:
-            for item in data:
+            for i, item in enumerate(filtered_data):
                 if count >= limit:
                     break
 
-                # Filter by status
-                if status_filter and status_filter.lower() not in item.get("field_final_guidance_1", "").lower():
-                    continue
-
+                logger.info(f"--- Document {i + 1} / {total_to_process} ---")
                 await ingest_record(db, client, item)
                 count += 1
 

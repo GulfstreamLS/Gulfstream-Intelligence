@@ -163,11 +163,18 @@ async def seed_regulatory_knowledge(
 
 @router.get("/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):
-    """Get the total count of ingested records."""
-    from sqlalchemy import func
-    result = await db.execute(select(func.count()).select_from(RegulatorySource))
-    count = result.scalar()
-    return {"total_records": count}
+    """Get the total count of ingested records and unique documents."""
+    from sqlalchemy import func, distinct
+    
+    # Count total chunks
+    result_chunks = await db.execute(select(func.count()).select_from(RegulatorySource))
+    chunk_count = result_chunks.scalar()
+    
+    # Count unique documents by title
+    result_docs = await db.execute(select(func.count(distinct(RegulatorySource.title))).select_from(RegulatorySource))
+    doc_count = result_docs.scalar()
+    
+    return {"total_chunks": chunk_count, "total_documents": doc_count}
 
 
 @router.post("/seed-demo")
