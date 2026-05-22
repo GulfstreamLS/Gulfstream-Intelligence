@@ -15,6 +15,16 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class StripeService:
     @staticmethod
+    def _is_missing_stripe_resource(exc: Exception) -> bool:
+        return (
+            isinstance(exc, stripe.error.InvalidRequestError)
+            and (
+                getattr(exc, "code", None) == "resource_missing"
+                or "No such" in str(exc)
+            )
+        )
+
+    @staticmethod
     async def create_checkout_session(
         db: AsyncSession,
         user: User,
@@ -66,7 +76,7 @@ class StripeService:
                 print(f"Error performing native upgrade: {e}")
                 # Fallback to customer portal if native upgrade fails for any reason
                 portal_session = stripe.billing_portal.Session.create(
-                    customer=subscription.stripe_customer_id,
+                    customer=customer_id,
                     return_url=success_url,
                 )
                 return portal_session.url
@@ -104,7 +114,16 @@ class StripeService:
         subscription = result.scalar_one_or_none()
 
         if subscription and subscription.stripe_customer_id:
-            return subscription.stripe_customer_id
+            try:
+                customer = stripe.Customer.retrieve(subscription.stripe_customer_id)
+                if not getattr(customer, "deleted", False):
+                    return subscription.stripe_customer_id
+            except Exception as exc:
+                if not StripeService._is_missing_stripe_resource(exc):
+                    raise
+
+            subscription.stripe_customer_id = None
+            await db.flush()
 
         # Create new customer in Stripe
         name = user.full_name or user.email
