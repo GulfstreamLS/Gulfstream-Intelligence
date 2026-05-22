@@ -308,7 +308,7 @@ async def get_global_gap_assessment(
     project_id: Optional[UUID] = None,
     source: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_plan("professional")),
+    current_user: User = Depends(require_plan("starter")),
 ):
     if project_id:
         await _get_accessible_project(project_id, current_user, db)
@@ -331,7 +331,7 @@ async def get_global_gap_assessment(
 async def run_manual_gap_assessment(
     payload: ManualGapAssessmentRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_plan("professional")),
+    current_user: User = Depends(require_plan("starter")),
 ):
     details = payload.program_details.strip()
     if len(details) < 20:
@@ -392,7 +392,7 @@ async def create_gap_assessment_run(
     payload: GapAssessmentRunCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_plan("professional")),
+    current_user: User = Depends(require_plan("starter")),
 ):
     if payload.project_id:
         project = await _get_accessible_project(payload.project_id, current_user, db)

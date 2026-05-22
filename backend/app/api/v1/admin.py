@@ -123,7 +123,13 @@ async def _get_or_create_effective_subscription(user: User, db: AsyncSession) ->
 def _allowed_admin_plans(user: User) -> set[str]:
     if user.organization_id:
         return {SubscriptionPlan.TRIAL, SubscriptionPlan.BUSINESS, SubscriptionPlan.ENTERPRISE}
-    return {SubscriptionPlan.TRIAL, SubscriptionPlan.STARTER, SubscriptionPlan.PROFESSIONAL}
+    return {SubscriptionPlan.TRIAL, SubscriptionPlan.STARTER}
+
+
+def _display_plan(plan: str | None) -> str | None:
+    if plan == SubscriptionPlan.PROFESSIONAL:
+        return SubscriptionPlan.STARTER
+    return plan
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -152,7 +158,7 @@ async def list_users(
             "is_active":          user.is_active,
             "created_at":         user.created_at.isoformat() if user.created_at else None,
             "subscription_id":    str(sub.id) if sub else None,
-            "plan":               sub.plan if sub else None,
+            "plan":               _display_plan(sub.plan) if sub else None,
             "status":             sub.status if sub else None,
             "trial_ends_at":      sub.trial_ends_at.isoformat() if sub and sub.trial_ends_at else None,
             "current_period_end": sub.current_period_end.isoformat() if sub and sub.current_period_end else None,
@@ -184,6 +190,8 @@ async def update_subscription(
     sub = await _get_or_create_effective_subscription(user, db)
 
     if body.plan is not None:
+        if body.plan == SubscriptionPlan.PROFESSIONAL:
+            body.plan = SubscriptionPlan.STARTER
         if body.plan not in [p.value for p in SubscriptionPlan]:
             raise HTTPException(status_code=400, detail=f"Invalid plan: {body.plan}")
         if body.plan not in _allowed_admin_plans(user):

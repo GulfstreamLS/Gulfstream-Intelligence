@@ -7,25 +7,25 @@ import type { PlanFeature } from "../../hooks/useSubscription";
 const FEATURE_META: Record<PlanFeature, { name: string; requiredPlan: string; description: string }> = {
   gap_assessment: {
     name: "Global Gap Assessment",
-    requiredPlan: "Professional",
+    requiredPlan: "Individual",
     description:
       "Analyse regulatory gaps across all your documents in one view, with domain-level readiness scores and prioritised next steps.",
   },
   ha_simulation: {
     name: "Health Authority Simulation",
-    requiredPlan: "Professional",
+    requiredPlan: "Individual",
     description:
       "Simulate FDA, EMA, and other health authority interactions before your submission to anticipate questions and strengthen your dossier.",
   },
   unlimited_uploads: {
     name: "Unlimited File Uploads",
-    requiredPlan: "Professional",
+    requiredPlan: "Individual",
     description:
-      "Upload unlimited documents per month for deep regulatory analysis. Starter plans include 10 uploads per month.",
+      "Upload unlimited documents per month for deep regulatory analysis.",
   },
   document_intelligence: {
     name: "Document Intelligence",
-    requiredPlan: "Professional",
+    requiredPlan: "Individual",
     description:
       "Unlock AI-powered extraction, gap detection, and regulatory insights across all your uploaded documents in one centralised dashboard.",
   },

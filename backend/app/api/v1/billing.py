@@ -98,21 +98,20 @@ async def get_plans(
         "solo": [
             {
                 "id": "starter",
-                "name": "Starter",
-                "description": "For individuals exploring regulatory intelligence.",
-                "monthly_price": 99,
-                "annual_price": 79,
-                "features": ["Regulatory Chat", "Document Intelligence", "10 uploads / month", "Standard coverage"],
+                "name": "Individual",
+                "description": "For independent regulatory professionals and consultants.",
+                "monthly_price": 59,
+                "annual_price": 649,
+                "features": [
+                    "Regulatory Chat",
+                    "Document Intelligence",
+                    "10 document uploads / month",
+                    "Standard data coverage",
+                    "Unlimited chat sessions",
+                    "Global Gap Assessment",
+                    "Health Authority Simulation",
+                ],
                 "popular": False
-            },
-            {
-                "id": "professional",
-                "name": "Professional",
-                "description": "For professionals managing regulatory programs.",
-                "monthly_price": 299,
-                "annual_price": 239,
-                "features": ["Everything in Starter", "Unlimited sessions", "Global Gap Assessment", "HA Simulation"],
-                "popular": True
             }
         ],
         "organization": []
@@ -123,19 +122,31 @@ async def get_plans(
             {
                 "id": "business",
                 "name": "Business",
-                "description": "Full-scale solution for regulatory teams.",
-                "monthly_price": 699,
-                "annual_price": 599,
-                "features": ["Everything in Professional", "Team collaboration", "Advanced analytics", "Priority support"],
-                "popular": False
+                "description": "For biotech teams and collaborative regulatory organizations.",
+                "monthly_price": 275,
+                "annual_price": 3000,
+                "features": [
+                    "Everything in Individual",
+                    "Team access (up to 5 users)",
+                    "Shared projects & folders",
+                    "Priority support",
+                    "Advanced analytics",
+                ],
+                "popular": True
             },
             {
                 "id": "enterprise",
                 "name": "Enterprise",
-                "description": "Custom solution for large organizations.",
+                "description": "Custom infrastructure for global regulatory organizations.",
                 "monthly_price": None,
                 "annual_price": None,
-                "features": ["Everything in Business", "Unlimited users", "Custom integrations", "Dedicated support", "SLA & compliance support"],
+                "features": [
+                    "Everything in Business",
+                    "Unlimited users",
+                    "Custom integrations",
+                    "Dedicated support",
+                    "SLA & compliance support",
+                ],
                 "popular": False
             }
         ]

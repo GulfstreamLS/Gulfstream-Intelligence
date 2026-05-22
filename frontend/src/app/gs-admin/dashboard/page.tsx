@@ -9,8 +9,14 @@ const BASE_URL    =
   process.env.NEXT_PUBLIC_API_URL ??
   "https://gulfstream-backend-y7fj7rtwsa-uc.a.run.app/api/v1";
 
-const SOLO_PLANS = ["trial", "starter", "professional"];
+const SOLO_PLANS = ["trial", "starter"];
 const ORGANIZATION_PLANS = ["trial", "business", "enterprise"];
+const PLAN_LABELS: Record<string, string> = {
+  trial: "Trial",
+  starter: "Individual",
+  business: "Business",
+  enterprise: "Enterprise",
+};
 
 interface AdminUser {
   id:                 string;
@@ -62,17 +68,17 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 function PlanBadge({ plan }: { plan: string | null }) {
+  const normalizedPlan = plan === "professional" ? "starter" : plan;
   const map: Record<string, string> = {
     trial:        "bg-yellow-900 text-yellow-300",
     starter:      "bg-gray-700 text-gray-300",
-    professional: "bg-purple-900 text-purple-300",
     business:     "bg-indigo-900 text-indigo-300",
     enterprise:   "bg-pink-900 text-pink-300",
   };
-  const cls = map[plan ?? ""] ?? "bg-gray-700 text-gray-400";
+  const cls = map[normalizedPlan ?? ""] ?? "bg-gray-700 text-gray-400";
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
-      {plan ?? "none"}
+      {normalizedPlan ? PLAN_LABELS[normalizedPlan] ?? normalizedPlan : "none"}
     </span>
   );
 }
@@ -299,7 +305,7 @@ export default function AdminDashboard() {
                           </option>
                           {plansForUser(user).map(p => (
                             <option key={p} value={p} disabled={p === user.plan}>
-                              {p.charAt(0).toUpperCase() + p.slice(1)}
+                              {PLAN_LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1)}
                             </option>
                           ))}
                         </select>
@@ -322,11 +328,11 @@ export default function AdminDashboard() {
                           {busy[user.id + "+30 days"] ? "…" : "+30 days"}
                         </button>
 
-                        {/* Full access (professional) */}
+                        {/* Full access */}
                         <button
                           onClick={() => patch(
                             user.id,
-                            { plan: user.account_type === "organization_member" || user.organization_id ? "business" : "professional", status: "active" },
+                            { plan: user.account_type === "organization_member" || user.organization_id ? "business" : "starter", status: "active" },
                             "Full access",
                           )}
                           disabled={!canManageSubscription(user) || !!busy[user.id + "Full access"]}

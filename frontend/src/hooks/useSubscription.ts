@@ -10,13 +10,13 @@ export type PlanFeature = "gap_assessment" | "ha_simulation" | "unlimited_upload
  * Map plan names to a comparable rank.
  * Active trial users get full feature access until the trial expires.
  * Org subscriptions start at "business" (rank 3) so org members always pass
- * professional gates.
+ * Individual gates.
  */
 function planRank(plan: string | undefined | null): number {
   switch (plan) {
     case "trial":        return 4;
-    case "starter":      return 1;
-    case "professional": return 2;
+    case "starter":      return 2;
+    case "professional": return 2; // legacy alias for existing records
     case "business":     return 3;
     case "enterprise":   return 4;
     default:             return 0;
@@ -24,10 +24,10 @@ function planRank(plan: string | undefined | null): number {
 }
 
 const REQUIRED_RANK: Record<PlanFeature, number> = {
-  gap_assessment:         2,   // professional+
-  ha_simulation:          2,   // professional+
-  unlimited_uploads:      2,   // professional+
-  document_intelligence:  2,   // professional+
+  gap_assessment:         2,   // Individual+
+  ha_simulation:          2,   // Individual+
+  unlimited_uploads:      2,   // Individual+
+  document_intelligence:  2,   // Individual+
 };
 
 export interface SubscriptionState {

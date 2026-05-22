@@ -56,7 +56,7 @@ async def run_simulation(
     request: Request,
     body: SimulationRunRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_plan("professional")),
+    current_user: User = Depends(require_plan("starter")),
 ):
     """Run a new simulation and return the full session with all results."""
     if not (body.simulation_purpose and body.simulation_purpose.strip()):

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Zap, AlertCircle, X } from "lucide-react";
+import { Check, Zap, AlertCircle, X, User, Users, Building2, Star, ShieldCheck, Globe2, LockKeyhole, BadgeCheck, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { subscriptionApi, billingApi } from "../../lib/api";
 import { useChatStore } from "../../store/chatStore";
@@ -18,7 +18,75 @@ interface Plan {
   monthly_price: number | null;
   annual_price: number | null;
   features: string[];
+  popular?: boolean;
 }
+
+const PLAN_ICONS: Record<string, LucideIcon> = {
+  starter: User,
+  business: Users,
+  enterprise: Building2,
+};
+
+const TRUST_ITEMS = [
+  { icon: ShieldCheck, title: "Powered by OpenAI & Claude", body: "Access leading AI models for regulatory intelligence." },
+  { icon: Globe2, title: "Global Regulatory Coverage", body: "Stay informed across major health authorities worldwide." },
+  { icon: LockKeyhole, title: "Secure & Compliant", body: "Enterprise-grade security with privacy and data protection." },
+  { icon: BadgeCheck, title: "Built for Life Sciences", body: "Purpose-built for regulatory professionals and teams." },
+];
+
+const DEFAULT_PLAN_GROUPS: { solo: Plan[]; organization: Plan[] } = {
+  solo: [
+    {
+      id: "starter",
+      name: "Individual",
+      description: "For independent regulatory professionals and consultants.",
+      monthly_price: 59,
+      annual_price: 649,
+      features: [
+        "Regulatory Chat",
+        "Document Intelligence",
+        "10 document uploads / month",
+        "Standard data coverage",
+        "Unlimited chat sessions",
+        "Global Gap Assessment",
+        "Health Authority Simulation",
+      ],
+      popular: false,
+    },
+  ],
+  organization: [
+    {
+      id: "business",
+      name: "Business",
+      description: "For biotech teams and collaborative regulatory organizations.",
+      monthly_price: 275,
+      annual_price: 3000,
+      features: [
+        "Everything in Individual",
+        "Team access (up to 5 users)",
+        "Shared projects & folders",
+        "Priority support",
+        "Advanced analytics",
+      ],
+      popular: true,
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "Custom infrastructure for global regulatory organizations.",
+      monthly_price: null,
+      annual_price: null,
+      features: [
+        "Everything in Business",
+        "Unlimited users",
+        "Custom integrations",
+        "Dedicated support",
+        "SLA & compliance support",
+      ],
+      popular: false,
+    },
+  ],
+};
 
 interface PricingTableProps {
   initialPlan?: string | null;
@@ -32,7 +100,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [plans, setPlans] = useState<{ solo: Plan[]; organization: Plan[] } | null>(null);
+  const [plans, setPlans] = useState<{ solo: Plan[]; organization: Plan[] } | null>(DEFAULT_PLAN_GROUPS);
   const [toast, setToast] = useState<Toast | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
@@ -47,7 +115,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     }
 
     loadSubscription();
-    billingApi.getPlans().then(setPlans).catch(console.error);
+    billingApi.getPlans().then(setPlans).catch(() => setPlans(DEFAULT_PLAN_GROUPS));
 
     const refreshOnFocus = () => loadSubscription();
     const refreshOnVisible = () => {
@@ -178,10 +246,10 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
     );
   }
 
-  const currentPlans = isOrgUser ? plans.organization : plans.solo;
+  const currentPlans = user ? (isOrgUser ? plans.organization : plans.solo) : [...plans.solo, ...plans.organization];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Toast */}
       {toast && (
         <div className={cn(
@@ -212,11 +280,14 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       )}
 
       {/* Header */}
-      <div className="text-center mb-10 space-y-3">
-        <p className="text-xs font-bold tracking-widest uppercase text-gs-blue">Plans &amp; Pricing</p>
-        <h2 className="text-3xl font-bold text-gs-text">
-          {isOrgUser ? "Choose a plan for your team" : "Choose your plan"}
+      <div className="text-center mb-6 space-y-3">
+        <h2 className="text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[0.16em] uppercase text-gs-text">
+          Flexible plans. Designed for regulatory teams.
         </h2>
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#DDD6FE] bg-[#F1EEFF] px-7 py-2 text-[12px] font-bold uppercase tracking-[0.26em] text-[#4C1D95] shadow-sm dark:border-purple-400/30 dark:bg-purple-500/20 dark:text-purple-100">
+          <Star className="h-3.5 w-3.5 fill-current" />
+          Introductory pricing - for a limited time
+        </div>
         {trialActive && trialEnd && (
           <div className="inline-flex items-center gap-2 bg-gs-blue/10 border border-gs-blue/20 text-gs-blue text-sm font-medium px-4 py-2 rounded-full">
             <Zap className="w-3.5 h-3.5" />
@@ -237,20 +308,22 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       </div>
 
       {/* Billing toggle */}
-      <div className="flex items-center justify-center gap-3 mb-10">
-        <span className={cn("text-sm font-medium", !annual ? "text-gs-text" : "text-gs-muted")}>Monthly</span>
+      <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+        <span className={cn("text-sm font-semibold", !annual ? "text-gs-text" : "text-gs-muted")}>Monthly</span>
         <button
           onClick={() => setAnnual((v) => !v)}
           className={cn("relative w-11 h-6 rounded-full transition-colors", annual ? "bg-gs-blue" : "bg-gs-border")}
         >
           <span className={cn("absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all", annual ? "left-6" : "left-1")} />
         </button>
-        <span className={cn("text-sm font-medium", annual ? "text-gs-text" : "text-gs-muted")}>Annual</span>
-        <span className="text-xs font-bold bg-gs-blue/10 text-gs-blue px-2.5 py-1 rounded-full">Save 20%</span>
+        <span className={cn("text-sm font-semibold", annual ? "text-gs-text" : "text-gs-muted")}>Annual</span>
+        <span className="text-xs font-bold bg-[#EAF7EF] text-[#15803D] px-5 py-1.5 rounded-full shadow-sm dark:bg-emerald-500/15 dark:text-emerald-300 dark:border dark:border-emerald-400/20">
+          Annual includes 1 month free
+        </span>
       </div>
 
       {/* Plan cards */}
-      <div className={cn("grid gap-6", currentPlans.length === 2 ? "max-w-2xl mx-auto grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}>
+      <div className={cn("grid gap-7", currentPlans.length === 2 ? "max-w-4xl mx-auto grid-cols-1 md:grid-cols-2" : currentPlans.length === 1 ? "max-w-lg mx-auto grid-cols-1" : "grid-cols-1 lg:grid-cols-3")}>
         {currentPlans.map((plan) => {
           const isEnterprise = plan.id === "enterprise";
           const currentCycle = annual ? "annual" : "monthly";
@@ -258,21 +331,28 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
           const isCurrentCycle = subscription?.billing_cycle === currentCycle;
           const isCurrent = isCurrentPlan && isCurrentCycle;
           
-          const price = annual ? plan.annual_price : plan.monthly_price;
-          const isPopular = plan.id === "professional" || plan.id === "business";
-          const annualTotal = annual && plan.annual_price !== null ? plan.annual_price * 12 : null;
+          const price = plan.monthly_price;
+          const isPopular = Boolean(plan.popular) || plan.id === "business";
+          const annualTotal = annual && plan.annual_price !== null ? plan.annual_price : null;
+          const Icon = PLAN_ICONS[plan.id] ?? User;
+          const firstFeature = plan.features[0] ?? "";
+          const hasInherited = firstFeature.toLowerCase().startsWith("everything in");
+          const featureHeading = hasInherited
+            ? `Includes ${firstFeature.charAt(0).toLowerCase()}${firstFeature.slice(1)}, plus:`
+            : "Includes:";
+          const listFeatures = hasInherited ? plan.features.slice(1) : plan.features;
 
           return (
             <div
               key={plan.id}
               className={cn(
-                "rounded-2xl p-6 flex flex-col gap-4 border bg-gs-card relative transition-all duration-300",
-                isPopular && !isCurrent ? "border-gs-blue shadow-lg scale-[1.02]" : "border-gs-border shadow-card",
+                "rounded-2xl p-7 min-h-[565px] flex flex-col gap-5 border bg-gs-card relative transition-all duration-300",
+                isPopular && !isCurrent ? "border-gs-blue shadow-blue-glow" : "border-gs-border shadow-card",
                 isCurrent && "ring-2 ring-gs-green border-gs-green"
               )}
             >
               {isPopular && !isCurrent && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-white bg-gs-blue px-3 py-1 rounded-full whitespace-nowrap">
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[12px] font-bold uppercase tracking-[0.06em] text-white bg-gs-blue px-7 py-2 rounded-full whitespace-nowrap">
                   Most Popular
                 </span>
               )}
@@ -282,64 +362,74 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 </span>
               )}
 
-              <div>
-                <h3 className="text-lg font-bold text-gs-text">{plan.name}</h3>
-                <p className="text-sm text-gs-muted mt-0.5">{plan.description}</p>
+              <div className="flex items-center gap-4">
+                <span className={cn(
+                  "flex h-16 w-16 shrink-0 items-center justify-center rounded-xl",
+                  isEnterprise ? "bg-gs-purple/10 text-gs-purple dark:bg-gs-purple/20 dark:text-purple-300" : "bg-gs-blue/10 text-gs-blue dark:bg-gs-blue/20"
+                )}>
+                  <Icon className="h-9 w-9" strokeWidth={2} />
+                </span>
+                <div>
+                  <h3 className="text-2xl font-bold text-gs-text">{plan.name}</h3>
+                  <p className="text-[15px] leading-relaxed text-gs-muted mt-1">{plan.description}</p>
+                </div>
               </div>
 
-              <div>
+              <div className="border-t border-gs-border pt-5">
                 {price !== null ? (
                   annual && annualTotal !== null ? (
-                    <div className="grid grid-cols-2 gap-3 border-t border-gs-border pt-4">
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-end gap-1 leading-none flex-wrap">
-                          <span className="text-[clamp(1.65rem,2.4vw,2.25rem)] font-bold text-gs-text">
+                        <div className="flex items-end gap-1 leading-none">
+                          <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue">
                             ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
                           </span>
-                          <span className="text-[11px] leading-tight text-gs-muted mb-1">USD /<br />month</span>
+                          <span className="text-[12px] leading-none text-gs-text mb-2">USD / month</span>
                         </div>
-                        <p className="text-xs text-gs-blue font-medium mt-1">
-                          Billed annually
+                        <p className="text-[13px] text-gs-blue font-semibold mt-2">
+                          {plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}
                         </p>
                       </div>
                       <div className="min-w-0 border-l border-gs-border pl-3">
-                        <div className="flex items-end gap-1 leading-none flex-wrap">
-                          <span className="text-[clamp(1.65rem,2.4vw,2.25rem)] font-bold text-gs-text">
+                        <div className="flex items-end gap-1 leading-none">
+                          <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue">
                             ${annualTotal.toLocaleString("en-US")}
                           </span>
-                          <span className="text-[11px] leading-tight text-gs-muted mb-1">USD /<br />year</span>
+                          <span className="text-[12px] leading-none text-gs-text mb-2">USD / year</span>
                         </div>
-                        <p className="text-xs text-gs-green font-medium mt-1">
-                          Includes annual savings
+                        <p className="text-[13px] text-gs-green font-semibold mt-2">
+                          Includes 1 month free
                         </p>
+                        <p className="text-[13px] text-gs-muted">with annual billing</p>
                       </div>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-end gap-1 leading-none">
-                        <span className="text-4xl font-bold text-gs-text">
+                        <span className="text-[40px] font-bold text-gs-blue">
                           ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
                         </span>
-                        <span className="text-sm text-gs-muted mb-1">USD / month</span>
+                        <span className="text-sm text-gs-text mb-2">USD / month</span>
                       </div>
-                      <p className="text-xs text-gs-blue font-medium mt-1">
-                        Billed monthly
+                      <p className="text-[13px] text-gs-blue font-semibold mt-2">
+                        {plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}
                       </p>
                     </>
                   )
                 ) : (
                   <>
-                    <p className="text-4xl font-bold text-gs-text">Custom</p>
-                    <p className="text-xs text-gs-muted mt-1">Contact us for pricing</p>
+                    <p className="text-[40px] font-bold text-[#3B087C] dark:text-purple-300 leading-none">Custom Pricing</p>
+                    <p className="text-[15px] text-gs-muted mt-4">Tailored to your organization&apos;s needs.</p>
                   </>
                 )}
               </div>
 
+              <p className="text-[15px] font-bold text-gs-text">{featureHeading}</p>
               <ul className="space-y-2.5 flex-1">
-                {plan.features.map((f) => (
+                {listFeatures.map((f) => (
                   <li key={f} className="flex items-start gap-2">
                     <Check className="w-4 h-4 shrink-0 mt-[2px] text-gs-green" strokeWidth={2.5} />
-                    <span className="text-sm text-gs-text">{f}</span>
+                    <span className="text-[15px] text-gs-text">{f}</span>
                   </li>
                 ))}
               </ul>
@@ -348,14 +438,14 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 <button
                   onClick={() => !isCurrent && handlePlanClick(plan.id)}
                   className={cn(
-                    "w-full py-3 rounded-xl text-sm font-semibold transition-all min-h-[44px] flex items-center justify-center",
+                    "w-full py-3 rounded-[10px] text-base font-semibold transition-all min-h-[48px] flex items-center justify-center",
                     isCurrent
                       ? "bg-gs-green/10 text-gs-green border border-gs-green cursor-default"
                       : isEnterprise
-                      ? "bg-gs-navy text-white hover:bg-opacity-90"
+                      ? "bg-gs-navy text-white hover:bg-opacity-90 dark:bg-gs-purple dark:hover:bg-gs-purple/90"
                       : isPopular
                       ? "bg-gs-blue text-white hover:bg-gs-deep-blue shadow-md hover:shadow-lg"
-                      : "border border-gs-blue text-gs-blue hover:bg-gs-blue/5"
+                      : "border border-gs-blue text-gs-blue hover:bg-gs-blue/5 dark:hover:bg-gs-blue/10"
                   )}
                   disabled={isCurrent || (loading !== null)}
                 >
@@ -368,9 +458,9 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                   ) : isEnterprise ? (
                     "Contact Sales"
                   ) : user ? (
-                    "Upgrade Now"
+                    plan.id === "starter" ? "Start Individual Plan" : "Start Business Plan"
                   ) : (
-                    "Sign Up Now"
+                    plan.id === "starter" ? "Start Individual Plan" : "Start Business Plan"
                   )}
                 </button>
 
@@ -399,8 +489,20 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
         })}
       </div>
 
-      <p className="text-center text-sm text-gs-muted mt-8">
-        Secure data handling and global regulatory coverage.
+      <div className="mt-5 grid grid-cols-1 gap-4 rounded-xl border border-gs-border bg-gs-card px-6 py-4 shadow-card sm:grid-cols-2 lg:grid-cols-4">
+        {TRUST_ITEMS.map(({ icon: Icon, title, body }) => (
+          <div key={title} className="flex items-center gap-4">
+            <Icon className="h-9 w-9 shrink-0 text-gs-blue" strokeWidth={2.1} />
+            <div>
+              <p className="text-[13px] font-bold text-gs-text">{title}</p>
+              <p className="text-[12px] leading-snug text-gs-muted">{body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-center text-sm text-gs-muted mt-5">
+        All plans include secure data handling, multi-model AI access, and global regulatory coverage.
       </p>
 
       {user && showDashboardLink && (

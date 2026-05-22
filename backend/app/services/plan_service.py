@@ -4,13 +4,12 @@ Centralised subscription / plan business logic.
 Plan access matrix
 ──────────────────
   active trial →  rank 4  (full feature access during the trial)
-  starter      →  rank 1
-  professional →  rank 2
+  starter      →  rank 2  (Individual plan; includes core intelligence modules)
   business     →  rank 3
   enterprise   →  rank 4
 
 Org subscriptions start at "business" (rank 3), so org members always have
-professional-tier access and above; upload limits never apply to them.
+Individual-tier access and above; upload limits never apply to them.
 """
 from __future__ import annotations
 
@@ -26,8 +25,8 @@ from app.models.subscription import Subscription, SubscriptionPlan, Subscription
 
 PLAN_RANK: dict[str, int] = {
     SubscriptionPlan.TRIAL:        4,   # active trial gets full feature access
-    SubscriptionPlan.STARTER:      1,
-    SubscriptionPlan.PROFESSIONAL: 2,
+    SubscriptionPlan.STARTER:      2,
+    SubscriptionPlan.PROFESSIONAL: 2,   # legacy alias for existing records
     SubscriptionPlan.BUSINESS:     3,
     SubscriptionPlan.ENTERPRISE:   4,
 }
@@ -36,7 +35,7 @@ PLAN_RANK: dict[str, int] = {
 
 UPLOAD_LIMIT: dict[str, int | None] = {
     SubscriptionPlan.TRIAL:        None,  # unlimited during trial — full access
-    SubscriptionPlan.STARTER:      10,
+    SubscriptionPlan.STARTER:      None,
     SubscriptionPlan.PROFESSIONAL: None,
     SubscriptionPlan.BUSINESS:     None,
     SubscriptionPlan.ENTERPRISE:   None,
