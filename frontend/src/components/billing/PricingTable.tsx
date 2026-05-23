@@ -249,7 +249,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
   const currentPlans = user ? (isOrgUser ? plans.organization : plans.solo) : [...plans.solo, ...plans.organization];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="mx-auto w-full max-w-[1540px] px-4 py-8 sm:px-6 lg:px-8">
       {/* Toast */}
       {toast && (
         <div className={cn(
@@ -323,7 +323,14 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
       </div>
 
       {/* Plan cards */}
-      <div className={cn("grid gap-7", currentPlans.length === 2 ? "max-w-4xl mx-auto grid-cols-1 md:grid-cols-2" : currentPlans.length === 1 ? "max-w-lg mx-auto grid-cols-1" : "grid-cols-1 lg:grid-cols-3")}>
+      <div className={cn(
+        "grid items-stretch gap-5 md:gap-6 xl:gap-7",
+        currentPlans.length === 2
+          ? "mx-auto max-w-5xl grid-cols-1 lg:grid-cols-2"
+          : currentPlans.length === 1
+          ? "mx-auto max-w-lg grid-cols-1"
+          : "grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3"
+      )}>
         {currentPlans.map((plan) => {
           const isEnterprise = plan.id === "enterprise";
           const currentCycle = annual ? "annual" : "monthly";
@@ -346,7 +353,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
             <div
               key={plan.id}
               className={cn(
-                "rounded-2xl p-7 min-h-[565px] flex flex-col gap-5 border bg-gs-card relative transition-all duration-300",
+                "relative flex h-full min-w-0 flex-col gap-5 rounded-2xl border bg-gs-card p-5 transition-all duration-300 sm:p-6 xl:p-7 2xl:min-h-[565px]",
                 isPopular && !isCurrent ? "border-gs-blue shadow-blue-glow" : "border-gs-border shadow-card",
                 isCurrent && "ring-2 ring-gs-green border-gs-green"
               )}
@@ -362,74 +369,76 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 </span>
               )}
 
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
                 <span className={cn(
                   "flex h-16 w-16 shrink-0 items-center justify-center rounded-xl",
                   isEnterprise ? "bg-gs-purple/10 text-gs-purple dark:bg-gs-purple/20 dark:text-purple-300" : "bg-gs-blue/10 text-gs-blue dark:bg-gs-blue/20"
                 )}>
                   <Icon className="h-9 w-9" strokeWidth={2} />
                 </span>
-                <div>
-                  <h3 className="text-2xl font-bold text-gs-text">{plan.name}</h3>
-                  <p className="text-[15px] leading-relaxed text-gs-muted mt-1">{plan.description}</p>
+                <div className="min-w-0">
+                  <h3 className="truncate text-2xl font-bold text-gs-text" title={plan.name}>{plan.name}</h3>
+                  <p className="line-clamp-2 max-w-full overflow-hidden text-ellipsis text-[15px] leading-relaxed text-gs-muted mt-1" title={plan.description}>
+                    {plan.description}
+                  </p>
                 </div>
               </div>
 
               <div className="border-t border-gs-border pt-5">
                 {price !== null ? (
                   annual && annualTotal !== null ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-2">
                       <div className="min-w-0">
-                        <div className="flex items-end gap-1 leading-none">
-                          <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue">
+                        <div className="min-w-0">
+                          <span className="block max-w-full truncate text-[clamp(2rem,8vw,2.65rem)] sm:text-[clamp(2rem,5vw,2.65rem)] lg:text-[clamp(2rem,4vw,2.65rem)] 2xl:text-[clamp(2rem,2.4vw,2.65rem)] font-bold leading-none text-gs-blue">
                             ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
                           </span>
-                          <span className="text-[12px] leading-none text-gs-text mb-2">USD / month</span>
+                          <span className="mt-1 block max-w-full truncate text-[12px] font-semibold leading-none text-gs-text">USD / month</span>
                         </div>
-                        <p className="text-[13px] text-gs-blue font-semibold mt-2">
+                        <p className="mt-2 max-w-full truncate text-[13px] font-semibold text-gs-blue" title={plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}>
                           {plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}
                         </p>
                       </div>
-                      <div className="min-w-0 border-l border-gs-border pl-3">
-                        <div className="flex items-end gap-1 leading-none">
-                          <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue">
+                      <div className="min-w-0 border-t border-gs-border pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 lg:border-l-0 lg:border-t lg:pl-0 lg:pt-4 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0 2xl:border-l 2xl:border-t-0 2xl:pl-4 2xl:pt-0">
+                        <div className="min-w-0">
+                          <span className="block max-w-full truncate text-[clamp(2rem,8vw,2.65rem)] sm:text-[clamp(2rem,5vw,2.65rem)] lg:text-[clamp(2rem,4vw,2.65rem)] 2xl:text-[clamp(2rem,2.4vw,2.65rem)] font-bold leading-none text-gs-blue">
                             ${annualTotal.toLocaleString("en-US")}
                           </span>
-                          <span className="text-[12px] leading-none text-gs-text mb-2">USD / year</span>
+                          <span className="mt-1 block max-w-full truncate text-[12px] font-semibold leading-none text-gs-text">USD / year</span>
                         </div>
-                        <p className="text-[13px] text-gs-green font-semibold mt-2">
+                        <p className="mt-2 max-w-full truncate text-[13px] font-semibold text-gs-green" title="Includes 1 month free">
                           Includes 1 month free
                         </p>
-                        <p className="text-[13px] text-gs-muted">with annual billing</p>
+                        <p className="max-w-full truncate text-[13px] text-gs-muted" title="with annual billing">with annual billing</p>
                       </div>
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-end gap-1 leading-none">
-                        <span className="text-[40px] font-bold text-gs-blue">
+                      <div className="flex min-w-0 flex-wrap items-end gap-x-1 gap-y-2 leading-none">
+                        <span className="min-w-0 max-w-full truncate text-[40px] font-bold text-gs-blue">
                           ${typeof price === 'number' ? price.toLocaleString('en-US', { minimumFractionDigits: price % 1 === 0 ? 0 : 2 }) : price}
                         </span>
-                        <span className="text-sm text-gs-text mb-2">USD / month</span>
+                        <span className="mb-2 max-w-full truncate text-sm text-gs-text">USD / month</span>
                       </div>
-                      <p className="text-[13px] text-gs-blue font-semibold mt-2">
+                      <p className="mt-2 max-w-full truncate text-[13px] font-semibold text-gs-blue" title={plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}>
                         {plan.id === "business" ? "Up to 5 users included" : "Billed monthly"}
                       </p>
                     </>
                   )
                 ) : (
                   <>
-                    <p className="text-[40px] font-bold text-[#3B087C] dark:text-purple-300 leading-none">Custom Pricing</p>
-                    <p className="text-[15px] text-gs-muted mt-4">Tailored to your organization&apos;s needs.</p>
+                    <p className="max-w-full truncate text-[40px] font-bold leading-none text-[#3B087C] dark:text-purple-300" title="Custom Pricing">Custom Pricing</p>
+                    <p className="mt-4 max-w-full truncate text-[15px] text-gs-muted" title="Tailored to your organization's needs.">Tailored to your organization&apos;s needs.</p>
                   </>
                 )}
               </div>
 
-              <p className="text-[15px] font-bold text-gs-text">{featureHeading}</p>
+              <p className="max-w-full truncate text-[15px] font-bold text-gs-text" title={featureHeading}>{featureHeading}</p>
               <ul className="space-y-2.5 flex-1">
                 {listFeatures.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
+                  <li key={f} className="flex min-w-0 items-start gap-2">
                     <Check className="w-4 h-4 shrink-0 mt-[2px] text-gs-green" strokeWidth={2.5} />
-                    <span className="text-[15px] text-gs-text">{f}</span>
+                    <span className="min-w-0 max-w-full truncate text-[15px] text-gs-text" title={f}>{f}</span>
                   </li>
                 ))}
               </ul>
@@ -438,7 +447,7 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 <button
                   onClick={() => !isCurrent && handlePlanClick(plan.id)}
                   className={cn(
-                    "w-full py-3 rounded-[10px] text-base font-semibold transition-all min-h-[48px] flex items-center justify-center",
+                    "flex min-h-[48px] w-full min-w-0 items-center justify-center rounded-[10px] px-3 py-3 text-base font-semibold transition-all",
                     isCurrent
                       ? "bg-gs-green/10 text-gs-green border border-gs-green cursor-default"
                       : isEnterprise
@@ -451,16 +460,16 @@ export function PricingTable({ initialPlan, showDashboardLink = true }: PricingT
                 >
                   {loading === plan.id ? (
                     <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : isCurrent ? (
-                    subscription?.cancel_at_period_end ? "Ending Soon" : "Subscribed"
-                  ) : isCurrentPlan ? (
-                    "Switch to " + (annual ? "Annual" : "Monthly")
-                  ) : isEnterprise ? (
-                    "Contact Sales"
-                  ) : user ? (
-                    plan.id === "starter" ? "Start Individual Plan" : "Start Business Plan"
                   ) : (
-                    plan.id === "starter" ? "Start Individual Plan" : "Start Business Plan"
+                    <span className="min-w-0 max-w-full truncate">
+                      {isCurrent
+                        ? subscription?.cancel_at_period_end ? "Ending Soon" : "Subscribed"
+                        : isCurrentPlan
+                        ? "Switch to " + (annual ? "Annual" : "Monthly")
+                        : isEnterprise
+                        ? "Contact Sales"
+                        : plan.id === "starter" ? "Start Individual Plan" : "Start Business Plan"}
+                    </span>
                   )}
                 </button>
 

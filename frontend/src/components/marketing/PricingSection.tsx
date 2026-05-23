@@ -231,7 +231,7 @@ function PlanCard({ plan, annual, isLoggedIn }: { plan: Plan; annual: boolean; i
           annual && annualTotal !== null ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="min-w-0">
-                <div className="flex items-end gap-1 leading-none whitespace-nowrap">
+                <div className="flex items-end flex-wrap gap-1 leading-none whitespace-nowrap">
                   <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue dark:text-white">
                     ${price.toLocaleString("en-US")}
                   </span>
@@ -244,7 +244,7 @@ function PlanCard({ plan, annual, isLoggedIn }: { plan: Plan; annual: boolean; i
                 </p>
               </div>
               <div className="min-w-0 border-l border-gs-border dark:border-white/10 pl-3">
-                <div className="flex items-end gap-1 leading-none whitespace-nowrap">
+                <div className="flex items-end flex-wrap gap-1 leading-none whitespace-nowrap">
                   <span className="text-[clamp(2rem,3vw,2.65rem)] font-bold text-gs-blue dark:text-white">
                     ${annualTotal.toLocaleString("en-US")}
                   </span>
