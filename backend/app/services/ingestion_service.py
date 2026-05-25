@@ -170,4 +170,110 @@ class IngestionService:
 
         print(f"DEBUG: Job finished. Total EMA added: {count}")
 
+    async def fetch_tga_metadata(self) -> list[Any]:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        potential_path = os.path.join(base_dir, "scripts", "tga_data.json")
+        if os.path.exists(potential_path):
+            with open(potential_path) as f:
+                return json.load(f)
+
+        # Crawl listings via curl_cffi WAF bypass
+        from curl_cffi import requests
+        from bs4 import BeautifulSoup
+        
+        guidelines = []
+        base_url = "https://www.tga.gov.au"
+        listing_url = f"{base_url}/resources/guidance"
+        
+        print("DEBUG: Crawling TGA listings to generate cache...")
+        for page in range(13): # 13 pages total
+            url = f"{listing_url}?sort_by=updated_date_sort&sort_field=updated_date_sort&page={page}"
+            try:
+                resp = requests.get(url, impersonate="chrome", timeout=30.0)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    for link in soup.find_all("a", href=True):
+                        href = link["href"].strip()
+                        if href.startswith("/resources/guidance/") and href != "/resources/guidance":
+                            title_text = link.get_text(strip=True)
+                            full_url = f"{base_url}{href}"
+                            if not any(g["url"] == full_url for g in guidelines) and title_text:
+                                guidelines.append({
+                                    "title": title_text,
+                                    "url": full_url
+                                })
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Error crawling TGA page {page}: {e}")
+                
+        if guidelines:
+            os.makedirs(os.path.dirname(potential_path), exist_ok=True)
+            with open(potential_path, "w") as f:
+                json.dump(guidelines, f, indent=2)
+                
+        return guidelines
+
+    async def ingest_tga_all(self, limit: int = 1000):
+        print(f"DEBUG: STARTING TGA INGESTION")
+        rows = await self.fetch_tga_metadata()
+        if not rows:
+            print("DEBUG: NO TGA METADATA FOUND")
+            return
+
+        count = 0
+        from sqlalchemy import select
+        from app.models.regulatory import RegulatorySource
+        from curl_cffi import requests
+        from bs4 import BeautifulSoup
+        import copy
+
+        for row in rows:
+            if count >= limit:
+                break
+
+            title = row.get("title", "").strip()
+            detail_url = row.get("url", "").strip()
+            if not title or not detail_url:
+                continue
+
+            # Check duplication
+            async with self.SessionLocal() as db:
+                stmt = select(RegulatorySource).where(
+                    RegulatorySource.authority == "TGA", RegulatorySource.title == title
+                )
+                res = await db.execute(stmt)
+                if res.scalars().first():
+                    print(f"DEBUG: Skipping duplicate TGA document: {title}")
+                    continue
+
+            print(f"DEBUG: Ingesting TGA: {title} from {detail_url}")
+            try:
+                resp = requests.get(detail_url, impersonate="chrome", timeout=30.0)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    content_div = soup.find("div", class_="region--content") or soup.find("article") or soup.find("body")
+                    if content_div:
+                        content_clone = copy.copy(content_div)
+                        for trash in content_clone.find_all(class_=["health-toolbar", "health-toolbar__listen", "share-widget"]):
+                            trash.decompose()
+                        text = content_clone.get_text(separator="\n", strip=True)
+                        
+                        if text and text.strip():
+                            async with self.SessionLocal() as db:
+                                metadata = {
+                                    "source": "TGA",
+                                    "source_page": detail_url,
+                                }
+                                await vector_service.add_regulatory_content(
+                                    db, authority="TGA", title=title, content=text, source_url=detail_url, metadata=metadata
+                                )
+                                await db.commit()
+                                count += 1
+                                print(f"DEBUG: Ingested TGA Document Success")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Error processing TGA document {title}: {e}")
+
+        print(f"DEBUG: Job finished. Total TGA added: {count}")
+
 ingestion_service = IngestionService()

@@ -249,3 +249,17 @@ async def trigger_ema_ingestion(
         "message": f"EMA Ingestion started for {limit} documents with status '{status_filter}' in the background. Check logs for progress."
     }
 
+
+@router.post("/ingest-tga", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_tga_ingestion(
+    background_tasks: BackgroundTasks,
+    limit: int = 50,
+):
+    """Trigger a background job to ingest documents from the TGA."""
+    from app.services.ingestion_service import ingestion_service
+
+    background_tasks.add_task(ingestion_service.ingest_tga_all, limit)
+    return {
+        "message": f"TGA Ingestion started for {limit} documents in the background. Check logs for progress."
+    }
+
