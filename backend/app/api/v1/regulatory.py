@@ -169,18 +169,48 @@ async def seed_regulatory_knowledge(
 
 @router.get("/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):
-    """Get the total count of ingested records and unique documents."""
+    """Get the total count of ingested records and unique documents, with a per-authority breakdown."""
     from sqlalchemy import func, distinct
     
     # Count total chunks
     result_chunks = await db.execute(select(func.count()).select_from(RegulatorySource))
-    chunk_count = result_chunks.scalar()
+    chunk_count = result_chunks.scalar() or 0
     
     # Count unique documents by title
     result_docs = await db.execute(select(func.count(distinct(RegulatorySource.title))).select_from(RegulatorySource))
-    doc_count = result_docs.scalar()
+    doc_count = result_docs.scalar() or 0
     
-    return {"total_chunks": chunk_count, "total_documents": doc_count}
+    # Per-authority breakdown
+    breakdown = {}
+    res_auths = await db.execute(select(distinct(RegulatorySource.authority)))
+    authorities = res_auths.scalars().all()
+    
+    for auth in authorities:
+        if not auth:
+            continue
+        
+        # Chunks per authority
+        res_chunks_auth = await db.execute(
+            select(func.count()).select_from(RegulatorySource).where(RegulatorySource.authority == auth)
+        )
+        chunks_auth = res_chunks_auth.scalar() or 0
+        
+        # Unique documents per authority
+        res_docs_auth = await db.execute(
+            select(func.count(distinct(RegulatorySource.title))).select_from(RegulatorySource).where(RegulatorySource.authority == auth)
+        )
+        docs_auth = res_docs_auth.scalar() or 0
+        
+        breakdown[auth] = {
+            "chunks": chunks_auth,
+            "documents": docs_auth
+        }
+        
+    return {
+        "total_chunks": chunk_count,
+        "total_documents": doc_count,
+        "breakdown": breakdown
+    }
 
 
 @router.post("/seed-demo")
@@ -203,3 +233,19 @@ async def trigger_fda_ingestion(
     return {
         "message": f"FDA Ingestion started for {limit} documents in the background. Check logs for progress."
     }
+
+
+@router.post("/ingest-ema", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_ema_ingestion(
+    background_tasks: BackgroundTasks,
+    limit: int = 50,
+    status_filter: str = "Adopted",
+):
+    """Trigger a background job to ingest documents from the EMA."""
+    from app.services.ingestion_service import ingestion_service
+
+    background_tasks.add_task(ingestion_service.ingest_ema_all, limit, status_filter)
+    return {
+        "message": f"EMA Ingestion started for {limit} documents with status '{status_filter}' in the background. Check logs for progress."
+    }
+

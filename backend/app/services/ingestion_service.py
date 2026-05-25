@@ -80,4 +80,94 @@ class IngestionService:
 
         print(f"DEBUG: Job finished. Total added: {count + 5 if count < 5 else count}")
 
+    async def fetch_ema_metadata(self) -> list[Any]:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        potential_path = os.path.join(base_dir, "scripts", "ema_data.json")
+        if os.path.exists(potential_path):
+            with open(potential_path) as f:
+                return json.load(f)
+        
+        # Download and filter dynamically if no local file is present
+        url = "https://www.ema.europa.eu/en/documents/report/documents-output-json-report_en.json"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=headers) as client:
+            try:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    all_docs = resp.json().get("data", [])
+                    guidelines = [doc for doc in all_docs if doc.get("type") == "scientific-guideline"]
+                    # Cache it
+                    os.makedirs(os.path.dirname(potential_path), exist_ok=True)
+                    with open(potential_path, "w") as f:
+                        json.dump(guidelines, f, indent=2)
+                    return guidelines
+            except Exception as e:
+                print(f"Error fetching EMA metadata: {e}")
+        return []
+
+    async def ingest_ema_all(self, limit: int = 1000, status_filter: str = "Adopted"):
+        print(f"DEBUG: STARTING EMA INGESTION")
+        rows = await self.fetch_ema_metadata()
+        if not rows:
+            print("DEBUG: NO EMA METADATA FOUND")
+            return
+
+        filtered_rows = []
+        for row in rows:
+            if status_filter and status_filter.lower() not in row.get("status", "").lower():
+                continue
+            filtered_rows.append(row)
+
+        headers = {"User-Agent": "Mozilla/5.0"}
+        count = 0
+        
+        from sqlalchemy import select
+        from app.models.regulatory import RegulatorySource
+
+        for row in filtered_rows:
+            if count >= limit:
+                break
+
+            title = row.get("name", "").strip()
+            pdf_url = row.get("document_url", "").strip()
+            if not title or not pdf_url:
+                continue
+
+            # Check duplication
+            async with self.SessionLocal() as db:
+                stmt = select(RegulatorySource).where(
+                    RegulatorySource.authority == "EMA", RegulatorySource.title == title
+                )
+                res = await db.execute(stmt)
+                if res.scalars().first():
+                    print(f"DEBUG: Skipping duplicate EMA document: {title}")
+                    continue
+
+            print(f"DEBUG: Ingesting EMA: {title} from {pdf_url}")
+            try:
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+                    resp = await client.get(pdf_url)
+                    if resp.status_code == 200:
+                        text = document_processor.extract_text(resp.content, "pdf")
+                        if text and text.strip():
+                            async with self.SessionLocal() as db:
+                                metadata = {
+                                    "source": "EMA",
+                                    "first_published_date": row.get("first_published_date"),
+                                    "last_updated_date": row.get("last_updated_date"),
+                                    "reference_number": row.get("reference_number"),
+                                    "status": row.get("status"),
+                                    "source_page": pdf_url,
+                                }
+                                await vector_service.add_regulatory_content(
+                                    db, authority="EMA", title=title, content=text, source_url=pdf_url, metadata=metadata
+                                )
+                                await db.commit()
+                                count += 1
+                                print(f"DEBUG: Ingested EMA Document Success")
+            except Exception as e:
+                print(f"Error processing EMA document {title}: {e}")
+
+        print(f"DEBUG: Job finished. Total EMA added: {count}")
+
 ingestion_service = IngestionService()
