@@ -1,0 +1,787 @@
+[
+  {
+    "title": "Ministerial Ordinance on Good Laboratory Practice for Nonclinical Safety Studies of Drugs",
+    "url": "https://www.pmda.go.jp/files/000153713.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Ministerial Ordinance on Good Laboratory Practice for Nonclinical Safety Studies of Medical Devices",
+    "url": "https://www.pmda.go.jp/files/000153066.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Ministerial Ordinance on Good Clinical Practice for Drugs (as amended, effective May 20, 2022)",
+    "url": "https://www.pmda.go.jp/files/000152996.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Ministerial Ordinance on Good Clinical Practice for Medical Devices",
+    "url": "https://www.pmda.go.jp/files/000153732.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Ministerial Ordinance on Standards for Quality Assurance for Drugs, Quasi-drugs, Cosmetics and Medical Devices (Tentative Translation :as of September 9,2005) [GQP]",
+    "url": "https://www.pmda.go.jp/files/000153579.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Ministerial Ordinance on Standards for Manufacturing Control and Quality Control for Drugs and Quasi-drugs (Tentative Translation :as of September 9,2005) [GMP]",
+    "url": "https://www.pmda.go.jp/files/000153399.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Regulations for Buildings and Facilities of Pharmacies, etc. (Tentative Translation :as of September 9,2005)",
+    "url": "https://www.pmda.go.jp/files/000153486.pdf",
+    "category": "Ministerial Ordinances"
+  },
+  {
+    "title": "Comparison table between ISO13485:2016 and MHLW MO169 Chapter 2, as revised in 2021",
+    "url": "https://www.pmda.go.jp/files/000239873.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Comparison table between ISO13485:2003 and MHLW MO169 Chapter 2, as revised in 2014",
+    "url": "https://www.pmda.go.jp/files/000239870.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO169 Chapter 3, as revised in 2021",
+    "url": "https://www.pmda.go.jp/files/000239874.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO169 Chapter 3, as revised in 2014",
+    "url": "https://www.pmda.go.jp/files/000239871.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO169 Chapter 4, as revised in 2021",
+    "url": "https://www.pmda.go.jp/files/000248602.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO169 Chapter 5, as revised in 2021",
+    "url": "https://www.pmda.go.jp/files/000248603.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO169 Chapter 5-2, as revised in 2021",
+    "url": "https://www.pmda.go.jp/files/000248604.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Tentative translation of MHLW MO1 (Regulations for Enforcement of the Act on Securing Quality, Efficacy and Safety of Products Including Pharmaceuticals and Medical Devices)",
+    "url": "https://www.pmda.go.jp/files/000248606.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Standards for Re-manufactured Single-use Medical Devices",
+    "url": "https://www.pmda.go.jp/files/000248607.pdf",
+    "category": "Revision of Japanese Medical Device QMS requirements"
+  },
+  {
+    "title": "Points to Consider for Small Clinical Trials (Early Consideration) [211KB]",
+    "url": "https://www.pmda.go.jp/files/000280490.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Considerations for Pre-specifying the Change Categories for Manufacturing Process Parameters Identified as Established Conditions for Drug Products (Chemical Products) (Early Consideration) [336.74KB]",
+    "url": "https://www.pmda.go.jp/files/000279889.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider in the Clinical Development of Radiopharmaceuticals for Positron Emission Tomography Targeting Prostate Specific Membrane Antigen (PSMA PET) (Early Consideration) [252KB]",
+    "url": "https://www.pmda.go.jp/files/000279587.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Considerations for clinical development of intravenous formulations containing the same active ingredient as oral products for patients who are temporarily unable to receive oral administration in epilepsy treatment \uff08Early consideration\uff09 [150KB]",
+    "url": "https://www.pmda.go.jp/files/000279991.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Consideration in the development of drugs for hypertrophic cardiomyopathy(Early Consideration)[190KB]",
+    "url": "https://www.pmda.go.jp/files/000278942.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for Replacement of Conventional Tests for Viruses with Next Generation Sequencing (NGS) Assays (Early Consideration)[147KB]",
+    "url": "https://www.pmda.go.jp/files/000278698.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Principles on Development of Combination Ophthalmic Solutions for Glaucoma (Early Consideration) [165KB]",
+    "url": "https://www.pmda.go.jp/files/000279888.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for the Efficacy Evaluation of Drugs for IgA Nephropathy(Early Consideration)[143.39KB]",
+    "url": "https://www.pmda.go.jp/files/000278438.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Considerations for Non-clinical Studies of Combination Prescription Drugs with Similar Formulations(Early Consideration)[142.81KB]",
+    "url": "https://www.pmda.go.jp/files/000278253.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for Clinical Development of Drugs Intended for Treatment of Psoriatic Arthritis(Early Consideration)[190.35KB]",
+    "url": "https://www.pmda.go.jp/files/000277950.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Quality of Fecal Microbiota Transplantation (FMT) Products at the Initial Development Stage (Early Consideration) [240 KB]",
+    "url": "https://www.pmda.go.jp/files/000278117.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Thoughts on the Use of Weight of Evidence Approach in Nonclinical Safety Evaluation (Early Consideration)[199 KB]",
+    "url": "https://www.pmda.go.jp/files/000278903.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Use of the Weight of Evidence approach as an alternative to nonhuman primate developmental and reproductive toxicity testing for biopharmaceuticals (Early Consideration) [288 KB]",
+    "url": "https://www.pmda.go.jp/files/000278904.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Concept of New Approach Methodologies (NAMs) use in quasi-drug applications\u00a0(Early Consideration)[214.93KB]",
+    "url": "https://www.pmda.go.jp/files/000277385.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Handling of Japanese Data for Confirmation of Comparability of Biosimilars to the Original Biopharmaceuticals (Early Consideration)[81.7KB]",
+    "url": "https://www.pmda.go.jp/files/000277274.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Considerations for Non-Clinical Studies in the Development of Diagnostic Radiopharmaceuticals (Early Consideration) [126.12KB]",
+    "url": "https://www.pmda.go.jp/files/000275204.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for nonclinical safety matters when submitting the initial clinical trial notification (Early Consideration) [97KB]",
+    "url": "https://www.pmda.go.jp/files/000274660.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for Clinical Development of Drugs Intended for Treatment of Antimicrobial-resistant Gram-negative Bacterial Infections (Early Consideration) [219.66KB]",
+    "url": "https://www.pmda.go.jp/files/000275729.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to consider for the discussion with PMDA using the ICH S1B (R1) guideline and in the approval application (Early Consideration) [115KB]",
+    "url": "https://www.pmda.go.jp/files/000274671.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to consider for externally controlled trials (Early Consideration) [96.77KB]",
+    "url": "https://www.pmda.go.jp/files/000275337.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider in Developing Drugs for Pediatric Inflammatory Bowel Disease (Early Consideration) [63KB]",
+    "url": "https://www.pmda.go.jp/files/000274641.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for Clinical Evaluation of Drug-Drug Interactions using Endogenous Biomarker (Early Consideration) [129.18KB]",
+    "url": "https://www.pmda.go.jp/files/000277387.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for Clinical Efficacy Evaluation of Drugs for Palmoplantar Pustulosis (Early consideration) [178KB]",
+    "url": "https://www.pmda.go.jp/files/000273110.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Checklist for Common Inquiry Cases to Be Noted When Submitting Approval Applications for New Active Ingredient Containing Pharmaceuticals (Chemical Products) (Early Consideration) [337KB]",
+    "url": "https://www.pmda.go.jp/files/000274535.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Example of Documents on Assessment and Control of DNA Reactive (Mutagenic) Impurities attached to Clinical Trial Notification (Early Consideration) [399KB]",
+    "url": "https://www.pmda.go.jp/files/000274534.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Consideration in the development of drugs for pulmonary arterial hypertension (Early Consideration) [168KB]",
+    "url": "https://www.pmda.go.jp/files/000273753.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to consider in the clinical development of drugs for transthyretin amyloid cardiomyopathy (Early Consideration) [98.4KB]",
+    "url": "https://www.pmda.go.jp/files/000273604.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Check List for 30-day-Clinical Trial Notification Review on an Initial Clinical Trial Notification (Oncology Drugs) [241KB]",
+    "url": "https://www.pmda.go.jp/files/000272649.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Statistical Considerations When Planning Phase I Clinical Trials in Oncology - From the Safety Perspective (Early consideration) [197KB]",
+    "url": "https://www.pmda.go.jp/files/000272426.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Points to Consider for the Design of Clinical Trials to Assess the Effects of Psychotropic Drugs on Driving Performance (Early consideration) [175KB]",
+    "url": "https://www.pmda.go.jp/files/000271233.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2 (Appendix 5) Quality data required for the approval review of changing a strain in the vaccine for which the manufacturing process is well established (Early consideration) [108KB]",
+    "url": "https://www.pmda.go.jp/files/000272657.pdf",
+    "category": "Early Consideration"
+  },
+  {
+    "title": "Handling of Applications for GMP Inspections[70.72KB]",
+    "url": "https://www.pmda.go.jp/files/000152975.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Questions and Answers (Q&A) on \"Points to Consider for Quality Assurance and Evaluation of Oligonucleotide Therapeutics\"[46.44KB]",
+    "url": "https://www.pmda.go.jp/files/000263162.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Points to Consider for Quality Assurance and Evaluation of Oligonucleotide Therapeutics[155.72KB]",
+    "url": "https://www.pmda.go.jp/files/000263163.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Guideline for Descriptions on Application Forms for Marketing Approval of Drugs, etc. under the Revised Pharmaceutical Affairs Law[728.95KB]",
+    "url": "https://www.pmda.go.jp/files/000153677.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Rationalization of descriptions in the specification column in approval application forms for prescription drugs[242.4KB]",
+    "url": "https://www.pmda.go.jp/files/000277401.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Notes on the Principles on Bioequivalence Studies of Oral Solid Dosage Forms with Manufacturing Process Changes[253.71KB]",
+    "url": "https://www.pmda.go.jp/files/000277402.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Handling of Prescription Drugs Having Different Crystalline Forms, etc.[33.01KB]",
+    "url": "https://www.pmda.go.jp/files/000277403.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Handling of Changes to Approved Product Information Pertaining to the Quality of Drugs[175.58KB]",
+    "url": "https://www.pmda.go.jp/files/000277405.pdf",
+    "category": "Quality"
+  },
+  {
+    "title": "Guideline for preclinical safety assessment of oligonucleotide therapeutics[291.92KB]",
+    "url": "https://www.pmda.go.jp/files/000236289.pdf",
+    "category": "Toxicology"
+  },
+  {
+    "title": "Guidelines on Cancer Immunotherapy Development[901.47KB]",
+    "url": "https://www.pmda.go.jp/files/000239580.pdf",
+    "category": "Toxicology"
+  },
+  {
+    "title": "Guidelines for Analysis Reports Involving Physiologically based Pharmacokinetic Models[405.59KB]",
+    "url": "https://www.pmda.go.jp/files/000239317.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Guideline for Exposure-Response Analysis of Drugs[741.29KB]",
+    "url": "https://www.pmda.go.jp/files/000235605.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Guideline on Population Pharmacokinetic and Pharmacodynamic Analysis[384KB]",
+    "url": "https://www.pmda.go.jp/files/000235608.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Annex1 Guideline on drug interaction for drug development and appropriate provision of information,Annex2 Question and Answer for the \u201cGuideline on drug interaction for drug development and appropriate provision of information\u201d[1,095KB]",
+    "url": "https://www.pmda.go.jp/files/000272383.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Annex1 Guideline on Bioanalytical Method (Ligand Binding Assay) Validation in Pharmaceutical Development,Annex2 Questions and Answers (Q&A) for the Guideline on Bioanalytical Method (Ligand Binding Assay) Validation in Pharmaceutical Development[332KB]",
+    "url": "https://www.pmda.go.jp/files/000272384.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Annex1 Guideline on Bioanalytical Method Validation in Pharmaceutical Development,Annex2 Questions and Answers (Q&A) for the Guideline on Bioanalytical Method Validation in Pharmaceutical Development",
+    "url": "https://www.pmda.go.jp/files/000272305.pdf",
+    "category": "Pharmacokinetics"
+  },
+  {
+    "title": "Statistical Considerations When Planning Phase I Clinical Trials in Oncology - From the Safety Perspective (Early consideration) [197KB]",
+    "url": "https://www.pmda.go.jp/files/000272425.pdf",
+    "category": "Biostatistics"
+  },
+  {
+    "title": "Considerations for the Utilization of Master Protocol Trials in Drug Development[303KB]",
+    "url": "https://www.pmda.go.jp/files/000269475.pdf",
+    "category": "Biostatistics"
+  },
+  {
+    "title": "Guideline on Data Monitoring Committee[198.41KB]",
+    "url": "https://www.pmda.go.jp/files/000232300.pdf",
+    "category": "Biostatistics"
+  },
+  {
+    "title": "Application for Partial Changes Based on Evaluation of Applicability to Drug-agnostic Companion Diagnostics, etc. (EGFR gene mutations in patients with non-small cell lung cancer)[242KB]",
+    "url": "https://www.pmda.go.jp/files/000278853.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Partial revision of \"Guidance on Drug-Agnostic Companion Diagnostics\"[209KB]",
+    "url": "https://www.pmda.go.jp/files/000274873.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Guidance on Drug-Agnostic Companion Diagnostics[226.49KB]",
+    "url": "https://www.pmda.go.jp/files/000248182.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Notification on Handling of In Vitro Diagnostics and Medical Device Products Aiming for Drug-agnostic Companion Diagnostics[191.30KB]",
+    "url": "https://www.pmda.go.jp/files/000248189.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Questions and answers (Q&A) on Drug-agnostic Companion Diagnostics[209.85KB]",
+    "url": "https://www.pmda.go.jp/files/000248184.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Revision of \"Points to consider for application for approval of drugs to be administered based on specific biomarkers that were developed by investigator-initiated clinical trials in patients with rare cancer\"[172KB]",
+    "url": "https://www.pmda.go.jp/files/000274874.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Technical Guidance on Development of In Vitro Companion Diagnostics and Corresponding Therapeutic Products[151.24KB]",
+    "url": "https://www.pmda.go.jp/files/000153149.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Notification on Approval Application for In Vitro Companion Diagnostics and Corresponding Therapeutic Products[51.56KB]",
+    "url": "https://www.pmda.go.jp/files/000153914.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Questions and answers (Q&A) on CoDx and corresponding therapeutic products[55.25KB]",
+    "url": "https://www.pmda.go.jp/files/000153495.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Legislation Notice to Applicants for Marketing Authorization of DNA Sequencers and Related Products Utilized for Genetic Testing Systems[106.41KB]",
+    "url": "https://www.pmda.go.jp/files/000214376.pdf",
+    "category": "Companion Diagnostics"
+  },
+  {
+    "title": "Partial Revision of \"Re-Examination Period of Prescription Drugs\"[33.7KB]",
+    "url": "https://www.pmda.go.jp/files/000280491.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Partial Revision of \"Handling of Re-Examination Period\"[114KB]",
+    "url": "https://www.pmda.go.jp/files/000280492.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Questions and Answers (Q & A) for Handling of Re-examination Period[41.6KB]",
+    "url": "https://www.pmda.go.jp/files/000280493.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Partial revision of \"Planning of the Pediatric Drug Development Program during Development of Drugs for Adults\"[22.8KB]",
+    "url": "https://www.pmda.go.jp/files/000280494.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Revision of Q & A for \"Planning of the Pediatric Drug Development Program during Development of Drugs for Adults\"[64.2KB]",
+    "url": "https://www.pmda.go.jp/files/000280495.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Partial Revision of \"Handling of Designation of Drugs for Specific Use\"[249KB]",
+    "url": "https://www.pmda.go.jp/files/000280496.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Utilization of Sample Informed Consent Form and Assent Form in Pediatric Clinical Trials (Request)[82.7KB]",
+    "url": "https://www.pmda.go.jp/files/000279958.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Initiatives to Promote Pediatric Drug Development [229KB]",
+    "url": "https://www.pmda.go.jp/files/000274940.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Questions and Answers (Q&A) for Extension of Re-Examination Period in Association with Development of Pediatric Dosage and Administration[73.3KB]",
+    "url": "https://www.pmda.go.jp/files/000268678.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Considerations for the Clinical Evaluation of Drugs in Pediatric Patients (10 or 12 Years of Age and Older) Who Can be Evaluated Together with Adults[313.96KB]",
+    "url": "https://www.pmda.go.jp/files/000238732.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Partial Revision of \u201cDesignation of Orphan Drugs etc.\u201d[155KB]",
+    "url": "https://www.pmda.go.jp/files/000268408.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Questions and Answers (Q&A) for Designation of Orphan Drugs etc.[104KB]",
+    "url": "https://www.pmda.go.jp/files/000268407.pdf",
+    "category": "Pediatric and Orphan Drugs"
+  },
+  {
+    "title": "Basic principles for conducting phase 1 studies in Japanese prior to initiating multi-regional clinical trials including Japan for drugs in which early clinical development is preceding outside Japan[244.40KB]",
+    "url": "https://www.pmda.go.jp/files/000266773.pdf",
+    "category": "Multi-Regional Clinical Trials"
+  },
+  {
+    "title": "Q&A for basic principles for conducting phase 1 studies in Japanese prior to initiating multi-regional clinical trials including Japan for drugs in which early clinical development is preceding outside Japan[119.18KB]",
+    "url": "https://www.pmda.go.jp/files/000266774.pdf",
+    "category": "Multi-Regional Clinical Trials"
+  },
+  {
+    "title": "Amendment to \u201cBasic Principles on Global Clinical Trials (Reference Cases)\u201d[431.73KB]",
+    "url": "https://www.pmda.go.jp/files/000246184.pdf",
+    "category": "Multi-Regional Clinical Trials"
+  },
+  {
+    "title": "Basic Principles on Global Clinical Trials (Reference Cases)[89.69KB]",
+    "url": "https://www.pmda.go.jp/files/000152969.pdf",
+    "category": "Multi-Regional Clinical Trials"
+  },
+  {
+    "title": "Basic Principles on Global Clinical Trials[188.76KB]",
+    "url": "https://www.pmda.go.jp/files/000153265.pdf",
+    "category": "Multi-Regional Clinical Trials"
+  },
+  {
+    "title": "Points to Consider When Registry Data are utilized for Partial Change Approval Applications or Revision of Electronic Package Insert for Prescription Drugs [102KB]",
+    "url": "https://www.pmda.go.jp/files/000274894.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Questions and Answers (Q&A) on Points to Consider for Ensuring the Reliability in Utilization of Data from Registry or Medical Information Database in Applications for Marketing Approval and Re-examination for Regenerative Medical Products[601.79KB]",
+    "url": "https://www.pmda.go.jp/files/000252240.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Questions and Answers (Q&A) on Points to Consider for Ensuring the Reliability in Utilization of Data from Registry or Medical Information Database in Applications for Marketing Approval and Re-examination for Drugs[201.63KB]",
+    "url": "https://www.pmda.go.jp/files/000249053.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Points to Consider for Ensuring the Reliability in Utilization of Registry Data for Applications[495.56KB]",
+    "url": "https://www.pmda.go.jp/files/000240811.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Basic principles on Utilization of Registry for Applications[362.43KB]",
+    "url": "https://www.pmda.go.jp/files/000240810.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "(In Japanese)Basic principles in conducting a validation study of outcome definitions used for post-marketing database study[727KB]",
+    "url": "https://www.pmda.go.jp/files/000235927.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Points to Consider for Ensuring the Reliability of Post-marketing Database Study for Regenerative Medical Products[464.08KB]",
+    "url": "https://www.pmda.go.jp/files/000243810.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "(In Japanese)Procedures for Developing Post-marketing Study Plan[315KB]",
+    "url": "https://www.pmda.go.jp/files/000228612.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Procedures for Developing Post-marketing Study Plan[308KB]",
+    "url": "https://www.pmda.go.jp/files/000226080.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Points to Consider for Ensuring the Reliability of Post-marketing Database Study for Medical Devices[462.43KB]",
+    "url": "https://www.pmda.go.jp/files/000243809.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Points to Consider for Ensuring the Reliability of Post-marketing Database Study for Drugs[462.39KB]",
+    "url": "https://www.pmda.go.jp/files/000243808.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "(In Japanese)Contents and format of a study protocol for Post-marketing Database Study[750KB]",
+    "url": "https://www.pmda.go.jp/files/000222302.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "(In Japanese)Amendment of Ministerial Ordinance on Good Post-marketing Study Practice for Drugs[173KB]",
+    "url": "https://www.pmda.go.jp/files/000220720.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "(In Japanese)Basic principles on the utilization of health information databases for Post-Marketing Surveillance of Medical Products[228KB]",
+    "url": "https://www.pmda.go.jp/files/000218531.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Guidelines for the Conduct of Pharmacoepidemiological Studies in Drug Safety Assessment with Medical Information Databases[550KB]",
+    "url": "https://www.pmda.go.jp/files/000240951.pdf",
+    "category": "Real World Data\uff08RWD\uff09"
+  },
+  {
+    "title": "Basic Principles on Japanese Clinical Trial Data for Drugs for Rare Diseases, etc., for Which Confirmatory Clinical Trials Have Been Conducted Only Overseas[88.48KB]",
+    "url": "https://www.pmda.go.jp/files/000275134.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Partial Revision of \u201cApproval Applications for Drugs\u201d[321KB]",
+    "url": "https://www.pmda.go.jp/files/000278068.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Partial Revision of \u201cPoints to Consider for Approval Applications for Drugs\u201d[243KB]",
+    "url": "https://www.pmda.go.jp/files/000278069.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Submitting documents to be attached in the application for approval of new ethical drugs[143KB]",
+    "url": "https://www.pmda.go.jp/files/000270639.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "On the Standard Review Timeline for New Drug Applications[111.86KB]",
+    "url": "https://www.pmda.go.jp/files/000153667.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Format for Preparing the Common Technical Document for Submission of New Drug Applications to Reduce Total Review Time[186.25KB]",
+    "url": "https://www.pmda.go.jp/files/000153518.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Points to Consider for Reducing Total Review Time for New Drug Applications[38.26KB]",
+    "url": "https://www.pmda.go.jp/files/000153397.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Partial Revision of \u201cHandling of Conditional Approval of Drugs\u201d[122KB]",
+    "url": "https://www.pmda.go.jp/files/000275135.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Implementation of a Conditional Early Approval System for Pharmaceutical Products[300.82KB]",
+    "url": "https://www.pmda.go.jp/files/000227089.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Points to Be Considered by the Review Staff Involved in the Evaluation Process of New Drug",
+    "url": "https://www.pmda.go.jp/files/000153830.pdf",
+    "category": "Reviews"
+  },
+  {
+    "title": "Clinical Trials Conducted on Ethical Grounds-Japanese Compassionate Use System-[392.52KB]",
+    "url": "https://www.pmda.go.jp/files/000227843.pdf",
+    "category": "Clinical Trials"
+  },
+  {
+    "title": "English Translations of the Guidance for Establishing Safety in First-in-Human Studies during Drug Development and its Questions and Answers[263.18KB]",
+    "url": "https://www.pmda.go.jp/files/000153028.pdf",
+    "category": "Clinical Trials"
+  },
+  {
+    "title": "Questions and Answers (Q&A) on the \u201cGuidelines for Clinical Evaluation of Drugs for the Treatment of Heart Failure\u201d (Part 2) [65.7 KB]",
+    "url": "https://www.pmda.go.jp/files/000279962.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "Revision of the \u201cGuidelines for Clinical Evaluation of Drugs for the Treatment of Heart Failure\u201d [132 KB]",
+    "url": "https://www.pmda.go.jp/files/000279963.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "Questions and Answers (Q&A) on the \u201cGuidelines for Clinical Evaluation of Drugs for the Treatment of Heart Failure\u201d [27.9 KB]",
+    "url": "https://www.pmda.go.jp/files/000279961.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "Guideline for Clinical Evaluation of Antibacterial Drugs[906.39KB]",
+    "url": "https://www.pmda.go.jp/files/000234350.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "On Release of the Guideline for Clinical Evaluation of Oral Hypoglycemic Agents[156.49KB]",
+    "url": "https://www.pmda.go.jp/files/000153859.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "On Release of Questions and Answers (Q&As) regarding the Guideline for Clinical Evaluation of Oral Hypoglycemic Agents[73.82KB]",
+    "url": "https://www.pmda.go.jp/files/000153441.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "Guideline for Clinical Evaluation of Diagnostic Radiopharmaceuticals[286.37KB]",
+    "url": "https://www.pmda.go.jp/files/000275076.pdf",
+    "category": "New Drugs\uff08based on the review categories\uff09"
+  },
+  {
+    "title": "Guidance on Clinical Evaluation of Travelers\u2019 Vaccines, etc. [228.13KB]",
+    "url": "https://www.pmda.go.jp/files/000277125.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2(Appendix 4) Immunogenicity-based evaluation of variant vaccines modified from parent vaccines and booster vaccines with new active ingredients [172.94KB]",
+    "url": "https://www.pmda.go.jp/files/000248204.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2(Appendix 3) Evaluation of the vaccines based on Immunogenicity [158.84KB]",
+    "url": "https://www.pmda.go.jp/files/000245454.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2(Appendix 2) Ethical Considerations for Subjects in Placebo-Controlled Studies [142.88KB]",
+    "url": "https://www.pmda.go.jp/files/000242602.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2(Appendix 1) Evaluation of vaccines against variants [156.00KB]",
+    "url": "https://www.pmda.go.jp/files/000240416.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Principles for the Evaluation of Vaccines Against the Novel Coronavirus SARS-CoV-2 [387.83KB]",
+    "url": "https://www.pmda.go.jp/files/000237021.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Standards for biological raw materials[73.55KB]",
+    "url": "https://www.pmda.go.jp/files/000268474.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "Standards for biological raw materials, Operational guideline[183.51KB]",
+    "url": "https://www.pmda.go.jp/files/000268475.pdf",
+    "category": "Vaccines and Blood Products"
+  },
+  {
+    "title": "English Translations of Guidelines for Bioequivalence Studies of Generic Products[362.45KB]",
+    "url": "https://www.pmda.go.jp/files/000244288.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "Basic Concept on Bioequivalence Evaluation for Addition of Formulations with Different Dosage Forms in Ethical Kampo Formulations[416.05KB]",
+    "url": "https://www.pmda.go.jp/files/000244545.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "Partial revision of \"English version of the Standards for Marketing Approval of Cold Remedies, etc\u201d[381KB]",
+    "url": "https://www.pmda.go.jp/files/000272487.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "Partial revision of \"English version of the Standards for Marketing Approval of Cold Remedies, etc\"[134KB]",
+    "url": "https://www.pmda.go.jp/files/000272503.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "English version of the Standards for Marketing Approval of Cold Remedies, etc.[1.43MB]",
+    "url": "https://www.pmda.go.jp/files/000272504.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 1) The Standards for Marketing Approval of Cold Remedies196KB]",
+    "url": "https://www.pmda.go.jp/files/000272488.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 2) The Standards for Marketing Approval of Antipyretic Analgesics[86.2KB]",
+    "url": "https://www.pmda.go.jp/files/000272489.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 3) The Standards for Marketing Approval of Antitussives and Expectorants[165KB]",
+    "url": "https://www.pmda.go.jp/files/000272490.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 4) The Standards for Marketing Approval of Oral Remedies for Rhinitis[50.1KB]",
+    "url": "https://www.pmda.go.jp/files/000272491.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 5) The Standards for Marketing Approval of Gastrointestinal Medicines[229KB]",
+    "url": "https://www.pmda.go.jp/files/000272492.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 6) The Standards for Marketing Approval of Laxatives[190KB]",
+    "url": "https://www.pmda.go.jp/files/000272493.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 7) The Standards for Marketing Approval of Antivertigo Medicines[107KB]",
+    "url": "https://www.pmda.go.jp/files/000272494.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 8) The Standards for Marketing Approval of Ophthalmic Medicines[140KB]",
+    "url": "https://www.pmda.go.jp/files/000272495.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 9) The Standards for Marketing Approval of Vitamin Preparations[202KB]",
+    "url": "https://www.pmda.go.jp/files/000272496.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 10) The Standards for Marketing Approval of Enemas[94.7KB]",
+    "url": "https://www.pmda.go.jp/files/000272497.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 11) The Standards for Marketing Approval of Anthelmintics[122KB]",
+    "url": "https://www.pmda.go.jp/files/000272498.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 12) The Standards for Marketing Approval of Nasal Drops for Rhinitis[37.9KB]",
+    "url": "https://www.pmda.go.jp/files/000272499.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 13) The Standards for Marketing Approval of Antihemorrhoids (External Preparations)[139KB]",
+    "url": "https://www.pmda.go.jp/files/000272500.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 14) The Standards Marketing Approval of Athlete\u2019s Foot and Ringworm Remedies[129KB]",
+    "url": "https://www.pmda.go.jp/files/000272501.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "(Appendix 15) The Standards for Marketing Approval of Antipruritic and Anti-inflammatory Drugs[53.1KB]",
+    "url": "https://www.pmda.go.jp/files/000272502.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "Application for Approval of Quasi-drugs[129KB]",
+    "url": "https://www.pmda.go.jp/files/000277819.pdf",
+    "category": "Others"
+  },
+  {
+    "title": "Clinical Evaluation Guidelines for Quasi-drugs[97KB]",
+    "url": "https://www.pmda.go.jp/files/000277820.pdf",
+    "category": "Others"
+  }
+]

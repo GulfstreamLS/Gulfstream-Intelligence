@@ -276,4 +276,115 @@ class IngestionService:
 
         print(f"DEBUG: Job finished. Total TGA added: {count}")
 
+    async def fetch_pmda_metadata(self) -> list[Any]:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        potential_path = os.path.join(base_dir, "scripts", "pmda_data.json")
+        if os.path.exists(potential_path):
+            with open(potential_path) as f:
+                return json.load(f)
+
+        from curl_cffi import requests
+        from bs4 import BeautifulSoup
+        
+        guidelines = []
+        base_url = "https://www.pmda.go.jp"
+        regulatory_info_url = f"{base_url}/english/review-services/regulatory-info"
+        
+        print("DEBUG: Crawling PMDA regulatory info to generate cache...")
+        for page in range(1, 20): # 19 pages total (0001.html to 0019.html)
+            url = f"{regulatory_info_url}/{page:04d}.html"
+            try:
+                resp = requests.get(url, impersonate="chrome", timeout=30.0)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    h1 = soup.find("h1")
+                    category = h1.get_text(strip=True) if h1 else "General"
+                    
+                    for link in soup.find_all("a", href=True):
+                        href = link["href"].strip()
+                        if href.endswith(".pdf"):
+                            if href.startswith("/"):
+                                full_url = f"{base_url}{href}"
+                            elif href.startswith("http"):
+                                full_url = href
+                            else:
+                                full_url = f"{regulatory_info_url}/{href}"
+                                
+                            title_text = link.get_text(strip=True)
+                            if not title_text or title_text.lower() in ["pdf", "download", "link"]:
+                                continue
+                                
+                            if not any(g["url"] == full_url for g in guidelines):
+                                guidelines.append({
+                                    "title": title_text,
+                                    "url": full_url,
+                                    "category": category
+                                })
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                print(f"Error crawling PMDA page {page}: {e}")
+                
+        if guidelines:
+            os.makedirs(os.path.dirname(potential_path), exist_ok=True)
+            with open(potential_path, "w") as f:
+                json.dump(guidelines, f, indent=2)
+                
+        return guidelines
+
+    async def ingest_pmda_all(self, limit: int = 1000):
+        print(f"DEBUG: STARTING PMDA INGESTION")
+        rows = await self.fetch_pmda_metadata()
+        if not rows:
+            print("DEBUG: NO PMDA METADATA FOUND")
+            return
+
+        count = 0
+        from sqlalchemy import select
+        from app.models.regulatory import RegulatorySource
+        from curl_cffi import requests
+
+        for row in rows:
+            if count >= limit:
+                break
+
+            title = row.get("title", "").strip()
+            pdf_url = row.get("url", "").strip()
+            category = row.get("category", "General").strip()
+            if not title or not pdf_url:
+                continue
+
+            # Check duplication
+            async with self.SessionLocal() as db:
+                stmt = select(RegulatorySource).where(
+                    RegulatorySource.authority == "PMDA", RegulatorySource.title == title
+                )
+                res = await db.execute(stmt)
+                if res.scalars().first():
+                    print(f"DEBUG: Skipping duplicate PMDA document: {title}")
+                    continue
+
+            print(f"DEBUG: Ingesting PMDA: {title} from {pdf_url}")
+            try:
+                resp = requests.get(pdf_url, impersonate="chrome", timeout=30.0)
+                if resp.status_code == 200:
+                    text = document_processor.extract_text(resp.content, "pdf")
+                    if text and text.strip():
+                        async with self.SessionLocal() as db:
+                            metadata = {
+                                "source": "PMDA",
+                                "category": category,
+                                "source_page": pdf_url,
+                            }
+                            await vector_service.add_regulatory_content(
+                                db, authority="PMDA", title=title, content=text, source_url=pdf_url, metadata=metadata
+                            )
+                            await db.commit()
+                            count += 1
+                            print(f"DEBUG: Ingested PMDA Document Success")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Error processing PMDA document {title}: {e}")
+
+        print(f"DEBUG: Job finished. Total PMDA added: {count}")
+
 ingestion_service = IngestionService()

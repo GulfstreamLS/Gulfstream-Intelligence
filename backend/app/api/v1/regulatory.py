@@ -263,3 +263,17 @@ async def trigger_tga_ingestion(
         "message": f"TGA Ingestion started for {limit} documents in the background. Check logs for progress."
     }
 
+
+@router.post("/ingest-pmda", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_pmda_ingestion(
+    background_tasks: BackgroundTasks,
+    limit: int = 50,
+):
+    """Trigger a background job to ingest documents from the PMDA."""
+    from app.services.ingestion_service import ingestion_service
+
+    background_tasks.add_task(ingestion_service.ingest_pmda_all, limit)
+    return {
+        "message": f"PMDA Ingestion started for {limit} documents in the background. Check logs for progress."
+    }
+
