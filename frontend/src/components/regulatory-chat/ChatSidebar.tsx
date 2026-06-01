@@ -665,6 +665,23 @@ export function ChatSidebar({
   const [allAuthorities, setAllAuthorities] = useState<{ name: string }[]>([]);
   const appliedProjectRef = useRef<string | null>(null);
 
+  // Context state
+  const [editing, setEditing] = useState(false);
+  const [program, setProgram]       = useState("");
+  const [indication, setIndication] = useState("");
+  const [phase, setPhase]           = useState(PHASES[1]);
+  const [activeAuths, setActiveAuths] = useState<number[]>([]);
+  const [showAllAuths, setShowAllAuths] = useState(false);
+
+  // Drafts while editing
+  const [draftProgram, setDraftProgram]       = useState("");
+  const [draftIndication, setDraftIndication] = useState("");
+  const [draftPhase, setDraftPhase]           = useState(PHASES[1]);
+  const [draftAuths, setDraftAuths]           = useState<number[]>([]);
+
+  // Save panel visibility — reset each time the active chat changes
+  const [savePanelDismissed, setSavePanelDismissed] = useState(false);
+
   // Fetch projects and authorities once on mount
   useEffect(() => {
     projectApi.list({ page_size: 100 })
@@ -684,7 +701,7 @@ export function ChatSidebar({
       });
   }, []);
 
-  // Apply project context whenever initialProjectId changes OR projects list loads
+  // Apply project context whenever initialProjectId changes OR projects list loads OR allAuthorities loads
   useEffect(() => {
     if (!initialProjectId) {
       // Conversation has no linked program — clear the context panel
@@ -698,30 +715,20 @@ export function ChatSidebar({
       }
       return;
     }
-    if (!projects.length) return;
-    if (appliedProjectRef.current === initialProjectId) return;
-    appliedProjectRef.current = initialProjectId;
+    if (!projects.length || !allAuthorities.length) return;
+    
     const p = projects.find(p => p.id === initialProjectId);
-    if (p) applyProject(p, projects);
+    if (p) {
+      const hasAuthorities = p.authorities && p.authorities.length > 0;
+      const needsMapping = hasAuthorities && activeAuths.length === 0;
+      if (appliedProjectRef.current !== initialProjectId || needsMapping) {
+        applyProject(p, projects);
+        appliedProjectRef.current = initialProjectId;
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialProjectId, projects]);
+  }, [initialProjectId, projects, allAuthorities, activeAuths]);
 
-  // Context state
-  const [editing, setEditing] = useState(false);
-  const [program, setProgram]       = useState("");
-  const [indication, setIndication] = useState("");
-  const [phase, setPhase]           = useState(PHASES[1]);
-  const [activeAuths, setActiveAuths] = useState<number[]>([]);
-  const [showAllAuths, setShowAllAuths] = useState(false);
-
-  // Drafts while editing
-  const [draftProgram, setDraftProgram]       = useState("");
-  const [draftIndication, setDraftIndication] = useState("");
-  const [draftPhase, setDraftPhase]           = useState(PHASES[1]);
-  const [draftAuths, setDraftAuths]           = useState<number[]>([]);
-
-  // Save panel visibility — reset each time the active chat changes
-  const [savePanelDismissed, setSavePanelDismissed] = useState(false);
   useEffect(() => { setSavePanelDismissed(false); }, [activeChatId]);
 
   function applyProject(p: Project, allProjects: Project[]) {

@@ -15,6 +15,7 @@ import { AssessmentBasisPanel, type AssessmentBasis } from "../../../../componen
 import { assessmentApi, projectApi } from "../../../../lib/api";
 import { useSubscription }      from "../../../../hooks/useSubscription";
 import { UpgradeGate }          from "../../../../components/ui/UpgradeGate";
+import { FilterDropdown }       from "../../../../components/ui/FilterDropdown";
 import type { AssessmentDocumentSummary, GapAssessmentResponse, GapAssessmentRun, Project } from "../../../../types";
 
 const ASSESSMENT_TYPES = [
@@ -155,10 +156,13 @@ function SetupModal({
           <section>
             <h3 className="text-[12px] font-black uppercase tracking-[0.14em] text-gs-muted mb-3">2. Define source details</h3>
             {source === "project" && (
-              <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full h-11 px-3 bg-gs-card border border-gs-border rounded-lg text-sm font-semibold text-gs-text">
-                <option value="">Select project...</option>
-                {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-              </select>
+              <FilterDropdown
+                fullWidth
+                value={projectId}
+                onChange={setProjectId}
+                placeholder="Select project..."
+                options={projects.map(p => ({ value: p.id, label: p.name }))}
+              />
             )}
 
             {source === "upload" && (
@@ -178,10 +182,13 @@ function SetupModal({
                   ))}
                 </div>
                 {saveMode === "existing" && (
-                  <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full h-11 px-3 bg-gs-card border border-gs-border rounded-lg text-sm font-semibold text-gs-text">
-                    <option value="">Select project...</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-                  </select>
+                  <FilterDropdown
+                    fullWidth
+                    value={projectId}
+                    onChange={setProjectId}
+                    placeholder="Select project..."
+                    options={projects.map(p => ({ value: p.id, label: p.name }))}
+                  />
                 )}
                 {saveMode === "new" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -210,10 +217,13 @@ function SetupModal({
                   ))}
                 </div>
                 {saveMode === "existing" && (
-                  <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full h-11 px-3 bg-gs-card border border-gs-border rounded-lg text-sm font-semibold text-gs-text">
-                    <option value="">Select project...</option>
-                    {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-                  </select>
+                  <FilterDropdown
+                    fullWidth
+                    value={projectId}
+                    onChange={setProjectId}
+                    placeholder="Select project..."
+                    options={projects.map(p => ({ value: p.id, label: p.name }))}
+                  />
                 )}
                 {saveMode === "new" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

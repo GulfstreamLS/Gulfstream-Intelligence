@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, Globe, Edit3 } from "lucide-react";
-import { FlagIcon } from "../ui/FlagIcon";
+import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
+import { regulatoryApi } from "../../lib/api";
 
 type SelectionMode =
   | { type: "single"; authority: string }
@@ -32,13 +33,23 @@ const REGIONS: RegionOption[] = [
   { code: "au", name: "TGA",           sub: "Australia"},
 ];
 
+const AUTHORITY_SUB: Record<string, string> = {
+  FDA: "U.S.",
+  EMA: "EU",
+  MHRA: "UK",
+  "Health Canada": "Canada",
+  PMDA: "Japan",
+  NMPA: "China",
+  TGA: "Australia",
+};
+
 const MULTI_REGIONS: MultiRegionOption[] = [
   { codes: ["us", "eu"],       label: "FDA + EMA",         type: "fda-ema"      },
   { codes: ["us", "eu", "jp"], label: "FDA + EMA + PMDA",  type: "fda-ema-pmda" },
 ];
 
-function findRegion(authority: string) {
-  return REGIONS.find(region => region.name === authority);
+function findRegion(authority: string, regionsList: RegionOption[] = REGIONS) {
+  return regionsList.find(region => region.name === authority);
 }
 
 function findMultiRegion(type: SelectionMode["type"]) {
@@ -103,9 +114,9 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SelectionPreview({ mode }: { mode: SelectionMode }) {
+function SelectionPreview({ mode, regions }: { mode: SelectionMode; regions: RegionOption[] }) {
   if (mode.type === "single") {
-    const r = findRegion(mode.authority);
+    const r = findRegion(mode.authority, regions);
     if (!r) {
       return (
         <div className="flex items-center gap-4 mb-10">
@@ -159,10 +170,30 @@ export function RegionSelectionPanel({
   onAuthorityChange: (auth: string | undefined) => void;
   selectedAuthority?: string;
 }) {
+  const [regions, setRegions] = useState<RegionOption[]>(REGIONS);
   const [mode, setMode] = useState<SelectionMode>(
     selectedAuthority
       ? { type: "single", authority: selectedAuthority }
       : { type: "global" }
+  );
+
+  useEffect(() => {
+    regulatoryApi.listAuthorities()
+      .then(auths => {
+        if (Array.isArray(auths) && auths.length > 0) {
+          const mapped = auths.map(name => ({
+            code: AUTHORITY_COUNTRY_CODE[name] || "un",
+            name: name,
+            sub: AUTHORITY_SUB[name] || name,
+          }));
+          setRegions(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const visibleMultiRegions = MULTI_REGIONS.filter(m =>
+    m.codes.every(code => regions.some(r => r.code === code))
   );
 
   const apply = (next: SelectionMode) => {
@@ -191,7 +222,7 @@ export function RegionSelectionPanel({
           <section>
             <h3 className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em] mb-5">Assess a single region</h3>
             <div className="flex flex-wrap gap-4">
-              {REGIONS.map(r => (
+              {regions.map(r => (
                 <RegionCard
                   key={r.name}
                   code={r.code}
@@ -204,26 +235,46 @@ export function RegionSelectionPanel({
             </div>
           </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <section>
-              <h3 className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em] mb-5">Assess multiple regions</h3>
-              <div className="flex gap-4">
-                {MULTI_REGIONS.map(m => (
-                  <MultiCard
-                    key={m.type}
-                    codes={m.codes}
-                    label={m.label}
-                    active={mode.type === m.type}
-                    onClick={() => apply(mode.type === m.type ? { type: "global" } : { type: m.type })}
-                  />
-                ))}
-              </div>
-            </section>
+          {visibleMultiRegions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <section>
+                <h3 className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em] mb-5">Assess multiple regions</h3>
+                <div className="flex gap-4">
+                  {visibleMultiRegions.map(m => (
+                    <MultiCard
+                      key={m.type}
+                      codes={m.codes}
+                      label={m.label}
+                      active={mode.type === m.type}
+                      onClick={() => apply(mode.type === m.type ? { type: "global" } : { type: m.type })}
+                    />
+                  ))}
+                </div>
+              </section>
 
-            <section className="flex flex-col justify-end">
+              <section className="flex flex-col justify-end">
+                <div
+                  onClick={() => apply({ type: "global" })}
+                  className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
+                    mode.type === "global"
+                      ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 ring-1 ring-blue-200 dark:ring-blue-900"
+                      : "bg-gs-bg border-gs-border hover:border-blue-400"
+                  }`}
+                >
+                  <Globe size={20} className={mode.type === "global" ? "text-blue-600" : "text-gs-muted"} />
+                  <span className={`text-[12px] font-bold uppercase tracking-wider ${mode.type === "global" ? "text-blue-600" : "text-gs-muted"}`}>
+                    Global (All Regions)
+                  </span>
+                  {mode.type === "global" && <CheckCircle2 size={14} className="text-blue-600 ml-auto" />}
+                </div>
+              </section>
+            </div>
+          ) : (
+            <section className="pt-2">
+              <h3 className="text-[11px] font-bold text-gs-muted uppercase tracking-[0.1em] mb-4">Or assess all regions</h3>
               <div
                 onClick={() => apply({ type: "global" })}
-                className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
+                className={`w-full max-w-sm flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
                   mode.type === "global"
                     ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 ring-1 ring-blue-200 dark:ring-blue-900"
                     : "bg-gs-bg border-gs-border hover:border-blue-400"
@@ -236,7 +287,7 @@ export function RegionSelectionPanel({
                 {mode.type === "global" && <CheckCircle2 size={14} className="text-blue-600 ml-auto" />}
               </div>
             </section>
-          </div>
+          )}
         </div>
       </div>
 
@@ -249,7 +300,7 @@ export function RegionSelectionPanel({
           </button>
         </div>
 
-        <SelectionPreview mode={mode} />
+        <SelectionPreview mode={mode} regions={regions} />
 
         <div className="space-y-6 flex-1">
           <SummaryItem label="Filter" value={filterLabel(mode)} />
