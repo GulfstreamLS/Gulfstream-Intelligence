@@ -11,13 +11,13 @@ import { GlobalVisibilityBanner } from "../../../../components/projects/GlobalVi
 import { ConfirmModal } from "../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../components/ui/DynamicSelect";
 import { FilterDropdown } from "../../../../components/ui/FilterDropdown";
-import { isPaymentRequiredError, organizationApi, projectApi, subscriptionApi } from "../../../../lib/api";
+import { isPaymentRequiredError, organizationApi, projectApi, subscriptionApi, regulatoryApi } from "../../../../lib/api";
 import { useChatStore } from "../../../../store/chatStore";
 import type { Project, Subscription } from "../../../../types";
 
 const PAGE_SIZE = 10;
 
-const ALL_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
+const DEFAULT_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
 const STATUSES = ["On Track", "At Risk", "Planning"];
 
 // ── Shared form types ─────────────────────────────────────────────────────────
@@ -70,10 +70,11 @@ function isSubscriptionExpired(subscription: Subscription | null) {
 // ── Shared Form Fields ────────────────────────────────────────────────────────
 
 function ProjectFormFields({
-  form, setForm,
+  form, setForm, allAuthorities,
 }: {
   form: ProjectFormState;
   setForm: React.Dispatch<React.SetStateAction<ProjectFormState>>;
+  allAuthorities: string[];
 }) {
   function toggleAuth(auth: string) {
     setForm(f => ({
@@ -145,7 +146,7 @@ function ProjectFormFields({
       <div>
         <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-2">Target Authorities</label>
         <div className="flex flex-wrap gap-2">
-          {ALL_AUTHORITIES.map(auth => (
+          {allAuthorities.map(auth => (
             <button
               key={auth} type="button"
               onClick={() => toggleAuth(auth)}
@@ -163,7 +164,7 @@ function ProjectFormFields({
 
 // ── New Project Modal ─────────────────────────────────────────────────────────
 
-function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewProjectModal({ onClose, onCreated, allAuthorities }: { onClose: () => void; onCreated: () => void; allAuthorities: string[] }) {
   const [form, setForm] = useState<ProjectFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -191,7 +192,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <ProjectFormFields form={form} setForm={setForm} />
+          <ProjectFormFields form={form} setForm={setForm} allAuthorities={allAuthorities} />
           {error && (error === EXPIRED_SUBSCRIPTION_MESSAGE ? <BillingError message={error} /> : <p className="text-red-500 text-sm">{error}</p>)}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2.5 border border-gs-border rounded-sm text-sm font-bold text-gs-muted hover:bg-gs-bg">Cancel</button>
@@ -207,7 +208,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
 // ── Edit Project Modal ────────────────────────────────────────────────────────
 
-function EditProjectModal({ project, onClose, onSaved }: { project: Project; onClose: () => void; onSaved: () => void }) {
+function EditProjectModal({ project, onClose, onSaved, allAuthorities }: { project: Project; onClose: () => void; onSaved: () => void; allAuthorities: string[] }) {
   const [form, setForm] = useState<ProjectFormState>({
     name: project.name,
     type: project.type,
@@ -257,7 +258,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: Project; onC
           <button onClick={onClose} className="text-gs-muted hover:text-gs-muted"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <ProjectFormFields form={form} setForm={setForm} />
+          <ProjectFormFields form={form} setForm={setForm} allAuthorities={allAuthorities} />
           <div>
             <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-1">Status</label>
             <div className="flex gap-2 flex-wrap">
@@ -373,7 +374,22 @@ export default function ProjectsPage() {
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
   const [isOrgOwner, setIsOrgOwner] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+  const [allAuthorities, setAllAuthorities] = useState<string[]>([]);
   const user = useChatStore((s) => s.user);
+
+  useEffect(() => {
+    regulatoryApi.listAuthorities()
+      .then(auths => {
+        if (Array.isArray(auths) && auths.length > 0) {
+          setAllAuthorities(auths);
+        } else {
+          setAllAuthorities(DEFAULT_AUTHORITIES);
+        }
+      })
+      .catch(() => {
+        setAllAuthorities(DEFAULT_AUTHORITIES);
+      });
+  }, []);
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -512,7 +528,7 @@ export default function ProjectsPage() {
       </div>
 
       {modalOpen === "new" && (
-        <NewProjectModal onClose={() => setModalOpen(null)} onCreated={loadProjects} />
+        <NewProjectModal onClose={() => setModalOpen(null)} onCreated={loadProjects} allAuthorities={allAuthorities} />
       )}
       {modalOpen === "import" && (
         <ImportProjectModal onClose={() => setModalOpen(null)} onImported={loadProjects} />
@@ -522,6 +538,7 @@ export default function ProjectsPage() {
           project={editProject}
           onClose={() => setEditProject(null)}
           onSaved={loadProjects}
+          allAuthorities={allAuthorities}
         />
       )}
       {deleteId && (

@@ -25,7 +25,7 @@ import {
   runButtonLabel,
   type SimulationMode,
 } from "../../../../components/ha-simulation/simulationConstants";
-import { simulationApi, projectApi } from "../../../../lib/api";
+import { simulationApi, projectApi, regulatoryApi } from "../../../../lib/api";
 import { Suspense } from "react";
 import { useSubscription } from "../../../../hooks/useSubscription";
 import { UpgradeGate } from "../../../../components/ui/UpgradeGate";
@@ -41,6 +41,7 @@ const DEFAULT_SUBMISSION_TYPE = "IND";
 const DEFAULT_PRODUCT_TYPE = "Small Molecule";
 const DEFAULT_STAGE = "Preclinical";
 const DEFAULT_FOCUS_AREA = "CMC & Manufacturing";
+const DEFAULT_AUTHORITIES = ["FDA", "EMA", "MHRA", "Health Canada", "PMDA", "NMPA", "TGA"];
 const QUESTIONNAIRE_FILENAMES = [
   "pasted-questions",
   "simulation-questionnaire",
@@ -180,6 +181,7 @@ function HealthAuthoritySimulationPage() {
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
+  const [allAuthorities, setAllAuthorities] = useState<string[]>([]);
 
   // Mode + scenario
   const [mode, setMode] = useState<SimulationMode>("project");
@@ -216,7 +218,7 @@ function HealthAuthoritySimulationPage() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Load projects on mount
+  // Load projects and authorities on mount
   useEffect(() => {
     projectApi
       .list()
@@ -226,6 +228,17 @@ function HealthAuthoritySimulationPage() {
         setHistoryProjectId((current) => current ?? items[0]?.id ?? null);
       })
       .catch(() => setProjects([]));
+
+    regulatoryApi
+      .listAuthorities()
+      .then((auths) => {
+        if (Array.isArray(auths) && auths.length > 0) {
+          setAllAuthorities(auths);
+        } else {
+          setAllAuthorities(DEFAULT_AUTHORITIES);
+        }
+      })
+      .catch(() => setAllAuthorities(DEFAULT_AUTHORITIES));
   }, []);
 
   const resetSupplementalInputs = () => {
@@ -700,6 +713,7 @@ function HealthAuthoritySimulationPage() {
                         simulationPurpose={simulationPurpose}
                         onSimulationPurposeChange={setSimulationPurpose}
                         lastRun={lastRun}
+                        authoritiesList={allAuthorities}
                       />
 
                       {/* Inputs & Sources Grid */}

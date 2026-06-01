@@ -69,6 +69,7 @@ export function SimulationScenario({
   focusArea, onFocusAreaChange,
   simulationPurpose, onSimulationPurposeChange,
   lastRun,
+  authoritiesList = AUTHORITIES,
 }: {
   project: Project | null;
   projects: Project[];
@@ -81,10 +82,11 @@ export function SimulationScenario({
   focusArea: string;              onFocusAreaChange: (v: string) => void;
   simulationPurpose: string;      onSimulationPurposeChange: (v: string) => void;
   lastRun?: SimulationListItem | null;
+  authoritiesList?: string[];
 }) {
   const availableAuthorities = project?.authorities?.length
-    ? project.authorities.filter(a => AUTHORITIES.includes(a))
-    : AUTHORITIES;
+    ? project.authorities.filter(a => authoritiesList.includes(a))
+    : authoritiesList;
 
   const productTypeOptions = PRODUCT_TYPES_BY_SUBMISSION[submissionType] ?? DEFAULT_PRODUCT_TYPES;
 

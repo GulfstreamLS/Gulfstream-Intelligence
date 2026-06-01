@@ -539,6 +539,11 @@ export const lookupApi = {
     }),
 };
 
+export const regulatoryApi = {
+  listAuthorities: (): Promise<string[]> =>
+    request<string[]>("/regulatory/authorities"),
+};
+
 export const simulationApi = {
   run: (body: SimulationRunRequest) =>
     request<SimulationSession>("/simulation/run", {

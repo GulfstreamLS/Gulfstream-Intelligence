@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle, ArrowLeft, MessageSquare, Plus, ExternalLink, Trash2, Stethoscope, Pencil, Check, X, FileText, ClipboardList, Eye,
 } from "lucide-react";
-import { assessmentApi, isPaymentRequiredError, projectApi, simulationApi } from "../../../../../lib/api";
+import { assessmentApi, isPaymentRequiredError, projectApi, simulationApi, regulatoryApi } from "../../../../../lib/api";
 import { ConfirmModal } from "../../../../../components/ui/ConfirmModal";
 import { DynamicSelect } from "../../../../../components/ui/DynamicSelect";
 import { useSubscription } from "../../../../../hooks/useSubscription";
@@ -13,9 +13,10 @@ import type { Conversation, GapAssessmentRun, Project, ProjectDocument, Simulati
 
 const AUTHORITY_FLAGS: Record<string, string> = {
   FDA: "🇺🇸", EMA: "🇪🇺", "Health Canada": "🇨🇦", PMDA: "🇯🇵", MHRA: "🇬🇧",
+  TGA: "🇦🇺", NMPA: "🇨🇳",
 };
 
-const ALL_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
+const DEFAULT_AUTHORITIES = ["FDA", "EMA", "Health Canada", "PMDA", "MHRA"];
 const STATUSES = ["On Track", "At Risk", "Planning"];
 const EXPIRED_SUBSCRIPTION_MESSAGE =
   "Your free trial has ended. Please upgrade your plan to edit projects.";
@@ -56,7 +57,7 @@ function isSubscriptionExpired(subscription: Subscription | null) {
   );
 }
 
-function EditProjectModal({ project, onClose, onSaved }: { project: import("../../../../../types").Project; onClose: () => void; onSaved: (p: import("../../../../../types").Project) => void }) {
+function EditProjectModal({ project, onClose, onSaved, allAuthorities }: { project: import("../../../../../types").Project; onClose: () => void; onSaved: (p: import("../../../../../types").Project) => void; allAuthorities: string[] }) {
   const [form, setForm] = useState({
     name: project.name,
     type: project.type,
@@ -175,7 +176,7 @@ function EditProjectModal({ project, onClose, onSaved }: { project: import("../.
           <div>
             <label className="block text-xs font-bold text-gs-muted uppercase tracking-wide mb-2">Target Authorities</label>
             <div className="flex flex-wrap gap-2">
-              {ALL_AUTHORITIES.map(auth => (
+              {allAuthorities.map(auth => (
                 <button key={auth} type="button" onClick={() => toggleAuth(auth)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${form.authorities.includes(auth) ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gs-border text-gs-muted"}`}>
                   {form.authorities.includes(auth) && <Check size={12} />}
@@ -225,6 +226,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [allAuthorities, setAllAuthorities] = useState<string[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -235,13 +237,19 @@ export default function ProjectDetailPage() {
       simulationApi.listSessions(id),
       projectApi.listDocuments(id),
       assessmentApi.listProjectRuns(id),
+      regulatoryApi.listAuthorities().catch(() => []),
     ])
-      .then(([p, convos, sims, docs, runs]) => {
+      .then(([p, convos, sims, docs, runs, auths]) => {
         setProject(p);
         setConversations(Array.isArray(convos) ? convos : ((convos as { items?: Conversation[] })?.items ?? []));
         setSimulations(Array.isArray(sims) ? sims : ((sims as { items?: SimulationListItem[] })?.items ?? []));
         setDocuments(Array.isArray(docs) ? docs : []);
         setAssessments(Array.isArray(runs) ? runs : []);
+        if (Array.isArray(auths) && auths.length > 0) {
+          setAllAuthorities(auths);
+        } else {
+          setAllAuthorities(DEFAULT_AUTHORITIES);
+        }
       })
       .catch(() => router.push("/dashboard/projects"))
       .finally(() => setLoading(false));
@@ -740,6 +748,7 @@ export default function ProjectDetailPage() {
           project={project}
           onClose={() => setEditOpen(false)}
           onSaved={updated => setProject(updated)}
+          allAuthorities={allAuthorities}
         />
       )}
     </div>

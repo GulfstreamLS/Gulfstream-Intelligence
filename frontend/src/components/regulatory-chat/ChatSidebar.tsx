@@ -8,7 +8,7 @@ import {
   Check, X, Trash2, FolderPlus, BookMarked, NotebookPen,
   ChevronLeft, Tag,
 } from "lucide-react";
-import { chatApi, projectApi } from "../../lib/api";
+import { chatApi, projectApi, regulatoryApi } from "../../lib/api";
 import type { Project } from "../../types";
 import type { ChatMode } from "./ChatHeader";
 import { FlagIcon, AUTHORITY_COUNTRY_CODE } from "../ui/FlagIcon";
@@ -20,7 +20,7 @@ import { useChatStore } from "../../store/chatStore";
 
 const PHASES = ["Discovery", "Preclinical", "Phase 1", "Phase 2", "Phase 3", "BLA/MAA"];
 
-const ALL_AUTHORITIES = [
+const DEFAULT_AUTHORITIES = [
   { name: "EMA" },
   { name: "FDA" },
   { name: "Health Canada" },
@@ -662,13 +662,26 @@ export function ChatSidebar({
   // Projects fetched from API
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId ?? null);
+  const [allAuthorities, setAllAuthorities] = useState<{ name: string }[]>([]);
   const appliedProjectRef = useRef<string | null>(null);
 
-  // Fetch projects once on mount
+  // Fetch projects and authorities once on mount
   useEffect(() => {
     projectApi.list({ page_size: 100 })
       .then(res => setProjects(res.items))
       .catch(() => {});
+
+    regulatoryApi.listAuthorities()
+      .then(auths => {
+        if (Array.isArray(auths) && auths.length > 0) {
+          setAllAuthorities(auths.map(name => ({ name })));
+        } else {
+          setAllAuthorities(DEFAULT_AUTHORITIES);
+        }
+      })
+      .catch(() => {
+        setAllAuthorities(DEFAULT_AUTHORITIES);
+      });
   }, []);
 
   // Apply project context whenever initialProjectId changes OR projects list loads
@@ -717,7 +730,7 @@ export function ChatSidebar({
     setIndication(proj.indication ?? "");
     setPhase(proj.dev_phase ?? PHASES[1]);
     const auths = (proj.authorities ?? [])
-      .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
+      .map(name => allAuthorities.findIndex(a => a.name === name))
       .filter(i => i >= 0);
     setActiveAuths(auths);
     setSelectedProjectId(proj.id);
@@ -740,7 +753,7 @@ export function ChatSidebar({
     setActiveAuths(draftAuths);
     setEditing(false);
 
-    const authorityNames = ALL_AUTHORITIES
+    const authorityNames = allAuthorities
       .filter((_, i) => draftAuths.includes(i))
       .map(a => a.name);
     onAuthoritiesChange?.(authorityNames);
@@ -776,7 +789,7 @@ export function ChatSidebar({
     );
   };
 
-  const visibleAuths = ALL_AUTHORITIES.filter((_, i) => activeAuths.includes(i));
+  const visibleAuths = allAuthorities.filter((_, i) => activeAuths.includes(i));
   const hiddenCount  = Math.max(0, visibleAuths.length - 2);
 
   const hasProgram = chatMode === "program" && !!program;
@@ -883,7 +896,7 @@ export function ChatSidebar({
                         setDraftIndication(proj.indication ?? "");
                         setDraftPhase(proj.dev_phase ?? PHASES[1]);
                         setDraftAuths((proj.authorities ?? [])
-                          .map(name => ALL_AUTHORITIES.findIndex(a => a.name === name))
+                          .map(name => allAuthorities.findIndex(a => a.name === name))
                           .filter(i => i >= 0));
                         setSelectedProjectId(proj.id);
                       } else {
@@ -966,7 +979,7 @@ export function ChatSidebar({
 
               {editing ? (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {ALL_AUTHORITIES.map((auth, i) => (
+                  {allAuthorities.map((auth, i) => (
                     <button
                       key={auth.name}
                       onClick={() => toggleAuthority(i)}
